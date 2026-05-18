@@ -64,6 +64,9 @@
     <string name="replay_action">Replay</string>
     <string name="replay_session">Session %1$d</string>
     <string name="replay_session_select">Select session</string>
+    <string name="replay_switch_to_remote">Use remote forwarding</string>
+    <string name="replay_switch_to_local">Use local offline replay</string>
+    <string name="replay_fallback_local">Remote forwarding unavailable, switched to local offline replay.</string>
 
     <string name="banner_warning">Warning: %1$s</string>
     <string name="banner_error">Error: %1$s</string>

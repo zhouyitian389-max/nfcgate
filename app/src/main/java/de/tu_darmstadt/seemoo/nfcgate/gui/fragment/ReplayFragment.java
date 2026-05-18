@@ -10,6 +10,9 @@ import androidx.fragment.app.FragmentActivity;
 import androidx.fragment.app.FragmentTransaction;
 import androidx.preference.PreferenceManager;
 import android.view.LayoutInflater;
+import android.view.Menu;
+import android.view.MenuInflater;
+import android.view.MenuItem;
 import android.view.View;
 import android.view.ViewGroup;
 import android.widget.TextView;
@@ -32,6 +35,8 @@ import de.tu_darmstadt.seemoo.nfcgate.nfc.modes.RelayMode;
 import de.tu_darmstadt.seemoo.nfcgate.util.NfcComm;
 
 public class ReplayFragment extends BaseNetworkFragment implements LoggingFragment.LogItemSelectedCallback, SessionLogEntryFragment.LogSelectedCallback {
+    private static final int MENU_TOGGLE_TRANSPORT = R.id.action_toggle_transport;
+
     // session selection reference
     final LoggingFragment mLoggingFragment = new LoggingFragment();
     SessionLogEntryFragment mDetailFragment = null;
@@ -55,6 +60,24 @@ public class ReplayFragment extends BaseNetworkFragment implements LoggingFragme
         // show logging fragment
         setSessionSelectionVisible(true);
         return v;
+    }
+
+    @Override
+    public void onCreateOptionsMenu(Menu menu, MenuInflater inflater) {
+        menu.clear();
+        inflater.inflate(R.menu.toolbar_replay, menu);
+        updateTransportToggleTitle(menu.findItem(MENU_TOGGLE_TRANSPORT));
+    }
+
+    @Override
+    public boolean onOptionsItemSelected(MenuItem item) {
+        if (item.getItemId() == MENU_TOGGLE_TRANSPORT) {
+            setRemoteReplayEnabled(mOfflineReplay, true);
+            reset();
+            updateTransportToggleTitle(item);
+            return true;
+        }
+        return super.onOptionsItemSelected(item);
     }
 
     @Override
@@ -186,6 +209,33 @@ public class ReplayFragment extends BaseNetworkFragment implements LoggingFragme
         getActivity().runOnUiThread(() -> mReplayer.onReceive(null));
     }
 
+    private void updateTransportToggleTitle(MenuItem item) {
+        if (item == null)
+            return;
+
+        item.setTitle(mOfflineReplay
+                ? getString(R.string.replay_switch_to_remote)
+                : getString(R.string.replay_switch_to_local));
+    }
+
+    private void setRemoteReplayEnabled(boolean enabled, boolean persist) {
+        mOfflineReplay = !enabled;
+        mStatusBanner.setVisibility(!mOfflineReplay);
+
+        if (persist && getActivity() != null) {
+            SharedPreferences prefs = PreferenceManager.getDefaultSharedPreferences(getActivity());
+            prefs.edit().putBoolean("network", enabled).apply();
+        }
+    }
+
+    private boolean isNetworkFailure(NetworkStatus status) {
+        return status == NetworkStatus.ERROR
+                || status == NetworkStatus.ERROR_TLS
+                || status == NetworkStatus.ERROR_TLS_CERT_UNKNOWN
+                || status == NetworkStatus.ERROR_TLS_CERT_UNTRUSTED
+                || status == NetworkStatus.PARTNER_LEFT;
+    }
+
     /**
      * Offline replay mode
      */
@@ -229,8 +279,22 @@ public class ReplayFragment extends BaseNetworkFragment implements LoggingFragme
         public void onNetworkStatus(final NetworkStatus status) {
             super.onNetworkStatus(status);
 
-            // report status
-            runOnUI(() -> handleStatus(status));
+            runOnUI(() -> {
+                // auto fallback to offline replay if remote forwarding is unavailable
+                if (!mOfflineReplay && isNetworkFailure(status)) {
+                    setRemoteReplayEnabled(false, true);
+                    if (mReplayer != null)
+                        mReplayer.enableOfflineFallback();
+
+                    handleStatus(status);
+                    getMainActivity().showInfo(getString(R.string.replay_fallback_local));
+                    getMainActivity().supportInvalidateOptionsMenu();
+                    return;
+                }
+
+                // report status
+                handleStatus(status);
+            });
         }
     }
 
@@ -250,6 +314,13 @@ public class ReplayFragment extends BaseNetworkFragment implements LoggingFragme
         void reset() {
             if (mReplayNetwork != null)
                 mReplayNetwork.disconnect();
+        }
+
+        void enableOfflineFallback() {
+            if (mReplayNetwork != null) {
+                mReplayNetwork.disconnect();
+                mReplayNetwork = null;
+            }
         }
 
         @Override
