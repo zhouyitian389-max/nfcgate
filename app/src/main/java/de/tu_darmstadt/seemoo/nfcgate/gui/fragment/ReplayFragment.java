@@ -345,7 +345,18 @@ public class ReplayFragment extends BaseNetworkFragment implements LoggingFragme
             // report status
             final FragmentActivity activity = getActivity();
             if (activity != null) {
-                activity.runOnUiThread(() -> handleStatus(status));
+                activity.runOnUiThread(() -> {
+                    if (!mOfflineReplay && isNetworkFailure(status)) {
+                        setRemoteReplayEnabled(false, true);
+                        enableOfflineFallback();
+                        handleStatus(status);
+                        getMainActivity().showInfo(getString(R.string.replay_fallback_local));
+                        getMainActivity().supportInvalidateOptionsMenu();
+                        return;
+                    }
+
+                    handleStatus(status);
+                });
             }
         }
     }
