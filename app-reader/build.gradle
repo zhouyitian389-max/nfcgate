@@ -1,0 +1,62 @@
+plugins {
+    id 'com.android.application'
+}
+
+// load keystore properties from secure files in GitLab
+def keystoreProperties = new Properties()
+def keystorePropertiesFile = rootProject.file('.ci-files/release-keystore.properties')
+if (keystorePropertiesFile.exists()) {
+    keystoreProperties.load(new FileInputStream(keystorePropertiesFile))
+}
+
+android {
+    namespace 'de.tu_darmstadt.seemoo.nfcgate.reader'
+
+    compileSdk {
+        version = release(35)
+    }
+    ndkVersion '28.2.13676358'
+
+    compileOptions {
+        sourceCompatibility JavaVersion.VERSION_17
+        targetCompatibility JavaVersion.VERSION_17
+    }
+
+    defaultConfig {
+        applicationId 'de.tu_darmstadt.seemoo.nfcgate.reader'
+        minSdkVersion 21
+        targetSdkVersion 35
+        versionCode 1
+        versionName '0.1.0'
+        testInstrumentationRunner "androidx.test.runner.AndroidJUnitRunner"
+    }
+
+    if (keystorePropertiesFile.exists()) {
+        signingConfigs {
+            release {
+                keyAlias keystoreProperties['keyAlias']
+                keyPassword System.getenv("SIGNING_KEYSTORE_PASSWORD")
+                storeFile keystoreProperties['storeFile'] ? file(keystoreProperties['storeFile']) : null
+                storePassword System.getenv("SIGNING_KEYSTORE_KEY_PASSWORD")
+            }
+        }
+    }
+
+    buildTypes {
+        release {
+            minifyEnabled false
+            proguardFiles getDefaultProguardFile('proguard-android-optimize.txt'), 'proguard-rules.pro'
+        }
+    }
+
+    buildFeatures {
+        buildConfig true
+    }
+}
+
+dependencies {
+    implementation project(':common')
+    implementation project(':protobuf')
+    implementation 'androidx.appcompat:appcompat:1.7.1'
+    implementation 'com.google.android.material:material:1.12.0'
+}
