@@ -1,0 +1,67 @@
+name: backfill-release-assets
+
+on:
+  workflow_dispatch:
+    inputs:
+      tag:
+        description: 'Tag to backfill (e.g. v0.3.0)'
+        required: true
+        type: string
+
+permissions:
+  contents: write
+
+jobs:
+  backfill:
+    runs-on: ubuntu-latest
+    steps:
+      - name: Checkout tag
+        uses: actions/checkout@v4
+        with:
+          ref: ${{ inputs.tag }}
+          fetch-depth: 1
+
+      - name: Set up JDK 17
+        uses: actions/setup-java@v4
+        with:
+          distribution: temurin
+          java-version: '17'
+
+      - name: Set up Gradle
+        uses: gradle/actions/setup-gradle@v3
+
+      - name: Build APKs and plugin artifacts
+        run: |
+          chmod +x ./gradlew
+          ./gradlew \
+            :app:assembleDebug \
+            :app-reader:assembleDebug \
+            :app-hce:assembleDebug \
+            :plugins-sample:assemblePluginDex \
+            :plugins-sample-js:assembleJsPlugins \
+            --no-daemon --stacktrace
+
+      - name: Collect artifacts
+        run: |
+          mkdir -p release-assets
+          shopt -s nullglob
+          for f in \
+              app/build/outputs/apk/debug/*.apk \
+              app-reader/build/outputs/apk/debug/*.apk \
+              app-hce/build/outputs/apk/debug/*.apk \
+              plugins-sample/build/outputs/plugins/*.jar \
+              plugins-sample-js/build/outputs/plugins-js/*.zip ; do
+            cp "$f" release-assets/ || true
+          done
+          ls -la release-assets
+
+      - name: Upload to existing release
+        env:
+          GH_TOKEN: ${{ secrets.GITHUB_TOKEN }}
+        run: |
+          cd release-assets
+          files=(*)
+          if [ ${#files[@]} -eq 0 ] || [ ! -e "${files[0]}" ]; then
+            echo "No artifacts to upload"; exit 1
+          fi
+          gh release upload "${{ inputs.tag }}" * --clobber --repo "${{ github.repository }}"
