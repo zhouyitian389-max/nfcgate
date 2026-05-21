@@ -1,5 +1,10 @@
 <?xml version="1.0" encoding="utf-8"?>
 <resources>
     <string name="app_name">Reader</string>
-    <string name="reader_coming_soon">Reader — coming soon (milestone 3)</string>
+    <string name="reader_coming_soon">Reader — external devices preview</string>
+    <string name="select_device">Select device</string>
+    <string name="start_capture">Start capture</string>
+    <string name="no_device_selected">No device selected</string>
+    <string name="using_device">Using: %1$s</string>
+    <string name="capture_started">Capture started</string>
 </resources>
