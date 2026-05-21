@@ -1,1 +1,1 @@
-include ':app', ':common', ':nfcd', ':protobuf'
+include ':app', ':app-reader', ':app-hce', ':common', ':nfcd', ':protobuf'

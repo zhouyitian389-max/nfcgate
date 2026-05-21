@@ -29,6 +29,17 @@ purposes.
 - **Clone**: Clones the initial tag information (e.g. ID).
 - [pcapng](https://github.com/pcapng/pcapng) export of captured NFC traffic, readable by Wireshark.
 
+## Project structure
+
+| Module | Description |
+|--------|-------------|
+| `app` | Original NFCGate app — capture / relay / replay / clone, pcapng + JSON import/export |
+| `app-reader` | Reader app — NFC capture, storage, export, HTTPS upload (milestone 3+) |
+| `app-hce` | NFC HCE app — HCE emulation, import, embedded HTTPS receive (milestone 4+) |
+| `common` | Shared NFC/protocol library used by all app modules |
+| `nfcd` | Native daemon component |
+| `protobuf` | Protobuf message definitions |
+
 ## Requirements for specific modes
 
 - NFC support
