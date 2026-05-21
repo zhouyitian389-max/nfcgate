@@ -30,15 +30,13 @@ jobs:
       - name: Set up Gradle
         uses: gradle/actions/setup-gradle@v3
 
-      - name: Build APKs and plugin artifacts
+      - name: Build APKs
         run: |
           chmod +x ./gradlew
           ./gradlew \
             :app:assembleDebug \
             :app-reader:assembleDebug \
             :app-hce:assembleDebug \
-            :plugins-sample:assemblePluginDex \
-            :plugins-sample-js:assembleJsPlugins \
             --no-daemon --stacktrace
 
       - name: Collect artifacts
@@ -48,9 +46,7 @@ jobs:
           for f in \
               app/build/outputs/apk/debug/*.apk \
               app-reader/build/outputs/apk/debug/*.apk \
-              app-hce/build/outputs/apk/debug/*.apk \
-              plugins-sample/build/outputs/plugins/*.jar \
-              plugins-sample-js/build/outputs/plugins-js/*.zip ; do
+              app-hce/build/outputs/apk/debug/*.apk ; do
             cp "$f" release-assets/ || true
           done
           ls -la release-assets
