@@ -36,6 +36,7 @@ purposes.
 | `app` | Original NFCGate app — capture / relay / replay / clone, pcapng + JSON import/export |
 | `app-reader` | Reader app — NFC capture, storage, export, HTTPS upload (milestone 3+) |
 | `app-hce` | NFC HCE app — HCE emulation, import, embedded HTTPS receive (milestone 4+) |
+| `app-wear` | Wear OS companion app — wrist controls + status sync for Reader sessions |
 | `common` | Shared NFC/protocol library used by all app modules |
 | `nfcd` | Native daemon component |
 | `protobuf` | Protobuf message definitions |

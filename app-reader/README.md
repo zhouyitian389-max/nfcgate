@@ -4,4 +4,13 @@ The Reader app (App A) provides NFC capture, tag data storage, export to standar
 
 **Status: skeleton (milestone 2)**
 
-Feature implementation begins in milestone 3. The current version only contains the minimal module wiring and a launchable placeholder Activity.
+Feature implementation begins in milestone 3. The current version contains minimal wiring and launchable placeholders.
+
+## Wear OS integration (M12)
+
+`app-reader` now includes a Wear Data Layer listener service to:
+
+- receive start/stop/pause/resume/query commands from `app-wear`
+- reply with session status updates over messages and data items
+- advertise capability `nfcgate_reader`
+- provide a bridge helper for forwarding tap events to the watch

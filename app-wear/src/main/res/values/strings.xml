@@ -1,0 +1,13 @@
+<?xml version="1.0" encoding="utf-8"?>
+<resources>
+    <string name="app_name">NFCGate Wear</string>
+    <string name="state_active">Capturing</string>
+    <string name="state_idle">Idle</string>
+    <string name="state_paused">Paused</string>
+    <string name="phone_connected">Phone connected</string>
+    <string name="phone_disconnected">Phone disconnected</string>
+    <string name="start_capture">Start</string>
+    <string name="stop_capture">Stop</string>
+    <string name="pause_capture">Pause</string>
+    <string name="resume_capture">Resume</string>
+</resources>
