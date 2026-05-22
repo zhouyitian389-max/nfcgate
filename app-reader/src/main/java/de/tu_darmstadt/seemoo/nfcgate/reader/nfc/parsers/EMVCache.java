@@ -25,22 +25,19 @@ public final class EMVCache {
         }
 
         ByteArrayKey lookupKey = new ByteArrayKey(data, false);
+
         synchronized (CACHE) {
             EMVData cached = CACHE.get(lookupKey);
             if (cached != null) {
                 return cached;
             }
-        }
 
-        EMVData parsed = EMVParser.parseInternal(data);
-        if (parsed == null) {
-            return null;
+            EMVData parsed = EMVParser.parseInternal(data);
+            if (parsed != null) {
+                CACHE.put(new ByteArrayKey(data, true), parsed);
+            }
+            return parsed;
         }
-
-        synchronized (CACHE) {
-            CACHE.put(new ByteArrayKey(data, true), parsed);
-        }
-        return parsed;
     }
 
     public static void clear() {

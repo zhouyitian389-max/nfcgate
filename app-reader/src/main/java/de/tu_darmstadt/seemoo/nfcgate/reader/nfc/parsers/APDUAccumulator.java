@@ -75,7 +75,11 @@ public class APDUAccumulator {
                 }
                 length = 0;
                 for (int i = 0; i < byteCount; i++) {
-                    length = (length << 8) | (response[offset++] & 0xFF);
+                    int nextByte = response[offset++] & 0xFF;
+                    if (length > (Integer.MAX_VALUE >> 8)) {
+                        return false;
+                    }
+                    length = (length << 8) | nextByte;
                 }
             }
 

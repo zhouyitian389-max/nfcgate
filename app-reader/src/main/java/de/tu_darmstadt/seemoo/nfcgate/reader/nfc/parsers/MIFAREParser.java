@@ -12,6 +12,8 @@ import java.util.concurrent.Executor;
 import java.util.concurrent.ForkJoinPool;
 
 public class MIFAREParser {
+    private static final String TAG = "MIFAREParser";
+
     public interface BlockReader {
         byte[] readBlock(int blockNum) throws Exception;
     }
@@ -77,7 +79,8 @@ public class MIFAREParser {
                 cache.cacheBlock(blockNum, data);
             }
             return data;
-        } catch (Exception ignored) {
+        } catch (Exception e) {
+            System.err.println(TAG + ": Failed to read block " + blockNum + ": " + e.getMessage());
             return null;
         }
     }

@@ -4,11 +4,15 @@ import java.util.Collections;
 import java.util.LinkedHashMap;
 import java.util.Map;
 import java.util.concurrent.ConcurrentHashMap;
+import java.util.concurrent.Executors;
+import java.util.concurrent.ScheduledExecutorService;
+import java.util.concurrent.TimeUnit;
 
 public class MIFARECacheManager {
     private static final int MAX_SECTORS = 16;
+    private static final long CLEANUP_INTERVAL_MS = 60_000;
 
-    private final ConcurrentHashMap<Integer, MIFAREBlockCache> blockCache = new ConcurrentHashMap<>();
+    final ConcurrentHashMap<Integer, MIFAREBlockCache> blockCache = new ConcurrentHashMap<>();
     private final Map<Integer, MIFARESector> sectorCache = Collections.synchronizedMap(
             new LinkedHashMap<Integer, MIFARESector>(16, 0.75f, true) {
                 @Override
@@ -17,17 +21,30 @@ public class MIFARECacheManager {
                 }
             }
     );
+    private final ScheduledExecutorService cleanupExecutor = Executors.newSingleThreadScheduledExecutor(r -> {
+        Thread t = new Thread(r, "MIFARE-Cache-Cleanup");
+        t.setDaemon(true);
+        return t;
+    });
+
+    public MIFARECacheManager() {
+        cleanupExecutor.scheduleAtFixedRate(
+                this::clearExpired,
+                CLEANUP_INTERVAL_MS,
+                CLEANUP_INTERVAL_MS,
+                TimeUnit.MILLISECONDS
+        );
+    }
 
     public byte[] getBlock(int blockNum) {
         MIFAREBlockCache cached = blockCache.get(blockNum);
-        if (cached == null) {
-            return null;
+        if (cached != null && !cached.isExpired()) {
+            return cached.getData();
         }
-        if (cached.isExpired()) {
+        if (cached != null) {
             blockCache.remove(blockNum, cached);
-            return null;
         }
-        return cached.getData();
+        return null;
     }
 
     public void cacheBlock(int blockNum, byte[] data) {
@@ -61,6 +78,10 @@ public class MIFARECacheManager {
 
     public void clearExpired() {
         blockCache.entrySet().removeIf(entry -> entry.getValue().isExpired());
+    }
+
+    public void shutdown() {
+        cleanupExecutor.shutdownNow();
     }
 
     public void clear() {
