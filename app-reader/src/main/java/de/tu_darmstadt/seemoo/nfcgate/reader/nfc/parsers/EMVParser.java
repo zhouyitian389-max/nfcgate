@@ -1,5 +1,7 @@
 package de.tu_darmstadt.seemoo.nfcgate.reader.nfc.parsers;
 
+import android.util.Log;
+
 import java.nio.charset.StandardCharsets;
 import java.util.Arrays;
 import java.util.Collections;
@@ -7,15 +9,24 @@ import java.util.LinkedHashMap;
 import java.util.Map;
 
 public final class EMVParser {
+    private static final String TAG = "EMVParser";
     private static final int MAX_DEPTH = 8;
+    private static final long SLOW_PARSE_THRESHOLD_MS = 5;
 
     private EMVParser() {
     }
 
     public static EMVData parse(byte[] data) {
+        long startTime = System.nanoTime();
         try {
-            return EMVCache.getOrParse(data);
+            EMVData result = EMVCache.getOrParse(data);
+            long elapsedMs = (System.nanoTime() - startTime) / 1_000_000;
+            if (elapsedMs > SLOW_PARSE_THRESHOLD_MS) {
+                Log.w(TAG, "Slow parse: " + elapsedMs + "ms for " + (data != null ? data.length : 0) + " bytes");
+            }
+            return result;
         } catch (RuntimeException e) {
+            Log.w(TAG, "Parse failed for data length: " + (data != null ? data.length : 0), e);
             return null;
         }
     }

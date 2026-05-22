@@ -1,5 +1,7 @@
 package de.tu_darmstadt.seemoo.nfcgate.reader.nfc.parsers;
 
+import android.util.Log;
+
 import java.util.AbstractMap;
 import java.util.ArrayList;
 import java.util.Collections;
@@ -12,6 +14,8 @@ import java.util.concurrent.Executor;
 import java.util.concurrent.ForkJoinPool;
 
 public class MIFAREParser {
+    private static final String TAG = "MIFAREParser";
+
     public interface BlockReader {
         byte[] readBlock(int blockNum) throws Exception;
     }
@@ -77,7 +81,8 @@ public class MIFAREParser {
                 cache.cacheBlock(blockNum, data);
             }
             return data;
-        } catch (Exception ignored) {
+        } catch (Exception e) {
+            Log.w(TAG, "Failed to read block " + blockNum, e);
             return null;
         }
     }
