@@ -1,0 +1,7 @@
+<?xml version="1.0" encoding="utf-8"?>
+<resources>
+    <string name="title_feature_emv">EMV Analysis</string>
+    <string name="title_feature_mifare">MIFARE Analysis</string>
+    <string name="title_feature_nfc_tools">NFC Tools</string>
+    <string name="title_feature_analysis">Session Analysis</string>
+</resources>
