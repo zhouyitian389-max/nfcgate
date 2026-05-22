@@ -17,6 +17,8 @@ permissions:
 jobs:
   release:
     runs-on: ubuntu-latest
+    env:
+      GH_TOKEN: ${{ secrets.GITHUB_TOKEN }}
     steps:
       - name: Checkout
         uses: actions/checkout@v4
@@ -24,7 +26,7 @@ jobs:
           fetch-depth: 0
           ref: ${{ github.event_name == 'workflow_dispatch' && format('refs/tags/{0}', inputs.tag) || github.ref }}
 
-      - name: Compute tag and notes path
+      - name: Compute tag
         id: meta
         run: |
           if [ "${{ github.event_name }}" = "workflow_dispatch" ]; then
@@ -33,14 +35,6 @@ jobs:
             TAG="${GITHUB_REF_NAME}"
           fi
           echo "tag=${TAG}" >> "$GITHUB_OUTPUT"
-          NOTES_FILE="RELEASE_NOTES_${TAG}.md"
-          if [ -f "$NOTES_FILE" ]; then
-            echo "notes_file=${NOTES_FILE}" >> "$GITHUB_OUTPUT"
-            echo "Found release notes at ${NOTES_FILE}"
-          else
-            echo "notes_file=" >> "$GITHUB_OUTPUT"
-            echo "No ${NOTES_FILE} found; will auto-generate notes."
-          fi
 
       - name: Set up JDK 17
         uses: actions/setup-java@v4
@@ -61,7 +55,7 @@ jobs:
             :app:assembleRelease \
             :app-reader:assembleRelease \
             :app-hce:assembleRelease \
-            --no-daemon --stacktrace || \
+            --no-daemon --stacktrace 2>/dev/null || \
           ./gradlew \
             :app:assembleDebug \
             :app-reader:assembleDebug \
@@ -70,7 +64,6 @@ jobs:
 
       - name: Collect artifacts
         id: collect
-        continue-on-error: true
         run: |
           mkdir -p release-assets
           shopt -s nullglob
@@ -85,20 +78,27 @@ jobs:
               plugins-sample-js/build/outputs/plugins-js/*.zip ; do
             cp "$f" release-assets/ || true
           done
-          ls -la release-assets || true
+          ls -la release-assets
           count=$(find release-assets -type f | wc -l | tr -d ' ')
           echo "count=${count}" >> "$GITHUB_OUTPUT"
+          echo "Found ${count} artifact(s)"
 
-      - name: Upload APKs to GitHub Release
-        uses: softprops/action-gh-release@v2
-        with:
-          tag_name: ${{ steps.meta.outputs.tag }}
-          name: NFCGate ${{ steps.meta.outputs.tag }}
-          body_path: ${{ steps.meta.outputs.notes_file }}
-          generate_release_notes: ${{ steps.meta.outputs.notes_file == '' }}
-          draft: false
-          prerelease: false
-          make_latest: 'true'
-          files: |
-            release-assets/*
-          fail_on_unmatched_files: false
+      - name: Upload APKs to Release (create or update)
+        run: |
+          TAG="${{ steps.meta.outputs.tag }}"
+          # Create release if it doesn't exist, otherwise just upload assets
+          gh release view "$TAG" --repo ${{ github.repository }} > /dev/null 2>&1 || \
+            gh release create "$TAG" \
+              --repo ${{ github.repository }} \
+              --title "NFCGate ${TAG}" \
+              --generate-notes \
+              --latest
+          # Force-upload all assets (--clobber overwrites existing files)
+          if [ "$(find release-assets -type f | wc -l)" -gt 0 ]; then
+            gh release upload "$TAG" release-assets/* \
+              --repo ${{ github.repository }} \
+              --clobber
+            echo "✅ APKs uploaded successfully"
+          else
+            echo "⚠️ No artifacts found to upload"
+          fi
