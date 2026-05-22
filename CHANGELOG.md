@@ -2,6 +2,38 @@
 
 All notable changes to this project will be documented in this file.
 
+## [4.1] - 2026-05-22
+
+### 🧪 POS 真机测试基础设施（POS Testing Infrastructure）
+- **Mock EMV POS 终端**（`tools/pos-mock/`）：模拟 Visa APPROVE / Mastercard DECLINE / TIMEOUT 三种交易场景
+- **端到端测试 Runner**：自动化 A↔Relay↔B↔POS 全链路验证，生成 JUnit XML 报告
+- **Android 仪器测试**（`androidTest/`）：HCE relay 模式、APDU 注入、超时与重试覆盖
+- **真机测试清单**（`doc/pos-smoke-test.md`）：标准化的硬件验收 SOP（Step-by-Step）
+- **CI 集成**：`pos-test.yml` workflow，PR 合入前自动跑 mock E2E
+
+### 🔔 Firebase Cloud Messaging（推送通知）
+- **AES-256 加密 Token 存储**：FCM token 存入 EncryptedSharedPreferences，密钥由 Android Keystore 派生
+- **App A 推送**：POS 结果（Approved / Declined / Timeout）→ 推送到用户主设备
+- **App B 推送**：A 端采集完成 → 推送「Capture ready, awaiting relay」
+- **后端集成**：`firebase-admin` Python SDK，topic / device-token 双模式推送
+- **配置文档**（`doc/fcm-setup.md`）：Firebase Console 配置、`google-services.json` 注入、env vars 说明
+
+### 🌐 生产部署基础设施（Production Deployment）
+- **Docker Compose 栈**：relay-server + upload-server + nginx + prometheus + grafana 一键启动
+- **Nginx TLS 反向代理**：HTTP/2 + WebSocket upgrade + Let's Encrypt 自动续签
+- **Google Cloud Run 脚本**：`deploy/cloud-run/`，含 Dockerfile + service.yaml + 一键脚本
+- **Railway / Render 配置**：`railway.toml`、`render.yaml` 一键部署模板
+- **Prometheus + Grafana 监控**：默认 dashboard（活动 session、APDU 速率、错误率、token 刷新）
+- **运维手册**（`doc/deployment.md`）：Docker / Cloud Run / Railway / Render 四种部署模式 + TLS / 回滚 / 备份
+
+### 📦 Version
+- versionName: `4.1`
+- versionCode: `19`
+- app-reader versionCode: `3`
+- app-hce versionCode: `3`
+
+---
+
 ## [4.0] - 2026-05-22
 
 ### 🔴 P0 — 实时配对中继（A↔B Real-Time Relay）
@@ -27,7 +59,7 @@ All notable changes to this project will be documented in this file.
 - **FCM 推送通知**：A 采集完成 → 推送 B「Capture ready」；POS 结果 → 推送 A「Approved / Declined」；firebase-admin Python SDK
 - **Rate Limiting**（Flask-Limiter）：register 5次/小时/IP，login 10次/15min/IP，pair/create 20次/小时/用户，全局 200次/min/IP，返回 429 + `Retry-After`
 - **数据导出**：`GET /export/sessions?format=json|csv`，流式响应，PAN 永久脱敏，App 内「导出我的数据」→ Downloads 文件夹 + 分享
-- **GDPR 账户删除**：`DELETE /auth/account`，会话匿名化（user_id→NULL，PAN 清除），设备/Token/FCM 全删，用户软删除（保留邮件哈希 30 天防滥用），审计日志留存
+- **GDPR 账户删除**：`DELETE /auth/account`，会话匿名化（user_id→NULL，PAN 清除），设备/Token/FCM 全删，用户软删除（保留邮件哈希 30 天防滥用），审计日志保留
 - **审计日志 UI 增强**：filter by 用户/操作类型/日期范围，分页（50条/页），管理员 CSV 导出，支持 10 种操作类型
 - **通知文档**（`doc/notifications.md`）：FCM 配置指南，env vars，测试说明
 - **GDPR 文档**（`doc/gdpr.md`）：数据保留策略，删除流程
