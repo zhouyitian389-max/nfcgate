@@ -36,8 +36,8 @@ android {
         minSdkVersion 21
         targetSdkVersion 35
         multiDexEnabled true
-        versionCode 18
-        versionName '4.0'
+        versionCode 19
+        versionName '4.1'
         testInstrumentationRunner "androidx.test.runner.AndroidJUnitRunner"
 
         // add Git information to BuildConfig if .git directory present
@@ -57,7 +57,7 @@ android {
         if (variant.name == "debug")
             variant.outputs.each { output ->
                 output.versionCodeOverride = defaultConfig.versionCode + 1
-                output.versionNameOverride = '4.0-dev'
+                output.versionNameOverride = '4.1-dev'
             }
     }
 
