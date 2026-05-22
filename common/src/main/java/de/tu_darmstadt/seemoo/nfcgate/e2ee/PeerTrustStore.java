@@ -74,7 +74,8 @@ public class PeerTrustStore {
             return Collections.emptyList();
         }
         try {
-            JSONArray array = new JSONArray(Files.readString(storePath, StandardCharsets.UTF_8));
+            String content = new String(Files.readAllBytes(storePath), StandardCharsets.UTF_8);
+            JSONArray array = new JSONArray(content);
             List<Entry> entries = new ArrayList<>();
             for (int i = 0; i < array.length(); i++) {
                 JSONObject object = array.getJSONObject(i);
@@ -100,7 +101,7 @@ public class PeerTrustStore {
             if (storePath.getParent() != null) {
                 Files.createDirectories(storePath.getParent());
             }
-            Files.writeString(storePath, array.toString(2), StandardCharsets.UTF_8);
+            Files.write(storePath, array.toString(2).getBytes(StandardCharsets.UTF_8));
         } catch (IOException e) {
             throw new IllegalStateException("Failed to persist trusted peers", e);
         }
