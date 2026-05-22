@@ -1,6 +1,9 @@
 <?xml version="1.0" encoding="utf-8"?>
 <manifest xmlns:android="http://schemas.android.com/apk/res/android">
     <uses-feature android:name="android.hardware.usb.host" android:required="false" />
+    <uses-feature android:name="android.hardware.nfc" android:required="false" />
+    <uses-permission android:name="android.permission.NFC" />
+    <uses-permission android:name="android.permission.INTERNET" />
     <uses-permission android:name="android.permission.USB_PERMISSION" />
 
     <application
@@ -27,6 +30,10 @@
                 <action android:name="de.tu_darmstadt.seemoo.nfcgate.reader.USB_PERMISSION" />
             </intent-filter>
         </receiver>
+
+        <service
+            android:name=".wear.WearBridgeService"
+            android:exported="false" />
     </application>
 
 </manifest>

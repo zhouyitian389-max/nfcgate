@@ -33,7 +33,7 @@ public class NFCManager {
         this.context = context.getApplicationContext();
         this.usbManager = (UsbManager) context.getSystemService(Context.USB_SERVICE);
         this.phoneHandler = new PhoneNFCHandler(context);
-        this.wearHandler = new WearOSNFCHandler(context, new WearDataLayerBridge());
+        this.wearHandler = new WearOSNFCHandler(context, WearDataLayerBridge.getInstance());
         this.pn532Handler = new PN532Handler(context, new PN532Protocol(new USBConnection(context), null, null));
         this.acr122uHandler = new ACR122UHandler(context, new ACR122UProtocol(new USBConnection(context), null, null));
     }

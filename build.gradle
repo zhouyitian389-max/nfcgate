@@ -7,6 +7,8 @@ ext {
 buildscript {
     repositories {
         google()
+        maven { url "https://maven.aliyun.com/repository/google" }
+        maven { url "https://repo.huaweicloud.com/repository/maven/" }
         mavenCentral()
     }
     dependencies {
@@ -21,6 +23,8 @@ buildscript {
 allprojects {
     repositories {
         google()
+        maven { url "https://maven.aliyun.com/repository/google" }
+        maven { url "https://repo.huaweicloud.com/repository/maven/" }
         mavenCentral()
         maven {
             url "https://api.xposed.info"

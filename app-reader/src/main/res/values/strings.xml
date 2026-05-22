@@ -7,4 +7,11 @@
     <string name="no_device_selected">No device selected</string>
     <string name="using_device">Using: %1$s</string>
     <string name="capture_started">Capture started</string>
+    <string name="e2ee_title">End-to-end encryption</string>
+    <string name="my_fingerprint">My public-key fingerprint</string>
+    <string name="peer_fingerprint">Peer fingerprint</string>
+    <string name="trust_peer_prompt">First contact. Verify the fingerprint matches the peer device, then trust to continue.</string>
+    <string name="trust_and_continue">Trust and continue</string>
+    <string name="require_e2ee">Require E2EE for uploads</string>
+    <string name="plaintext_upload_rejected">Plaintext upload rejected: E2EE required</string>
 </resources>

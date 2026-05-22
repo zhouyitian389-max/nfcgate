@@ -11,7 +11,22 @@ on:
     - cron: "0 7 15 * *"
 
 jobs:
+  prefetch-deps:
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v6
+      - name: Set up JDK 21
+        uses: actions/setup-java@v5
+        with:
+          java-version: '21'
+          distribution: 'temurin'
+      - name: Set up Gradle cache
+        uses: gradle/actions/setup-gradle@v3
+      - name: Prefetch Gradle dependencies
+        run: ./gradlew --init-script .github/ci/init.gradle dependencies --refresh-dependencies --stacktrace
+
   build:
+    needs: prefetch-deps
 
     runs-on: ubuntu-latest
 
@@ -27,15 +42,22 @@ jobs:
           distribution: 'temurin'
           cache: gradle
 
+      - name: Set up Gradle cache
+        uses: gradle/actions/setup-gradle@v3
+
       - name: Build debug APK with Gradle
-        run: ./gradlew assembleDebug --info
+        run: ./gradlew --init-script .github/ci/init.gradle assembleDebug --info
 
       - name: Run app-reader parser tests and benchmarks
-        run: ./gradlew :app-reader:testDebugUnitTest --info
+        run: ./gradlew --init-script .github/ci/init.gradle :app-reader:testDebugUnitTest --info
 
       - name: Upload debug APK as artifact
         uses: actions/upload-artifact@v7
         with:
           name: NFCGate-debug
           # collects APKs, logs, mapping/symbol files, etc.
-          path: app/build/outputs/
+          path: |
+            app/build/outputs/
+            app-reader/build/outputs/
+            app-hce/build/outputs/
+            app-wear/build/outputs/

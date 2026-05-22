@@ -1,4 +1,4 @@
-include ':app', ':app-reader', ':app-hce', ':common', ':nfcd', ':protobuf'
+include ':app', ':app-reader', ':app-hce', ':app-wear', ':common', ':nfcd', ':protobuf'
 include ':feature-emv', ':feature-mifare', ':feature-nfc-tools', ':feature-analysis'
 
 buildCache {

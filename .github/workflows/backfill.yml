@@ -60,9 +60,11 @@ jobs:
         run: |
           chmod +x ./gradlew
           ./gradlew \
+            --init-script .github/ci/init.gradle \
             :app:assembleDebug \
             :app-reader:assembleDebug \
             :app-hce:assembleDebug \
+            :app-wear:assembleDebug \
             --no-daemon --stacktrace
 
       - name: Collect artifacts
@@ -72,7 +74,8 @@ jobs:
           for f in \
               app/build/outputs/apk/debug/*.apk \
               app-reader/build/outputs/apk/debug/*.apk \
-              app-hce/build/outputs/apk/debug/*.apk ; do
+              app-hce/build/outputs/apk/debug/*.apk \
+              app-wear/build/outputs/apk/debug/*.apk ; do
             cp "$f" release-assets/ || true
           done
           ls -la release-assets
