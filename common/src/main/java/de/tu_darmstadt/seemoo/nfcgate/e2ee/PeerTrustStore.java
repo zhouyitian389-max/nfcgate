@@ -3,6 +3,7 @@ package de.tu_darmstadt.seemoo.nfcgate.e2ee;
 import android.content.Context;
 
 import org.json.JSONArray;
+import org.json.JSONException;
 import org.json.JSONObject;
 
 import java.io.IOException;
@@ -91,18 +92,18 @@ public class PeerTrustStore {
     }
 
     private void write(List<Entry> entries) {
-        JSONArray array = new JSONArray();
-        for (Entry entry : entries) {
-            array.put(new JSONObject()
-                    .put("public_key", Base64.getEncoder().encodeToString(entry.publicKey))
-                    .put("label", entry.label));
-        }
         try {
+            JSONArray array = new JSONArray();
+            for (Entry entry : entries) {
+                array.put(new JSONObject()
+                        .put("public_key", Base64.getEncoder().encodeToString(entry.publicKey))
+                        .put("label", entry.label));
+            }
             if (storePath.getParent() != null) {
                 Files.createDirectories(storePath.getParent());
             }
             Files.write(storePath, array.toString(2).getBytes(StandardCharsets.UTF_8));
-        } catch (IOException e) {
+        } catch (IOException | JSONException e) {
             throw new IllegalStateException("Failed to persist trusted peers", e);
         }
     }
