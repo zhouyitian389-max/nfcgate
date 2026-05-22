@@ -1,0 +1,91 @@
+name: backfill-apks-matrix
+
+# Self-triggering workflow that backfills APKs for multiple old tags.
+# Trigger by pushing/updating .trigger-backfill-matrix on v2.
+
+on:
+  push:
+    branches: [v2]
+    paths:
+      - '.trigger-backfill-matrix'
+  workflow_dispatch: {}
+
+permissions:
+  contents: write
+
+jobs:
+  build:
+    runs-on: ubuntu-latest
+    strategy:
+      fail-fast: false
+      matrix:
+        tag: [v4.0, v3.01]
+    env:
+      GH_TOKEN: ${{ secrets.GITHUB_TOKEN }}
+      TAG: ${{ matrix.tag }}
+    steps:
+      - name: Checkout tag ${{ matrix.tag }}
+        uses: actions/checkout@v4
+        with:
+          ref: ${{ matrix.tag }}
+          fetch-depth: 1
+          submodules: recursive
+
+      - name: Init submodules (retry)
+        shell: bash
+        run: |
+          set -e
+          if [ -f .gitmodules ]; then
+            git config --file=.gitmodules submodule.protocol.url https://github.com/nfcgate/protocol.git || true
+            git submodule sync --recursive || true
+          fi
+          for i in 1 2 3 4 5; do
+            echo "Submodule attempt $i..."
+            if git submodule update --init --recursive; then
+              echo "OK"; break
+            fi
+            sleep $((i*10))
+          done
+
+      - name: Set up JDK 17
+        uses: actions/setup-java@v4
+        with:
+          distribution: temurin
+          java-version: '17'
+
+      - name: Set up Gradle
+        uses: gradle/actions/setup-gradle@v3
+
+      - name: Build APKs
+        run: |
+          chmod +x ./gradlew
+          ./gradlew \
+            :app:assembleDebug \
+            :app-reader:assembleDebug \
+            :app-hce:assembleDebug \
+            --no-daemon --stacktrace
+
+      - name: Collect APKs
+        run: |
+          mkdir -p release-assets
+          shopt -s nullglob
+          for f in \
+              app/build/outputs/apk/debug/*.apk \
+              app-reader/build/outputs/apk/debug/*.apk \
+              app-hce/build/outputs/apk/debug/*.apk ; do
+            cp "$f" release-assets/
+          done
+          ls -la release-assets
+          count=$(find release-assets -type f | wc -l | tr -d ' ')
+          if [ "$count" -eq 0 ]; then echo "❌ No APKs"; exit 1; fi
+
+      - name: Upload APKs to ${{ matrix.tag }} release
+        run: |
+          cd release-assets
+          gh release upload "$TAG" * --clobber --repo "${{ github.repository }}"
+          echo "✅ APKs uploaded to $TAG"
+
+      - name: Verify
+        run: |
+          gh release view "$TAG" --repo "${{ github.repository }}" --json assets \
+            --jq '.assets[].name'
