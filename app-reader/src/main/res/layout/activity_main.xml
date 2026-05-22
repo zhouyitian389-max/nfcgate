@@ -2,15 +2,35 @@
 <LinearLayout xmlns:android="http://schemas.android.com/apk/res/android"
     android:layout_width="match_parent"
     android:layout_height="match_parent"
-    android:gravity="center"
     android:orientation="vertical"
     android:padding="16dp">
 
     <TextView
+        android:id="@+id/reader_hint"
         android:layout_width="wrap_content"
         android:layout_height="wrap_content"
         android:text="@string/reader_coming_soon"
-        android:textSize="18sp"
-        android:gravity="center" />
+        android:textSize="18sp" />
+
+    <TextView
+        android:id="@+id/selected_device"
+        android:layout_width="match_parent"
+        android:layout_height="wrap_content"
+        android:layout_marginTop="16dp"
+        android:text="@string/no_device_selected" />
+
+    <Button
+        android:id="@+id/select_device_button"
+        android:layout_width="match_parent"
+        android:layout_height="wrap_content"
+        android:layout_marginTop="8dp"
+        android:text="@string/select_device" />
+
+    <Button
+        android:id="@+id/start_capture_button"
+        android:layout_width="match_parent"
+        android:layout_height="wrap_content"
+        android:layout_marginTop="8dp"
+        android:text="@string/start_capture" />
 
 </LinearLayout>
