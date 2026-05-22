@@ -10,6 +10,9 @@ on:
   schedule:
     - cron: "0 7 15 * *"
 
+permissions:
+  contents: read
+
 jobs:
   prefetch-deps:
     runs-on: ubuntu-latest

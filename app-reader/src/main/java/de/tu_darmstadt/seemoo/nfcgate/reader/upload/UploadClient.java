@@ -11,8 +11,6 @@ import java.net.HttpURLConnection;
 import java.net.URL;
 import java.nio.charset.StandardCharsets;
 
-import javax.net.ssl.HttpsURLConnection;
-
 import de.tu_darmstadt.seemoo.nfcgate.session.SessionDocument;
 import de.tu_darmstadt.seemoo.nfcgate.session.SessionJsonCodec;
 
@@ -37,9 +35,6 @@ public class UploadClient {
                 throw new IOException("Cleartext uploads are disabled");
             }
             HttpURLConnection connection = (HttpURLConnection) url.openConnection();
-            if (connection instanceof HttpsURLConnection) {
-                ((HttpsURLConnection) connection).setHostnameVerifier((host, sslSession) -> true);
-            }
             connection.setRequestMethod("POST");
             connection.setDoOutput(true);
             connection.setRequestProperty("Authorization", "Bearer " + apiKey);

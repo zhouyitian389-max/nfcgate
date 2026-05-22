@@ -13,8 +13,6 @@ import java.nio.charset.StandardCharsets;
 import java.util.Base64;
 import java.util.UUID;
 
-import javax.net.ssl.HttpsURLConnection;
-
 import de.tu_darmstadt.seemoo.nfcgate.e2ee.NoiseIdentity;
 import de.tu_darmstadt.seemoo.nfcgate.e2ee.NoiseSession;
 import de.tu_darmstadt.seemoo.nfcgate.e2ee.PeerTrustStore;
@@ -61,9 +59,6 @@ public class E2EEUploadClient extends UploadClient {
             byte[] ciphertext = noise.transportSend(SessionJsonCodec.encode(session));
             URL url = new URL(normalize(config.getBaseUrl()) + "/api/v1/noise/sessions");
             HttpURLConnection connection = (HttpURLConnection) url.openConnection();
-            if (connection instanceof HttpsURLConnection) {
-                ((HttpsURLConnection) connection).setHostnameVerifier((host, sslSession) -> true);
-            }
             connection.setRequestMethod("POST");
             connection.setDoOutput(true);
             connection.setRequestProperty("Authorization", "Bearer " + config.getApiKey());
@@ -89,9 +84,6 @@ public class E2EEUploadClient extends UploadClient {
     private byte[] postNoise(UploadConfig config, String sessionId, byte[] message) throws Exception {
         URL url = new URL(normalize(config.getBaseUrl()) + "/api/v1/noise/handshake");
         HttpURLConnection connection = (HttpURLConnection) url.openConnection();
-        if (connection instanceof HttpsURLConnection) {
-            ((HttpsURLConnection) connection).setHostnameVerifier((host, sslSession) -> true);
-        }
         connection.setRequestMethod("POST");
         connection.setDoOutput(true);
         connection.setRequestProperty("Authorization", "Bearer " + config.getApiKey());

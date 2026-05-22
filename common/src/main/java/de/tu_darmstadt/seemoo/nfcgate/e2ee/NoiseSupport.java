@@ -134,8 +134,6 @@ final class NoiseSupport {
     }
 
     private static byte[] nonce(long counter) {
-        byte[] nonce = new byte[12];
-        ByteBuffer.wrap(nonce, 4, 8).putLong(counter);
-        return nonce;
+        return Arrays.copyOf(sha256(ByteBuffer.allocate(8).putLong(counter).array()), 12);
     }
 }
