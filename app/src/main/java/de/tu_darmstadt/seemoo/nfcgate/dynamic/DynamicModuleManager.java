@@ -4,33 +4,23 @@ import android.content.Context;
 import android.content.Intent;
 import android.util.Log;
 
-import com.google.android.play.core.splitinstall.SplitInstallManager;
-import com.google.android.play.core.splitinstall.SplitInstallManagerFactory;
-import com.google.android.play.core.splitinstall.SplitInstallRequest;
-
+/**
+ * Stub DynamicModuleManager - dynamic feature delivery is disabled until
+ * AGP compatibility issues are resolved. All module loads are no-ops that
+ * directly invoke the success callback.
+ */
 public class DynamicModuleManager {
     private static final String TAG = "DynamicModuleManager";
     private final Context context;
-    private final SplitInstallManager splitInstallManager;
 
     public DynamicModuleManager(Context context) {
         this.context = context;
-        this.splitInstallManager = SplitInstallManagerFactory.create(context);
     }
 
     public void loadModule(String moduleName, Runnable onSuccess) {
-        if (splitInstallManager.getInstalledModules().contains(moduleName)) {
-            onSuccess.run();
-            return;
-        }
-
-        SplitInstallRequest request = SplitInstallRequest.newBuilder()
-                .addModule(moduleName)
-                .build();
-
-        splitInstallManager.startInstall(request)
-                .addOnSuccessListener(sessionId -> onSuccess.run())
-                .addOnFailureListener(error -> Log.e(TAG, "Failed to load module " + moduleName, error));
+        // Dynamic features disabled; treat all modules as already installed
+        Log.d(TAG, "Dynamic features disabled, directly running: " + moduleName);
+        onSuccess.run();
     }
 
     public void launchModuleActivity(String moduleName, String activityClassName) {
