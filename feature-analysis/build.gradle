@@ -1,0 +1,21 @@
+plugins {
+    id 'com.android.dynamic-feature'
+}
+
+android {
+    namespace 'de.tu_darmstadt.seemoo.nfcgate.feature.analysis'
+
+    compileSdk {
+        version = release(35)
+    }
+
+    defaultConfig {
+        minSdkVersion 21
+        targetSdkVersion 35
+    }
+}
+
+dependencies {
+    implementation project(':app')
+    implementation project(':common')
+}

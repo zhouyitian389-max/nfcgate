@@ -18,6 +18,7 @@ if (keystorePropertiesFile.exists()) {
 
 android {
     namespace 'de.tu_darmstadt.seemoo.nfcgate'
+    dynamicFeatures = [':feature-emv', ':feature-mifare', ':feature-nfc-tools', ':feature-analysis']
 
     compileSdk {
         version = release(35)
@@ -82,9 +83,26 @@ android {
 
     buildTypes {
         release {
-            minifyEnabled false
+            minifyEnabled true
+            shrinkResources true
             proguardFiles getDefaultProguardFile('proguard-android-optimize.txt'), 'proguard-rules.pro'
             signingConfig signingConfigs.release
+        }
+        debug {
+            minifyEnabled false
+            debuggable true
+        }
+    }
+
+    bundle {
+        density {
+            enableSplit = true
+        }
+        abi {
+            enableSplit = true
+        }
+        language {
+            enableSplit = true
         }
     }
 
@@ -125,6 +143,9 @@ dependencies {
     // Lifecycle
     implementation 'androidx.lifecycle:lifecycle-extensions:2.2.0'
     annotationProcessor 'androidx.lifecycle:lifecycle-compiler:2.9.2'
+
+    // Dynamic feature delivery
+    implementation 'com.google.android.play:core:1.10.3'
 
     // testing
     androidTestImplementation 'androidx.test:runner:1.7.0'
