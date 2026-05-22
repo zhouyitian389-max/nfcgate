@@ -1,0 +1,99 @@
+name: upload-v4.1-apks
+
+# Self-triggering workflow: runs automatically on every push to .trigger-v4.1
+# Builds v4.1 APKs and uploads to the existing v4.1 GitHub Release.
+
+on:
+  push:
+    branches:
+      - v2
+    paths:
+      - '.trigger-v4.1'
+  workflow_dispatch: {}
+
+permissions:
+  contents: write
+
+jobs:
+  build-and-upload:
+    runs-on: ubuntu-latest
+    env:
+      GH_TOKEN: ${{ secrets.GITHUB_TOKEN }}
+      TAG: v4.1
+    steps:
+      - name: Checkout tag v4.1
+        uses: actions/checkout@v4
+        with:
+          ref: v4.1
+          fetch-depth: 1
+          submodules: recursive
+
+      - name: Initialize submodules (with retry)
+        shell: bash
+        run: |
+          set -e
+          # Fix any stale submodule URLs
+          if [ -f .gitmodules ]; then
+            git config --file=.gitmodules submodule.protocol.url https://github.com/nfcgate/protocol.git || true
+            git submodule sync --recursive || true
+          fi
+          max=5
+          for i in $(seq 1 $max); do
+            echo "Submodule init attempt $i/$max..."
+            if git submodule update --init --recursive; then
+              echo "✅ Submodules initialized"
+              break
+            fi
+            if [ "$i" -lt "$max" ]; then
+              sleep $((i*10))
+            fi
+          done
+
+      - name: Set up JDK 17
+        uses: actions/setup-java@v4
+        with:
+          distribution: temurin
+          java-version: '17'
+
+      - name: Set up Gradle
+        uses: gradle/actions/setup-gradle@v3
+
+      - name: Build APKs
+        run: |
+          chmod +x ./gradlew
+          ./gradlew \
+            :app:assembleDebug \
+            :app-reader:assembleDebug \
+            :app-hce:assembleDebug \
+            --no-daemon --stacktrace
+
+      - name: Collect APKs
+        run: |
+          mkdir -p release-assets
+          shopt -s nullglob
+          for f in \
+              app/build/outputs/apk/debug/*.apk \
+              app-reader/build/outputs/apk/debug/*.apk \
+              app-hce/build/outputs/apk/debug/*.apk ; do
+            cp "$f" release-assets/
+          done
+          echo "Collected files:"
+          ls -la release-assets
+          count=$(find release-assets -type f | wc -l | tr -d ' ')
+          if [ "$count" -eq 0 ]; then
+            echo "❌ No APKs found"; exit 1
+          fi
+          echo "✅ Found $count APK(s)"
+
+      - name: Upload APKs to v4.1 Release
+        run: |
+          cd release-assets
+          gh release upload "$TAG" * \
+            --clobber \
+            --repo "${{ github.repository }}"
+          echo "✅ APKs uploaded to release $TAG"
+
+      - name: Verify Release assets
+        run: |
+          gh release view "$TAG" --repo "${{ github.repository }}" --json assets \
+            --jq '.assets[].name'
