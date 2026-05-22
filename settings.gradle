@@ -1,1 +1,8 @@
 include ':app', ':app-reader', ':app-hce', ':common', ':nfcd', ':protobuf'
+include ':feature-emv', ':feature-mifare', ':feature-nfc-tools', ':feature-analysis'
+
+buildCache {
+    local {
+        directory = new File(rootDir, 'build-cache')
+    }
+}

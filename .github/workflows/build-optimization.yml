@@ -1,0 +1,46 @@
+name: Build Optimization
+
+on:
+  push:
+    branches: [ "v2", "main" ]
+  pull_request:
+    branches: [ "v2", "main" ]
+
+permissions:
+  contents: read
+
+jobs:
+  build-metrics:
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v6
+        with:
+          submodules: recursive
+
+      - name: Set up JDK 21
+        uses: actions/setup-java@v5
+        with:
+          java-version: '21'
+          distribution: 'temurin'
+          cache: gradle
+
+      - name: Build debug APK
+        run: ./gradlew :app:assembleDebug -x test
+
+      - name: Analyze APK Size
+        run: |
+          APK_FILE="app/build/outputs/apk/debug/app-debug.apk"
+          APK_SIZE=$(stat -c%s "$APK_FILE")
+          echo "APK_SIZE_MB=$((APK_SIZE / 1024 / 1024))" >> "$GITHUB_ENV"
+          echo "APK Size: $APK_SIZE bytes"
+
+      - name: Benchmark Build Time
+        run: time ./gradlew :app:assembleDebug -x test
+
+      - name: Upload Build Metrics
+        uses: actions/upload-artifact@v7
+        with:
+          name: build-metrics
+          path: |
+            app/build/outputs/apk/debug/
+            app/build/outputs/mapping/
