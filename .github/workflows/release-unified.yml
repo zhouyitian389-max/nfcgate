@@ -19,28 +19,39 @@ jobs:
   release:
     runs-on: ubuntu-latest
     steps:
-      - name: Extract tag from trigger file
-        id: extract_tag
-        run: |
-          if [ "${{ github.event_name }}" = "push" ]; then
-            # Extract tag from trigger filename: .trigger-release-v5.0 -> v5.0
-            TRIGGER_FILE=$(ls .trigger-release-* 2>/dev/null | head -1 || echo "")
-            TAG=$(echo "$TRIGGER_FILE" | sed 's/\.trigger-release-//')
-            echo "tag=$TAG" >> $GITHUB_OUTPUT
-          else
-            echo "tag=${{ github.event.inputs.tag }}" >> $GITHUB_OUTPUT
-          fi
-
-      - name: Checkout tag
+      - name: Checkout v2
         uses: actions/checkout@v4
         with:
           ref: v2
           submodules: recursive
           fetch-depth: 0
 
-      - name: Create & push tag
+      - name: Extract tag
+        id: tag
         run: |
-          TAG="${{ steps.extract_tag.outputs.tag }}"
+          if [ "${{ github.event_name }}" = "push" ]; then
+            # Get changed files
+            CHANGED=$(git diff-tree --no-commit-id --name-only -r HEAD | grep '\.trigger-release-' | head -1)
+            if [ -z "$CHANGED" ]; then
+              CHANGED=$(find . -maxdepth 1 -name '.trigger-release-*' -type f | head -1)
+            fi
+            TAG=$(echo "$CHANGED" | sed 's/.*\.trigger-release-//')
+            echo "Extracted TAG from push: $TAG"
+          else
+            TAG="${{ github.event.inputs.tag }}"
+            echo "Extracted TAG from dispatch: $TAG"
+          fi
+          
+          if [ -z "$TAG" ]; then
+            echo "ERROR: Could not extract tag!"
+            exit 1
+          fi
+          echo "tag=$TAG" >> $GITHUB_OUTPUT
+
+      - name: Create & push tag
+        env:
+          TAG: ${{ steps.tag.outputs.tag }}
+        run: |
           git config user.name "github-actions[bot]"
           git config user.email "41898282+github-actions[bot]@users.noreply.github.com"
           git tag -a "$TAG" -m "Release $TAG" HEAD 2>/dev/null || echo "Tag already exists"
@@ -49,9 +60,10 @@ jobs:
       - name: Create GitHub Release
         env:
           GH_TOKEN: ${{ secrets.GITHUB_TOKEN }}
-          TAG: ${{ steps.extract_tag.outputs.tag }}
+          TAG: ${{ steps.tag.outputs.tag }}
         run: |
-          gh release view "$TAG" --repo "${{ github.repository }}" >/dev/null 2>&1 && echo "Release exists" || \
+          gh release view "$TAG" --repo "${{ github.repository }}" >/dev/null 2>&1 && \
+            echo "Release already exists" || \
             gh release create "$TAG" \
               --repo "${{ github.repository }}" \
               --title "NFCGate $TAG" \
@@ -66,7 +78,7 @@ jobs:
           distribution: 'temurin'
           cache: gradle
 
-      - name: Build debug APKs (all 3 modules)
+      - name: Build debug APKs
         run: |
           chmod +x ./gradlew
           ./gradlew \
@@ -76,15 +88,12 @@ jobs:
             --no-daemon --stacktrace
 
       - name: Collect & rename APKs
-        id: collect
+        env:
+          TAG: ${{ steps.tag.outputs.tag }}
         run: |
-          TAG="${{ steps.extract_tag.outputs.tag }}"
           mkdir -p release-assets
           shopt -s nullglob
-          for f in \
-              app/build/outputs/apk/debug/*.apk \
-              app-reader/build/outputs/apk/debug/*.apk \
-              app-hce/build/outputs/apk/debug/*.apk ; do
+          for f in app/build/outputs/apk/debug/*.apk app-reader/build/outputs/apk/debug/*.apk app-hce/build/outputs/apk/debug/*.apk; do
             base=$(basename "$f")
             case "$base" in
               app-debug.apk)        new="nfcgate-controller-${TAG}.apk" ;;
@@ -101,9 +110,10 @@ jobs:
       - name: Upload APKs to release
         env:
           GH_TOKEN: ${{ secrets.GITHUB_TOKEN }}
-          TAG: ${{ steps.extract_tag.outputs.tag }}
+          TAG: ${{ steps.tag.outputs.tag }}
         run: |
-          gh release upload "$TAG" release-assets/* \
+          cd release-assets
+          gh release upload "$TAG" * \
             --repo "${{ github.repository }}" \
             --clobber
-          echo "✅ $TAG APKs + SHA256SUMS uploaded"
+          echo "✅ Release $TAG complete!"
