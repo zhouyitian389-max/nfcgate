@@ -1,0 +1,26 @@
+name: dispatch-backfill-v4.2
+
+on:
+  push:
+    branches: [v2]
+    paths:
+      - '.trigger-backfill-v4.2'
+
+permissions:
+  contents: write
+  actions: write
+
+jobs:
+  go:
+    runs-on: ubuntu-latest
+    env:
+      GH_TOKEN: ${{ secrets.GITHUB_TOKEN }}
+    steps:
+      - uses: actions/checkout@v4
+      - name: Dispatch backfill.yml for v4.2
+        run: |
+          gh workflow run backfill.yml \
+            --repo "${{ github.repository }}" \
+            --ref v2 \
+            -f tag=v4.2
+          echo "✅ backfill.yml dispatched for v4.2"
