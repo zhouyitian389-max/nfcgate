@@ -1,0 +1,9 @@
+<?xml version="1.0" encoding="utf-8"?>
+<resources>
+    <color name="md3_background">#1C1B1F</color>
+    <color name="md3_surface">#1C1B1F</color>
+    <color name="card_background">#2C2C2C</color>
+    <color name="card_shadow">#80000000</color>
+    <color name="author_text">#CCCCCC</color>
+    <color name="status_ready">#66BB6A</color>
+</resources>
