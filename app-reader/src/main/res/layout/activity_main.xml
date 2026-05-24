@@ -2,26 +2,29 @@
 <androidx.coordinatorlayout.widget.CoordinatorLayout xmlns:android="http://schemas.android.com/apk/res/android"
     xmlns:app="http://schemas.android.com/apk/res-auto"
     android:layout_width="match_parent"
-    android:layout_height="match_parent">
+    android:layout_height="match_parent"
+    android:background="@color/black">
 
     <com.google.android.material.appbar.AppBarLayout
         android:layout_width="match_parent"
-        android:layout_height="wrap_content">
+        android:layout_height="wrap_content"
+        android:background="@color/black">
 
         <androidx.appcompat.widget.Toolbar
             android:id="@+id/toolbar"
             android:layout_width="match_parent"
             android:layout_height="?attr/actionBarSize"
-            android:background="@color/md3_primary"
-            android:elevation="4dp"
-            app:title="NFCGate Reader"
-            app:titleTextColor="@android:color/white" />
+            android:background="@color/black"
+            android:fontFamily="sans-serif-medium"
+            app:title="@string/wallet_title"
+            app:titleTextColor="@color/gold" />
 
     </com.google.android.material.appbar.AppBarLayout>
 
     <androidx.core.widget.NestedScrollView
         android:layout_width="match_parent"
         android:layout_height="match_parent"
+        android:paddingBottom="72dp"
         app:layout_behavior="@string/appbar_scrolling_view_behavior">
 
         <LinearLayout
@@ -30,14 +33,24 @@
             android:orientation="vertical"
             android:padding="16dp">
 
-            <!-- NFC Status Card -->
+            <androidx.recyclerview.widget.RecyclerView
+                android:id="@+id/rv_wallet_cards"
+                android:layout_width="match_parent"
+                android:layout_height="200dp"
+                android:clipToPadding="false"
+                android:paddingEnd="12dp"
+                android:paddingStart="4dp" />
+
             <com.google.android.material.card.MaterialCardView
                 android:id="@+id/card_nfc_status"
                 android:layout_width="match_parent"
                 android:layout_height="wrap_content"
-                android:layout_marginBottom="12dp"
-                app:cardCornerRadius="12dp"
-                app:cardElevation="4dp">
+                android:layout_marginTop="16dp"
+                app:cardBackgroundColor="@color/dark_surface"
+                app:cardCornerRadius="16dp"
+                app:cardElevation="8dp"
+                app:strokeColor="@color/gold"
+                app:strokeWidth="1dp">
 
                 <LinearLayout
                     android:layout_width="match_parent"
@@ -48,8 +61,8 @@
                     <TextView
                         android:layout_width="match_parent"
                         android:layout_height="wrap_content"
-                        android:text="NFC 状态"
-                        android:textColor="@android:color/black"
+                        android:text="@string/section_nfc_status"
+                        android:textColor="@color/white"
                         android:textSize="16sp"
                         android:textStyle="bold" />
 
@@ -57,8 +70,7 @@
                         android:id="@+id/tv_nfc_status"
                         android:layout_width="match_parent"
                         android:layout_height="wrap_content"
-                        android:layout_marginTop="12dp"
-                        android:text="Status: Ready"
+                        android:layout_marginTop="10dp"
                         android:textColor="@color/status_ready"
                         android:textSize="14sp" />
 
@@ -67,21 +79,20 @@
                         android:layout_width="match_parent"
                         android:layout_height="wrap_content"
                         android:layout_marginTop="8dp"
-                        android:text="Last Card: None"
-                        android:textColor="@android:color/darker_gray"
+                        android:textColor="@color/secondary_text"
                         android:textSize="13sp" />
 
                 </LinearLayout>
             </com.google.android.material.card.MaterialCardView>
 
-            <!-- Scan History Card -->
             <com.google.android.material.card.MaterialCardView
                 android:id="@+id/card_scan_history"
                 android:layout_width="match_parent"
                 android:layout_height="wrap_content"
-                android:layout_marginBottom="12dp"
-                app:cardCornerRadius="12dp"
-                app:cardElevation="4dp">
+                android:layout_marginTop="12dp"
+                app:cardBackgroundColor="@color/dark_surface"
+                app:cardCornerRadius="16dp"
+                app:cardElevation="8dp">
 
                 <LinearLayout
                     android:layout_width="match_parent"
@@ -92,8 +103,8 @@
                     <TextView
                         android:layout_width="match_parent"
                         android:layout_height="wrap_content"
-                        android:text="扫描历史"
-                        android:textColor="@android:color/black"
+                        android:text="@string/section_history"
+                        android:textColor="@color/white"
                         android:textSize="16sp"
                         android:textStyle="bold" />
 
@@ -109,22 +120,22 @@
                         android:layout_width="match_parent"
                         android:layout_height="wrap_content"
                         android:layout_marginTop="12dp"
-                        android:text="No scan history yet"
+                        android:text="@string/no_history"
                         android:textAlignment="center"
-                        android:textColor="@android:color/darker_gray"
+                        android:textColor="@color/secondary_text"
                         android:textSize="13sp" />
 
                 </LinearLayout>
             </com.google.android.material.card.MaterialCardView>
 
-            <!-- Quick Actions Card -->
             <com.google.android.material.card.MaterialCardView
                 android:id="@+id/card_quick_actions"
                 android:layout_width="match_parent"
                 android:layout_height="wrap_content"
-                android:layout_marginBottom="12dp"
-                app:cardCornerRadius="12dp"
-                app:cardElevation="4dp">
+                android:layout_marginTop="12dp"
+                app:cardBackgroundColor="@color/dark_surface"
+                app:cardCornerRadius="16dp"
+                app:cardElevation="8dp">
 
                 <LinearLayout
                     android:layout_width="match_parent"
@@ -135,8 +146,8 @@
                     <TextView
                         android:layout_width="match_parent"
                         android:layout_height="wrap_content"
-                        android:text="快捷操作"
-                        android:textColor="@android:color/black"
+                        android:text="@string/section_actions"
+                        android:textColor="@color/white"
                         android:textSize="16sp"
                         android:textStyle="bold" />
 
@@ -150,34 +161,35 @@
 
                         <com.google.android.material.button.MaterialButton
                             android:id="@+id/btn_start_scan"
+                            style="@style/ButtonStyle.Gold"
                             android:layout_width="0dp"
                             android:layout_height="wrap_content"
                             android:layout_columnWeight="1"
-                            android:text="开始扫描" />
+                            android:text="@string/btn_start_scan" />
 
                         <com.google.android.material.button.MaterialButton
                             android:id="@+id/btn_export"
-                            style="@style/Widget.MaterialComponents.Button.OutlinedButton"
+                            style="@style/ButtonStyle.Gold"
                             android:layout_width="0dp"
                             android:layout_height="wrap_content"
                             android:layout_columnWeight="1"
-                            android:text="导出" />
+                            android:text="@string/btn_export" />
 
                         <com.google.android.material.button.MaterialButton
                             android:id="@+id/btn_upload"
-                            style="@style/Widget.MaterialComponents.Button.OutlinedButton"
+                            style="@style/ButtonStyle.Gold"
                             android:layout_width="0dp"
                             android:layout_height="wrap_content"
                             android:layout_columnWeight="1"
-                            android:text="上传" />
+                            android:text="@string/btn_upload" />
 
                         <com.google.android.material.button.MaterialButton
                             android:id="@+id/btn_settings"
-                            style="@style/Widget.MaterialComponents.Button.OutlinedButton"
+                            style="@style/ButtonStyle.Gold"
                             android:layout_width="0dp"
                             android:layout_height="wrap_content"
                             android:layout_columnWeight="1"
-                            android:text="设置" />
+                            android:text="@string/btn_settings" />
 
                     </GridLayout>
                 </LinearLayout>
@@ -189,7 +201,8 @@
                 android:layout_height="wrap_content"
                 android:layout_gravity="center_horizontal"
                 android:layout_marginTop="24dp"
-                android:text="Made with ❤️ by YiTian"
+                android:fontFamily="sans-serif-medium"
+                android:text="@string/author_credit"
                 android:textColor="@color/author_text"
                 android:textSize="12sp" />
 
@@ -201,6 +214,9 @@
         android:layout_width="match_parent"
         android:layout_height="wrap_content"
         android:layout_gravity="bottom"
+        android:background="@color/black"
+        app:itemIconTint="@color/nav_item_tint"
+        app:itemTextColor="@color/nav_item_tint"
         app:menu="@menu/bottom_nav_menu" />
 
 </androidx.coordinatorlayout.widget.CoordinatorLayout>

@@ -1,38 +1,54 @@
 <?xml version="1.0" encoding="utf-8"?>
 <resources>
-    <!-- App -->
-    <string name="app_name">NFCGate Reader</string>
+    <string name="app_name">YiTian Wallet</string>
+    <string name="wallet_title">YiTian Wallet</string>
+    <string name="author_credit">Made with ❤️ by YiTian</string>
 
-    <!-- Legacy (keep for compatibility) -->
-    <string name="reader_coming_soon">Reader — external devices preview</string>
     <string name="select_device">Select device</string>
-    <string name="start_capture">Start capture</string>
-    <string name="no_device_selected">No device selected</string>
-    <string name="using_device">Using: %1$s</string>
     <string name="capture_started">Capture started</string>
-
-    <!-- NFC Status -->
-    <string name="nfc_status_ready">Status: Ready</string>
-    <string name="nfc_status_scanning">Status: Scanning…</string>
-    <string name="last_card_none">Last Card: None</string>
+    <string name="nfc_status_ready">NFC ready</string>
+    <string name="nfc_status_scanning">NFC scanning…</string>
+    <string name="last_card_none">Last card: --</string>
+    <string name="last_card_template">Last card: %1$s</string>
     <string name="no_history">No scan history yet</string>
 
-    <!-- Buttons -->
+    <string name="section_nfc_status">NFC 状态</string>
+    <string name="section_history">扫描历史</string>
+    <string name="section_actions">快捷操作</string>
+
     <string name="btn_start_scan">开始扫描</string>
     <string name="btn_export">导出</string>
     <string name="btn_upload">上传</string>
     <string name="btn_settings">设置</string>
 
-    <!-- Feature placeholders -->
-    <string name="export_coming_soon">Export feature coming soon</string>
-    <string name="upload_coming_soon">Upload feature coming soon</string>
-    <string name="settings_coming_soon">Settings coming soon</string>
+    <string name="toast_no_device">No NFC devices available</string>
+    <string name="toast_no_history_export">No scan history to export</string>
+    <string name="toast_no_history_upload">No scan history to upload</string>
+    <string name="toast_upload_queued">Upload: %1$d records queued (server not configured)</string>
+    <string name="toast_export_failed">Export failed: %1$s</string>
+    <string name="export_chooser">Export Scan History</string>
 
-    <!-- Bottom navigation -->
     <string name="nav_home">首页</string>
-    <string name="nav_data">数据</string>
+    <string name="nav_wallet">卡包</string>
     <string name="nav_settings">设置</string>
 
-    <!-- Author -->
-    <string name="author_credit">Made with ❤️ by YiTian</string>
+    <string name="card_holder">YITIAN</string>
+    <string name="card_expiry">MM/YY</string>
+    <string name="masked_card_template">**** **** **** %1$s</string>
+    <string name="unknown_pan">0000</string>
+
+    <string name="splash_name">YiTian Wallet</string>
+    <string name="about_title">About YiTian Wallet</string>
+    <string name="about_version">Version: %1$s</string>
+    <string name="about_github">GitHub: zhouyitian389-max/nfcgate</string>
+    <string name="about_open_github">Open GitHub</string>
+    <string name="card_list_title">Card Brands</string>
+
+    <string name="brand_unionpay">UnionPay</string>
+    <string name="brand_mastercard">Mastercard</string>
+    <string name="brand_visa">VISA</string>
+    <string name="brand_amex">American Express</string>
+    <string name="brand_jcb">JCB</string>
+    <string name="brand_discover">Discover</string>
+    <string name="brand_unknown">Unknown</string>
 </resources>
