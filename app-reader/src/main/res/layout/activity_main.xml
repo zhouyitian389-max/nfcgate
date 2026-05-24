@@ -2,22 +2,22 @@
 <androidx.coordinatorlayout.widget.CoordinatorLayout xmlns:android="http://schemas.android.com/apk/res/android"
     xmlns:app="http://schemas.android.com/apk/res-auto"
     android:layout_width="match_parent"
-    android:layout_height="match_parent"
-    android:background="@drawable/bg_gradient_primary">
+    android:layout_height="match_parent">
 
-    <com.google.android.material.appbarLayout.AppBarLayout
+    <com.google.android.material.appbar.AppBarLayout
         android:layout_width="match_parent"
         android:layout_height="wrap_content">
 
-        <com.google.android.material.appbarLayout.MaterialToolbar
+        <androidx.appcompat.widget.Toolbar
             android:id="@+id/toolbar"
             android:layout_width="match_parent"
             android:layout_height="?attr/actionBarSize"
             android:background="@color/md3_primary"
             android:elevation="4dp"
-            app:title="NFCGate Reader - YiTian"
+            app:title="NFCGate Reader"
             app:titleTextColor="@android:color/white" />
-    </com.google.android.material.appbarLayout.AppBarLayout>
+
+    </com.google.android.material.appbar.AppBarLayout>
 
     <androidx.core.widget.NestedScrollView
         android:layout_width="match_parent"
@@ -30,6 +30,7 @@
             android:orientation="vertical"
             android:padding="16dp">
 
+            <!-- NFC Status Card -->
             <com.google.android.material.card.MaterialCardView
                 android:id="@+id/card_nfc_status"
                 android:layout_width="match_parent"
@@ -44,27 +45,13 @@
                     android:orientation="vertical"
                     android:padding="16dp">
 
-                    <LinearLayout
+                    <TextView
                         android:layout_width="match_parent"
                         android:layout_height="wrap_content"
-                        android:gravity="center_vertical"
-                        android:orientation="horizontal">
-
-                        <ImageView
-                            android:layout_width="24dp"
-                            android:layout_height="24dp"
-                            android:src="@drawable/ic_nfc_reader"
-                            android:tint="@color/md3_primary" />
-
-                        <TextView
-                            android:layout_width="wrap_content"
-                            android:layout_height="wrap_content"
-                            android:layout_marginStart="12dp"
-                            android:text="NFC 状态"
-                            android:textColor="@android:color/black"
-                            android:textSize="16sp"
-                            android:textStyle="bold" />
-                    </LinearLayout>
+                        android:text="NFC 状态"
+                        android:textColor="@android:color/black"
+                        android:textSize="16sp"
+                        android:textStyle="bold" />
 
                     <TextView
                         android:id="@+id/tv_nfc_status"
@@ -80,12 +67,14 @@
                         android:layout_width="match_parent"
                         android:layout_height="wrap_content"
                         android:layout_marginTop="8dp"
-                        android:text="Last Card: Visa ****1234"
+                        android:text="Last Card: None"
                         android:textColor="@android:color/darker_gray"
                         android:textSize="13sp" />
+
                 </LinearLayout>
             </com.google.android.material.card.MaterialCardView>
 
+            <!-- Scan History Card -->
             <com.google.android.material.card.MaterialCardView
                 android:id="@+id/card_scan_history"
                 android:layout_width="match_parent"
@@ -100,27 +89,13 @@
                     android:orientation="vertical"
                     android:padding="16dp">
 
-                    <LinearLayout
+                    <TextView
                         android:layout_width="match_parent"
                         android:layout_height="wrap_content"
-                        android:gravity="center_vertical"
-                        android:orientation="horizontal">
-
-                        <ImageView
-                            android:layout_width="24dp"
-                            android:layout_height="24dp"
-                            android:src="@drawable/ic_history"
-                            android:tint="@color/md3_primary" />
-
-                        <TextView
-                            android:layout_width="wrap_content"
-                            android:layout_height="wrap_content"
-                            android:layout_marginStart="12dp"
-                            android:text="扫描历史"
-                            android:textColor="@android:color/black"
-                            android:textSize="16sp"
-                            android:textStyle="bold" />
-                    </LinearLayout>
+                        android:text="扫描历史"
+                        android:textColor="@android:color/black"
+                        android:textSize="16sp"
+                        android:textStyle="bold" />
 
                     <androidx.recyclerview.widget.RecyclerView
                         android:id="@+id/rv_scan_history"
@@ -138,9 +113,11 @@
                         android:textAlignment="center"
                         android:textColor="@android:color/darker_gray"
                         android:textSize="13sp" />
+
                 </LinearLayout>
             </com.google.android.material.card.MaterialCardView>
 
+            <!-- Quick Actions Card -->
             <com.google.android.material.card.MaterialCardView
                 android:id="@+id/card_quick_actions"
                 android:layout_width="match_parent"
@@ -155,27 +132,13 @@
                     android:orientation="vertical"
                     android:padding="16dp">
 
-                    <LinearLayout
+                    <TextView
                         android:layout_width="match_parent"
                         android:layout_height="wrap_content"
-                        android:gravity="center_vertical"
-                        android:orientation="horizontal">
-
-                        <ImageView
-                            android:layout_width="24dp"
-                            android:layout_height="24dp"
-                            android:src="@drawable/ic_settings"
-                            android:tint="@color/md3_primary" />
-
-                        <TextView
-                            android:layout_width="wrap_content"
-                            android:layout_height="wrap_content"
-                            android:layout_marginStart="12dp"
-                            android:text="快速操作"
-                            android:textColor="@android:color/black"
-                            android:textSize="16sp"
-                            android:textStyle="bold" />
-                    </LinearLayout>
+                        android:text="快捷操作"
+                        android:textColor="@android:color/black"
+                        android:textSize="16sp"
+                        android:textStyle="bold" />
 
                     <GridLayout
                         android:layout_width="match_parent"
@@ -194,7 +157,7 @@
 
                         <com.google.android.material.button.MaterialButton
                             android:id="@+id/btn_export"
-                            style="@style/Widget.Material3.Button.OutlinedButton"
+                            style="@style/Widget.MaterialComponents.Button.OutlinedButton"
                             android:layout_width="0dp"
                             android:layout_height="wrap_content"
                             android:layout_columnWeight="1"
@@ -202,7 +165,7 @@
 
                         <com.google.android.material.button.MaterialButton
                             android:id="@+id/btn_upload"
-                            style="@style/Widget.Material3.Button.OutlinedButton"
+                            style="@style/Widget.MaterialComponents.Button.OutlinedButton"
                             android:layout_width="0dp"
                             android:layout_height="wrap_content"
                             android:layout_columnWeight="1"
@@ -210,11 +173,12 @@
 
                         <com.google.android.material.button.MaterialButton
                             android:id="@+id/btn_settings"
-                            style="@style/Widget.Material3.Button.OutlinedButton"
+                            style="@style/Widget.MaterialComponents.Button.OutlinedButton"
                             android:layout_width="0dp"
                             android:layout_height="wrap_content"
                             android:layout_columnWeight="1"
                             android:text="设置" />
+
                     </GridLayout>
                 </LinearLayout>
             </com.google.android.material.card.MaterialCardView>
@@ -228,6 +192,7 @@
                 android:text="Made with ❤️ by YiTian"
                 android:textColor="@color/author_text"
                 android:textSize="12sp" />
+
         </LinearLayout>
     </androidx.core.widget.NestedScrollView>
 
@@ -237,4 +202,5 @@
         android:layout_height="wrap_content"
         android:layout_gravity="bottom"
         app:menu="@menu/bottom_nav_menu" />
+
 </androidx.coordinatorlayout.widget.CoordinatorLayout>
