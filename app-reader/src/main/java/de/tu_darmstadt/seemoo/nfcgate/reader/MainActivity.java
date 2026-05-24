@@ -1,27 +1,38 @@
 package de.tu_darmstadt.seemoo.nfcgate.reader;
 
+import android.content.Intent;
+import android.net.Uri;
 import android.os.Bundle;
+import android.view.View;
 import android.widget.TextView;
 import android.widget.Toast;
 
 import androidx.appcompat.app.AppCompatActivity;
 import androidx.appcompat.widget.Toolbar;
+import androidx.core.content.FileProvider;
+import androidx.recyclerview.widget.LinearLayoutManager;
 import androidx.recyclerview.widget.RecyclerView;
 
 import com.google.android.material.bottomnavigation.BottomNavigationView;
 import com.google.android.material.button.MaterialButton;
 import com.google.android.material.card.MaterialCardView;
 
+import java.io.File;
+import java.io.FileWriter;
+import java.io.IOException;
 import java.util.List;
 
+import de.tu_darmstadt.seemoo.nfcgate.reader.model.ScanRecord;
 import de.tu_darmstadt.seemoo.nfcgate.reader.nfc.NFCDevice;
 import de.tu_darmstadt.seemoo.nfcgate.reader.nfc.NFCManager;
 import de.tu_darmstadt.seemoo.nfcgate.reader.ui.DeviceSelector;
+import de.tu_darmstadt.seemoo.nfcgate.reader.ui.ScanHistoryAdapter;
 
 public class MainActivity extends AppCompatActivity {
 
     private NFCManager nfcManager;
     private NFCDevice selectedDevice;
+    private ScanHistoryAdapter scanHistoryAdapter;
 
     // Views
     private Toolbar toolbar;
@@ -66,13 +77,22 @@ public class MainActivity extends AppCompatActivity {
         btnUpload    = findViewById(R.id.btn_upload);
         btnSettings  = findViewById(R.id.btn_settings);
 
-        // List + Navigation
+        // RecyclerView
         rvScanHistory = findViewById(R.id.rv_scan_history);
-        bottomNav     = findViewById(R.id.bottom_nav);
+        setupRecyclerView();
+
+        // Bottom Navigation
+        bottomNav = findViewById(R.id.bottom_nav);
 
         setupButtons();
         setupBottomNavigation();
         updateNfcStatus();
+    }
+
+    private void setupRecyclerView() {
+        scanHistoryAdapter = new ScanHistoryAdapter();
+        rvScanHistory.setLayoutManager(new LinearLayoutManager(this));
+        rvScanHistory.setAdapter(scanHistoryAdapter);
     }
 
     private void setupButtons() {
@@ -88,14 +108,9 @@ public class MainActivity extends AppCompatActivity {
             });
         });
 
-        btnExport.setOnClickListener(v ->
-                Toast.makeText(this, getString(R.string.export_coming_soon), Toast.LENGTH_SHORT).show());
-
-        btnUpload.setOnClickListener(v ->
-                Toast.makeText(this, getString(R.string.upload_coming_soon), Toast.LENGTH_SHORT).show());
-
-        btnSettings.setOnClickListener(v ->
-                Toast.makeText(this, getString(R.string.settings_coming_soon), Toast.LENGTH_SHORT).show());
+        btnExport.setOnClickListener(v -> exportHistory());
+        btnUpload.setOnClickListener(v -> uploadHistory());
+        btnSettings.setOnClickListener(v -> openSettings());
     }
 
     private void setupBottomNavigation() {
@@ -104,10 +119,10 @@ public class MainActivity extends AppCompatActivity {
             if (id == R.id.nav_home) {
                 return true;
             } else if (id == R.id.nav_data) {
-                Toast.makeText(this, getString(R.string.nav_data), Toast.LENGTH_SHORT).show();
+                showDataTab();
                 return true;
             } else if (id == R.id.nav_settings) {
-                Toast.makeText(this, getString(R.string.nav_settings), Toast.LENGTH_SHORT).show();
+                openSettings();
                 return true;
             }
             return false;
@@ -116,11 +131,75 @@ public class MainActivity extends AppCompatActivity {
 
     private void startNfcCapture() {
         if (selectedDevice == null || nfcManager == null) return;
+        tvNfcStatus.setText(getString(R.string.nfc_status_scanning));
         nfcManager.startCapture(selectedDevice, event -> runOnUiThread(() -> {
-            tvNfcStatus.setText(getString(R.string.nfc_status_scanning));
-            tvLastCard.setText("Last Device: " + selectedDevice.getName());
+            String deviceName = selectedDevice.getName();
+            String source     = selectedDevice.getSource().name();
+            String rawData    = event != null ? event.toString() : "No data";
+
+            // Add to history
+            ScanRecord record = new ScanRecord(deviceName, source, rawData);
+            scanHistoryAdapter.addRecord(record);
+
+            // Update UI
+            tvLastCard.setText(getString(R.string.last_card_none) + " " + deviceName);
+            tvHistoryEmpty.setVisibility(View.GONE);
+            rvScanHistory.setVisibility(View.VISIBLE);
+
             Toast.makeText(this, getString(R.string.capture_started), Toast.LENGTH_SHORT).show();
         }));
+    }
+
+    // ─── Export ────────────────────────────────────────────────────────────────
+    private void exportHistory() {
+        List<ScanRecord> records = scanHistoryAdapter.getRecords();
+        if (records.isEmpty()) {
+            Toast.makeText(this, "No scan history to export", Toast.LENGTH_SHORT).show();
+            return;
+        }
+        try {
+            File exportFile = new File(getCacheDir(), "nfcgate_export.csv");
+            FileWriter writer = new FileWriter(exportFile);
+            writer.write("Time,Device,Source,Data\n");
+            for (ScanRecord r : records) {
+                writer.write(String.format("%s,%s,%s,%s\n",
+                        r.getFormattedDate(), r.getDeviceName(), r.getSourceType(), r.getRawData()));
+            }
+            writer.close();
+
+            Uri uri = FileProvider.getUriForFile(this,
+                    getPackageName() + ".provider", exportFile);
+            Intent intent = new Intent(Intent.ACTION_SEND);
+            intent.setType("text/csv");
+            intent.putExtra(Intent.EXTRA_STREAM, uri);
+            intent.addFlags(Intent.FLAG_GRANT_READ_URI_PERMISSION);
+            startActivity(Intent.createChooser(intent, "Export Scan History"));
+        } catch (IOException e) {
+            Toast.makeText(this, "Export failed: " + e.getMessage(), Toast.LENGTH_LONG).show();
+        }
+    }
+
+    // ─── Upload ────────────────────────────────────────────────────────────────
+    private void uploadHistory() {
+        List<ScanRecord> records = scanHistoryAdapter.getRecords();
+        if (records.isEmpty()) {
+            Toast.makeText(this, "No scan history to upload", Toast.LENGTH_SHORT).show();
+            return;
+        }
+        // TODO: connect to real server endpoint
+        Toast.makeText(this, "Upload: " + records.size() + " records queued (server not configured)",
+                Toast.LENGTH_LONG).show();
+    }
+
+    // ─── Settings ──────────────────────────────────────────────────────────────
+    private void openSettings() {
+        Toast.makeText(this, "Settings screen coming soon", Toast.LENGTH_SHORT).show();
+    }
+
+    // ─── Data Tab ──────────────────────────────────────────────────────────────
+    private void showDataTab() {
+        List<ScanRecord> records = scanHistoryAdapter.getRecords();
+        Toast.makeText(this, records.size() + " scan records total", Toast.LENGTH_SHORT).show();
     }
 
     private void updateNfcStatus() {
