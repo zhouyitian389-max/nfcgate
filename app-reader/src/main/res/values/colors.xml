@@ -1,17 +1,17 @@
 <?xml version="1.0" encoding="utf-8"?>
 <resources>
-    <color name="black">#000000</color>
-    <color name="white">#FFFFFF</color>
-    <color name="gold">#D4AF37</color>
-    <color name="dark_surface">#1A1A1A</color>
-    <color name="secondary_text">#9E9E9E</color>
+    <color name="black">#F7F4EE</color>
+    <color name="white">#171717</color>
+    <color name="gold">#B8922E</color>
+    <color name="dark_surface">#FFFFFF</color>
+    <color name="secondary_text">#666666</color>
 
-    <color name="status_ready">#66BB6A</color>
-    <color name="status_scanning">#D4AF37</color>
-    <color name="status_error">#F44336</color>
+    <color name="status_ready">#2E7D32</color>
+    <color name="status_scanning">#B8922E</color>
+    <color name="status_error">#C62828</color>
 
-    <color name="author_text">#D4AF37</color>
+    <color name="author_text">#B8922E</color>
 
-    <color name="md3_primary">#D4AF37</color>
-    <color name="md3_secondary">#1A1A1A</color>
+    <color name="md3_primary">#B8922E</color>
+    <color name="md3_secondary">#FFFFFF</color>
 </resources>
