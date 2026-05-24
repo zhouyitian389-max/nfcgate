@@ -16,11 +16,12 @@ public abstract class CardDatabase extends RoomDatabase {
         if (instance == null) {
             synchronized (CardDatabase.class) {
                 if (instance == null) {
+                    // NOTE: do NOT enable allowMainThreadQueries(); all callers must use a background executor.
                     instance = Room.databaseBuilder(
                             context.getApplicationContext(),
                             CardDatabase.class,
                             "yitian_nfc.db"
-                    ).allowMainThreadQueries().fallbackToDestructiveMigration().build();
+                    ).fallbackToDestructiveMigration().build();
                 }
             }
         }

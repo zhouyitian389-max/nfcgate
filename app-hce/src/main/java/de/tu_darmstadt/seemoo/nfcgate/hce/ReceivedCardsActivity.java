@@ -1,6 +1,8 @@
 package de.tu_darmstadt.seemoo.nfcgate.hce;
 
 import android.os.Bundle;
+import android.os.Handler;
+import android.os.Looper;
 import android.view.LayoutInflater;
 import android.view.View;
 import android.view.ViewGroup;
@@ -12,7 +14,10 @@ import androidx.appcompat.app.AppCompatActivity;
 import androidx.recyclerview.widget.LinearLayoutManager;
 import androidx.recyclerview.widget.RecyclerView;
 
+import java.util.ArrayList;
 import java.util.List;
+import java.util.concurrent.ExecutorService;
+import java.util.concurrent.Executors;
 
 import de.tu_darmstadt.seemoo.nfcgate.hce.db.CardDao;
 import de.tu_darmstadt.seemoo.nfcgate.hce.db.CardDatabase;
@@ -23,6 +28,9 @@ public class ReceivedCardsActivity extends AppCompatActivity {
     private TextView tvEmpty;
     private CardDao dao;
     private Adapter adapter;
+
+    private final Handler mainHandler = new Handler(Looper.getMainLooper());
+    private final ExecutorService ioExecutor = Executors.newSingleThreadExecutor();
 
     @Override
     protected void onCreate(Bundle savedInstanceState) {
@@ -44,15 +52,27 @@ public class ReceivedCardsActivity extends AppCompatActivity {
         adapter.reload();
     }
 
+    @Override
+    protected void onDestroy() {
+        super.onDestroy();
+        ioExecutor.shutdownNow();
+    }
+
     class Adapter extends RecyclerView.Adapter<Adapter.VH> {
-        private List<CardEntity> data;
+        // Initialize to empty list to avoid NPE before the first reload completes.
+        private List<CardEntity> data = new ArrayList<>();
 
         void reload() {
-            data = dao.getAll();
-            notifyDataSetChanged();
-            boolean empty = data.isEmpty();
-            tvEmpty.setVisibility(empty ? View.VISIBLE : View.GONE);
-            rv.setVisibility(empty ? View.GONE : View.VISIBLE);
+            ioExecutor.execute(() -> {
+                final List<CardEntity> fresh = dao.getAll();
+                mainHandler.post(() -> {
+                    data = fresh != null ? fresh : new ArrayList<>();
+                    notifyDataSetChanged();
+                    boolean empty = data.isEmpty();
+                    tvEmpty.setVisibility(empty ? View.VISIBLE : View.GONE);
+                    rv.setVisibility(empty ? View.GONE : View.VISIBLE);
+                });
+            });
         }
 
         @NonNull
@@ -65,25 +85,32 @@ public class ReceivedCardsActivity extends AppCompatActivity {
 
         @Override
         public void onBindViewHolder(@NonNull VH h, int position) {
-            CardEntity c = data.get(position);
+            final CardEntity c = data.get(position);
             h.tvBrand.setText(c.brand == null ? "UNKNOWN" : c.brand);
             h.tvPan.setText(getString(R.string.masked_pan, c.last4()));
             h.tvHolder.setText(c.holder == null || c.holder.isEmpty()
                     ? getString(R.string.card_holder) : c.holder);
             h.tvSelected.setVisibility(c.isSelected ? View.VISIBLE : View.GONE);
-            h.itemView.setOnClickListener(v -> {
+
+            h.itemView.setOnClickListener(v -> ioExecutor.execute(() -> {
                 dao.clearSelection();
                 dao.select(c.id);
-                reload();
-                Toast.makeText(ReceivedCardsActivity.this,
-                        getString(R.string.toast_card_selected, c.last4()),
-                        Toast.LENGTH_SHORT).show();
-            });
-            h.btnDelete.setOnClickListener(v -> {
+                mainHandler.post(() -> {
+                    Toast.makeText(ReceivedCardsActivity.this,
+                            getString(R.string.toast_card_selected, c.last4()),
+                            Toast.LENGTH_SHORT).show();
+                    reload();
+                });
+            }));
+
+            h.btnDelete.setOnClickListener(v -> ioExecutor.execute(() -> {
                 dao.deleteById(c.id);
-                reload();
-                Toast.makeText(ReceivedCardsActivity.this, R.string.toast_card_deleted, Toast.LENGTH_SHORT).show();
-            });
+                mainHandler.post(() -> {
+                    Toast.makeText(ReceivedCardsActivity.this, R.string.toast_card_deleted,
+                            Toast.LENGTH_SHORT).show();
+                    reload();
+                });
+            }));
         }
 
         @Override
