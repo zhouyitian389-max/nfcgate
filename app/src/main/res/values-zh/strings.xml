@@ -1,0 +1,39 @@
+<?xml version="1.0" encoding="utf-8"?>
+<resources>
+    <string name="app_name">YiTian 控制器</string>
+    <string name="about_license">YiTian 套件</string>
+    <string name="about_text">
+<![CDATA[<p><b>YiTian 控制器</b></p>
+<p>作者: <b>YiTian</b></p>
+<p>奢华黑金设计的现代 NFC 中继与模拟控制器。</p>
+<p>仅供研究和教育用途。</p>
+]]>
+    </string>
+    <string name="about_version">版本 %1$s</string>
+    <string name="button_ok">确定</string>
+    <string name="button_cancel">取消</string>
+    <string name="menu_status">状态</string>
+    <string name="menu_clone">克隆模式</string>
+    <string name="menu_relay">中继模式</string>
+    <string name="menu_replay">回放模式</string>
+    <string name="menu_capture">捕获模式</string>
+    <string name="menu_settings">设置</string>
+    <string name="menu_about">关于</string>
+    <string name="capture_start">开始捕获</string>
+    <string name="capture_stop">停止捕获</string>
+    <string name="capture_progress">正在捕获…</string>
+    <string name="capture_none">未在捕获</string>
+    <string name="network_connecting">网络: 正在连接</string>
+    <string name="network_connected">网络: 已连接</string>
+    <string name="network_disconnected">网络: 已断开</string>
+    <string name="network_idle">空闲</string>
+    <string name="error_NFCCAP">设备不支持 NFC 或已关闭。请启用 NFC 以使用 YiTian 控制器。</string>
+    <string name="error_no_connection">无可用网络连接。</string>
+    <string name="settings_title">通用设置</string>
+    <string name="settings_network">网络设置</string>
+    <string name="settings_hostname">主机名</string>
+    <string name="settings_port">端口</string>
+    <string name="settings_tls">使用 TLS</string>
+    <string name="tag_waiting">等待标签…</string>
+    <string name="nav_logging">日志</string>
+</resources>

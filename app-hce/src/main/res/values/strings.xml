@@ -1,5 +1,19 @@
 <?xml version="1.0" encoding="utf-8"?>
 <resources>
-    <string name="app_name">NFC HCE</string>
-    <string name="hce_coming_soon">NFC HCE — coming soon (milestone 4)</string>
+    <string name="app_name">YiTian HCE</string>
+    <string name="author_credit">Made with ❤️ by YiTian</string>
+    <string name="hce_title">YiTian Host Card Emulation</string>
+    <string name="hce_subtitle">Premium NFC Card Emulation Service</string>
+    <string name="hce_status_label">HCE Status</string>
+    <string name="hce_status_active">Active</string>
+    <string name="hce_status_idle">Idle</string>
+    <string name="hce_status_error">Error</string>
+    <string name="hce_coming_soon">YiTian HCE — ready for emulation</string>
+    <string name="btn_start_hce">Start Emulation</string>
+    <string name="btn_stop_hce">Stop Emulation</string>
+    <string name="btn_about">About</string>
+    <string name="about_title">About YiTian HCE</string>
+    <string name="about_version">Version %1$s</string>
+    <string name="about_author">Author: YiTian</string>
+    <string name="about_description">A modern Host Card Emulation service with luxury black-gold design.</string>
 </resources>

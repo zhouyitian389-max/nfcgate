@@ -1,0 +1,19 @@
+<?xml version="1.0" encoding="utf-8"?>
+<resources>
+    <string name="app_name">YiTian HCE</string>
+    <string name="author_credit">由 YiTian 用心制作 ❤️</string>
+    <string name="hce_title">YiTian 主机卡模拟</string>
+    <string name="hce_subtitle">奢华 NFC 卡片模拟服务</string>
+    <string name="hce_status_label">HCE 状态</string>
+    <string name="hce_status_active">活跃</string>
+    <string name="hce_status_idle">空闲</string>
+    <string name="hce_status_error">错误</string>
+    <string name="hce_coming_soon">YiTian HCE — 模拟就绪</string>
+    <string name="btn_start_hce">开始模拟</string>
+    <string name="btn_stop_hce">停止模拟</string>
+    <string name="btn_about">关于</string>
+    <string name="about_title">关于 YiTian HCE</string>
+    <string name="about_version">版本 %1$s</string>
+    <string name="about_author">作者: YiTian</string>
+    <string name="about_description">奢华黑金设计的现代主机卡模拟服务。</string>
+</resources>

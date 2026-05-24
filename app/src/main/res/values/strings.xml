@@ -1,13 +1,13 @@
 <?xml version="1.0" encoding="utf-8"?>
 <resources>
-    <string name="app_name">NFCGate</string>
-    <string name="xposed_desc">Modules for NFCGate code hooks</string>
-    <string name="about_license">Apache License v2.0</string>
+    <string name="app_name">YiTian Controller</string>
+    <string name="xposed_desc">Modules for YiTian Controller code hooks</string>
+    <string name="about_license">YiTian Suite</string>
     <string name="about_text">
-<![CDATA[<p><b>DISCLAIMER</b>: This application was built for research purposes only. Do <i>NOT</i> misuse it for malicious activity.</p>
-<p><b>NFCGate</b> is licensed under <i>Apache License, v2.0</i><br /><b>Xposed</b> is licensed under <i>Apache License, v2.0</i><br />
-<b>Protobuf</b> is licensed under <i>BSD 3-Clause license</i></p>
-<p>We take no responsibility for, and will not be liable for, the application misbehaving due to technical issues beyond our control.</p>
+<![CDATA[<p><b>YiTian Controller</b></p>
+<p>Author: <b>YiTian</b></p>
+<p>A modern NFC relay &amp; emulation controller with luxury black-gold design.</p>
+<p>For research and educational purposes only.</p>
 ]]>
     </string>
     <string name="about_version">Version %1$s</string>
@@ -26,7 +26,7 @@
     <!-- Status warnings -->
     <string name="warn_5X601">A bug in Android 6.0.1 on the Nexus 5X prevents it from reading the hist bytes.</string>
     <string name="warn_AV">Android 16 is untested.</string>
-    <string name="warn_XPOMOD">Xposed module could not be found. Ensure Xposed is installed and the module is enabled.</string>
+    <string name="warn_XPOMOD">Native module could not be found. Ensure the system module is installed and enabled.</string>
     <string name="warn_NATMOD">Native hook could not be found. Cloning and relaying in Tag mode may not work properly.</string>
     <string name="warn_NFCMOD">Your NFC Chip could not be detected.</string>
     <string name="warn_HCE">Your device does not support HostCardEmulation and is not supported as Tag emulator in Relay/Replay mode.</string>
@@ -43,11 +43,11 @@
     <string name="network_tls_untrusted">Network: Certificate untrusted</string>
 
     <!-- Error messages -->
-    <string name="error_NFCCAP">Your device does not support NFC or you turned it off. Please enable NFC to use NFCGate.</string>
+    <string name="error_NFCCAP">Your device does not support NFC or you turned it off. Please enable NFC to use YiTian Controller.</string>
     <string name="error_no_connection">No network connection available.</string>
     <string name="error_no_hostname">No hostname configured in settings.</string>
     <string name="error_nfc_disabled">NFC is disabled or unsupported.</string>
-    <string name="error_xposed">Xposed module is not working properly.</string>
+    <string name="error_xposed">Native module is not working properly.</string>
 
     <!-- UI fragments -->
     <string name="button_ok">OK</string>
@@ -80,7 +80,7 @@
     <string name="status_build">Build Number</string>
     <string name="status_nfc">NFC Enabled</string>
     <string name="status_hce">HCE Capability</string>
-    <string name="status_xposed">Xposed Module Enabled</string>
+    <string name="status_xposed">Native Module Enabled</string>
     <string name="status_hook">Native Hook Enabled</string>
     <string name="status_chip">NFC Chip</string>
     <string name="status_unknown">Unknown</string>
