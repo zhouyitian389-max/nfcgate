@@ -34,6 +34,10 @@
             android:launchMode="singleTop" />
 
         <activity
+            android:name=".PinVerifyActivity"
+            android:exported="false" />
+
+        <activity
             android:name=".ReceivedCardsActivity"
             android:exported="false" />
 

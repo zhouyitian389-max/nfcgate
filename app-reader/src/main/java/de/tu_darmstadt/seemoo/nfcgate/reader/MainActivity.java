@@ -28,6 +28,7 @@ import androidx.viewpager2.widget.ViewPager2;
 import com.google.android.material.bottomnavigation.BottomNavigationView;
 import com.google.android.material.button.MaterialButton;
 import com.google.android.material.card.MaterialCardView;
+import com.google.android.material.color.MaterialColors;
 import com.google.android.material.tabs.TabLayout;
 import com.google.android.material.tabs.TabLayoutMediator;
 
@@ -287,10 +288,14 @@ public class MainActivity extends AppCompatActivity {
     }
 
     private void animateScanSuccess() {
+        int surfaceColor = MaterialColors.getColor(
+                cardNfcStatus,
+                com.google.android.material.R.attr.colorSurface
+        );
         ValueAnimator animator = ValueAnimator.ofArgb(
-                ContextCompat.getColor(this, R.color.dark_surface),
+                surfaceColor,
                 ContextCompat.getColor(this, R.color.gold),
-                ContextCompat.getColor(this, R.color.dark_surface));
+                surfaceColor);
         animator.setDuration(500L);
         animator.addUpdateListener(a -> cardNfcStatus.setCardBackgroundColor((Integer) a.getAnimatedValue()));
         animator.start();
@@ -424,6 +429,7 @@ public class MainActivity extends AppCompatActivity {
     protected void onResume() {
         super.onResume();
         if (autoScrollRunnable != null) {
+            mainHandler.removeCallbacks(autoScrollRunnable);
             mainHandler.postDelayed(autoScrollRunnable, 3000L);
         }
     }

@@ -54,7 +54,7 @@ public final class UploadService {
             int    port = SettingsManager.getYitianPort(appCtx);
 
             YitianNfcSender.SendResult result = null;
-            for (int retry = 0; retry <= MAX_RETRIES; retry++) {
+            for (int retry = 0; retry < MAX_RETRIES; retry++) {
                 result = YitianNfcSender.sendOnce(host, port, cards);
                 if (result.isSuccess()) {
                     database.scanRecordDao().markUploaded(ids);
@@ -63,7 +63,7 @@ public final class UploadService {
                             Toast.LENGTH_SHORT).show());
                     return;
                 }
-                if (!shouldRetry(result) || retry == MAX_RETRIES) {
+                if (!shouldRetry(result) || retry == MAX_RETRIES - 1) {
                     break;
                 }
                 if (!sleepBeforeRetry(retry)) {

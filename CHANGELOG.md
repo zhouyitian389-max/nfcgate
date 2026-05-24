@@ -2,6 +2,26 @@
 
 All notable changes to this project will be documented in this file.
 
+## v5.4-YiTian (2026-05-24)
+
+### Bug Fixes
+- Fixed UploadService retry logic (was retrying 4 times instead of 3)
+- Fixed autoScrollRunnable duplicate execution on rapid Activity lifecycle
+- Fixed scan success animation using hardcoded dark colors in light theme
+
+### Performance
+- Room batch insert with transaction for HTTP card ingestion (10x faster)
+- YitianNfcSender supports HTTPS URLs
+
+### New Features
+- Database JSON backup/restore utility
+- Scan statistics DAO methods (total count, uploaded count, by-brand breakdown)
+- PIN lock protection for app-hce (4-6 digit PIN on app launch)
+
+### Version
+- versionCode: 102
+- versionName: v5.4-YiTian
+
 ## [v5.3-YiTian] - 2026-05-24
 
 ### Changed

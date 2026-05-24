@@ -45,6 +45,13 @@
     <string name="settings_port_summary">Default 8080</string>
     <string name="settings_theme">Theme</string>
     <string name="settings_haptic">Haptic feedback</string>
+    <string name="pin_verify_title">PIN Verification</string>
+    <string name="pin_verify_hint">Enter 4-6 digit PIN</string>
+    <string name="pin_verify_button">Verify</string>
+    <string name="pin_attempts_left">Attempts left: %1$d</string>
+    <string name="pin_invalid_format">PIN must be 4-6 digits</string>
+    <string name="pin_verify_failed">Incorrect PIN</string>
+    <string name="pin_verify_locked">Too many failed attempts</string>
 
     <string name="card_holder">YITIAN</string>
     <string name="masked_pan">**** **** **** %1$s</string>

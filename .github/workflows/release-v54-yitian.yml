@@ -1,10 +1,10 @@
-name: Upload APKs to v5.3-YiTian
+name: Upload APKs to v5.4-YiTian
 
 on:
   push:
     branches: [v2]
     paths:
-      - '.github/workflows/release-v53-yitian.yml'
+      - '.github/workflows/release-v54-yitian.yml'
 
 permissions:
   contents: write
@@ -34,7 +34,7 @@ jobs:
         env:
           GH_TOKEN: ${{ secrets.GITHUB_TOKEN }}
         run: |
-          TAG="v5.3-YiTian"
+          TAG="v5.4-YiTian"
           find . -name "*.apk" -path "*/build/outputs/*"
           gh release upload "$TAG" \
             app-reader/build/outputs/apk/debug/*.apk \

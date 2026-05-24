@@ -1,0 +1,47 @@
+<?xml version="1.0" encoding="utf-8"?>
+<LinearLayout xmlns:android="http://schemas.android.com/apk/res/android"
+    android:layout_width="match_parent"
+    android:layout_height="match_parent"
+    android:orientation="vertical"
+    android:padding="24dp"
+    android:gravity="center_horizontal"
+    android:background="@color/black">
+
+    <TextView
+        android:id="@+id/tv_pin_title"
+        android:layout_width="wrap_content"
+        android:layout_height="wrap_content"
+        android:text="@string/pin_verify_title"
+        android:textStyle="bold"
+        android:textSize="22sp"
+        android:textColor="@color/gold"
+        android:layout_marginBottom="20dp" />
+
+    <EditText
+        android:id="@+id/et_pin_code"
+        android:layout_width="match_parent"
+        android:layout_height="wrap_content"
+        android:hint="@string/pin_verify_hint"
+        android:inputType="numberPassword"
+        android:maxLength="6"
+        android:textColor="@color/white"
+        android:textColorHint="@color/secondary_text"
+        android:padding="12dp"
+        android:background="@android:drawable/edit_text"
+        android:layout_marginBottom="16dp" />
+
+    <com.google.android.material.button.MaterialButton
+        android:id="@+id/btn_verify_pin"
+        android:layout_width="match_parent"
+        android:layout_height="wrap_content"
+        android:text="@string/pin_verify_button"
+        android:layout_marginBottom="12dp" />
+
+    <TextView
+        android:id="@+id/tv_attempts_left"
+        android:layout_width="wrap_content"
+        android:layout_height="wrap_content"
+        android:textColor="@color/secondary_text"
+        android:textSize="14sp" />
+
+</LinearLayout>
