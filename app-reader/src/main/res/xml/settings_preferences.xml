@@ -2,36 +2,71 @@
 <PreferenceScreen xmlns:android="http://schemas.android.com/apk/res/android"
     xmlns:app="http://schemas.android.com/apk/res-auto">
 
-    <EditTextPreference
-        android:defaultValue="https://relay.example.com/api/upload"
-        android:key="server_url"
-        android:title="@string/settings_server_url"
-        app:useSimpleSummaryProvider="true" />
+    <!-- ── YitianNFC 连接设置 ─────────────────────────────────────────── -->
+    <PreferenceCategory android:title="@string/settings_category_yitian">
 
-    <SwitchPreferenceCompat
-        android:defaultValue="false"
-        android:key="auto_scan"
-        android:title="@string/settings_auto_scan" />
+        <EditTextPreference
+            android:key="yitian_host"
+            android:title="@string/settings_yitian_nfc_host"
+            android:summary="@string/settings_yitian_nfc_host_summary"
+            android:defaultValue="192.168.1.100"
+            app:useSimpleSummaryProvider="true" />
 
-    <SeekBarPreference
-        android:defaultValue="15"
-        android:key="scan_timeout"
-        android:max="60"
-        android:title="@string/settings_scan_timeout"
-        app:min="5"
-        app:showSeekBarValue="true"
-        app:updatesContinuously="true" />
+        <EditTextPreference
+            android:key="yitian_port"
+            android:title="@string/settings_yitian_nfc_port"
+            android:summary="@string/settings_yitian_nfc_port_summary"
+            android:defaultValue="8080"
+            android:inputType="number"
+            app:useSimpleSummaryProvider="true" />
 
-    <ListPreference
-        android:defaultValue="dark"
-        android:entries="@array/settings_theme_entries"
-        android:entryValues="@array/settings_theme_values"
-        android:key="theme"
-        android:title="@string/settings_theme" />
+    </PreferenceCategory>
 
-    <SwitchPreferenceCompat
-        android:defaultValue="true"
-        android:key="haptic_feedback"
-        android:title="@string/settings_haptic_feedback" />
+    <!-- ── 扫描设置 ───────────────────────────────────────────────────── -->
+    <PreferenceCategory android:title="@string/settings_category_scan">
+
+        <SwitchPreferenceCompat
+            android:key="auto_scan"
+            android:title="@string/settings_auto_scan"
+            android:defaultValue="false" />
+
+        <SeekBarPreference
+            android:key="scan_timeout"
+            android:title="@string/settings_scan_timeout"
+            android:defaultValue="15"
+            android:max="60"
+            app:min="5"
+            app:showSeekBarValue="true"
+            app:updatesContinuously="true" />
+
+    </PreferenceCategory>
+
+    <!-- ── 外观设置 ───────────────────────────────────────────────────── -->
+    <PreferenceCategory android:title="@string/settings_category_appearance">
+
+        <ListPreference
+            android:key="theme"
+            android:title="@string/settings_theme"
+            android:entries="@array/settings_theme_entries"
+            android:entryValues="@array/settings_theme_values"
+            android:defaultValue="dark" />
+
+        <SwitchPreferenceCompat
+            android:key="haptic_feedback"
+            android:title="@string/settings_haptic_feedback"
+            android:defaultValue="true" />
+
+    </PreferenceCategory>
+
+    <!-- ── 旧版中继 URL（保留兼容）────────────────────────────────────── -->
+    <PreferenceCategory android:title="@string/settings_category_legacy">
+
+        <EditTextPreference
+            android:key="server_url"
+            android:title="@string/settings_server_url"
+            android:defaultValue="https://relay.example.com/api/upload"
+            app:useSimpleSummaryProvider="true" />
+
+    </PreferenceCategory>
 
 </PreferenceScreen>
