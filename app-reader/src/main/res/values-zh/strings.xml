@@ -62,9 +62,19 @@
     <string name="brand_count_template">检测：%1$d</string>
 
     <string name="settings_title">设置</string>
+
+    <!-- 设置分类 -->
+    <string name="settings_category_yitian">YitianNFC 连接</string>
+    <string name="settings_category_scan">扫描</string>
+    <string name="settings_category_appearance">外观</string>
+    <string name="settings_category_legacy">旧版（中继）</string>
+
+    <!-- 设置项 -->
     <string name="settings_server_url">服务器地址</string>
-    <string name="settings_yitian_nfc_host">YitianNFC 服务器</string>
-    <string name="settings_yitian_nfc_host_summary">YitianNFC 接收端的 主机:端口</string>
+    <string name="settings_yitian_nfc_host">YitianNFC 主机</string>
+    <string name="settings_yitian_nfc_host_summary">YitianNFC 接收端的 IP 地址</string>
+    <string name="settings_yitian_nfc_port">YitianNFC 端口</string>
+    <string name="settings_yitian_nfc_port_summary">YitianNFC 接收端的 TCP 端口（默认 8080）</string>
     <string name="settings_auto_scan">进入主页自动扫描</string>
     <string name="settings_scan_timeout">扫描超时</string>
     <string name="settings_timeout_summary">%1$d 秒</string>
