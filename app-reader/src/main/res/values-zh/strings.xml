@@ -1,8 +1,8 @@
 <?xml version="1.0" encoding="utf-8"?>
 <resources>
-    <string name="app_name">YiTian Wallet</string>
-    <string name="wallet_title">YiTian Wallet</string>
-    <string name="author_credit">Made with ❤️ by YiTian</string>
+    <string name="app_name">YitianRead</string>
+    <string name="wallet_title">YitianRead 读卡器</string>
+    <string name="author_credit">由 YiTian 用心制作 ❤️</string>
 
     <string name="select_device">选择设备</string>
     <string name="capture_started">捕获已开始</string>
@@ -20,17 +20,25 @@
     <string name="btn_export">导出</string>
     <string name="btn_upload">上传</string>
     <string name="btn_settings">设置</string>
+    <string name="btn_send_to_yitian_nfc">发送到 YitianNFC</string>
 
     <string name="toast_no_device">未发现 NFC 设备</string>
     <string name="toast_no_history_export">没有可导出的历史记录</string>
     <string name="toast_no_history_upload">没有可上传的历史记录</string>
+    <string name="toast_no_history_send">没有可发送的卡片</string>
     <string name="toast_upload_success">已上传 %1$d 条记录</string>
     <string name="toast_upload_failed">上传失败：%1$s</string>
     <string name="toast_upload_failed_code">上传失败（HTTP %1$d）</string>
     <string name="toast_export_failed">导出失败：%1$s</string>
     <string name="toast_scan_success">刷卡成功</string>
     <string name="toast_scan_timeout">扫描超时</string>
+    <string name="toast_sent_to_yitian_nfc">已发送 %1$d 张卡到 YitianNFC</string>
+    <string name="toast_send_failed">发送失败：%1$s</string>
     <string name="export_chooser">导出扫描历史</string>
+
+    <string name="dialog_yitian_nfc_title">发送到 YitianNFC</string>
+    <string name="dialog_yitian_nfc_hint">主机:端口（例如 192.168.1.100:8080）</string>
+    <string name="dialog_yitian_nfc_send">发送</string>
 
     <string name="nav_home">首页</string>
     <string name="nav_wallet">卡包</string>
@@ -41,8 +49,8 @@
     <string name="masked_card_template">**** **** **** %1$s</string>
     <string name="unknown_pan">0000</string>
 
-    <string name="splash_name">YiTian Wallet</string>
-    <string name="about_title">关于 YiTian Wallet</string>
+    <string name="splash_name">YitianRead</string>
+    <string name="about_title">关于 YitianRead</string>
     <string name="about_version">版本：%1$s</string>
     <string name="about_github">GitHub：zhouyitian389-max</string>
     <string name="about_repo_url">https://github.com/zhouyitian389-max</string>
@@ -55,6 +63,8 @@
 
     <string name="settings_title">设置</string>
     <string name="settings_server_url">服务器地址</string>
+    <string name="settings_yitian_nfc_host">YitianNFC 服务器</string>
+    <string name="settings_yitian_nfc_host_summary">YitianNFC 接收端的 主机:端口</string>
     <string name="settings_auto_scan">进入主页自动扫描</string>
     <string name="settings_scan_timeout">扫描超时</string>
     <string name="settings_timeout_summary">%1$d 秒</string>
