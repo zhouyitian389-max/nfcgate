@@ -18,3 +18,8 @@
 
 # Keep AndroidX fragments used by manifest/activity transactions
 -keep public class * extends androidx.fragment.app.Fragment
+
+-keep class de.tu_darmstadt.seemoo.nfcgate.reader.db.** { *; }
+-keep class de.tu_darmstadt.seemoo.nfcgate.reader.model.** { *; }
+-keep class de.tu_darmstadt.seemoo.nfcgate.reader.util.CardBrandDetector { *; }
+-keep class de.tu_darmstadt.seemoo.nfcgate.reader.BuildConfig { *; }

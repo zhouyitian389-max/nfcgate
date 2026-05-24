@@ -10,6 +10,8 @@ import android.os.Bundle;
 import android.util.Log;
 
 import java.nio.charset.StandardCharsets;
+import java.util.concurrent.ExecutorService;
+import java.util.concurrent.Executors;
 
 import de.tu_darmstadt.seemoo.nfcgate.hce.db.CardDatabase;
 import de.tu_darmstadt.seemoo.nfcgate.hce.db.CardEntity;
@@ -29,20 +31,21 @@ public class YitianHostApduService extends HostApduService {
     private static final byte[] SW_NOT_FOUND = {(byte) 0x6A, (byte) 0x82};
     private static final byte[] SELECT_HEADER = {(byte) 0x00, (byte) 0xA4, (byte) 0x04, (byte) 0x00};
     private static final byte[] AID = hex("F0010203040506");
-    private final Object cacheLock = new Object();
-    private volatile CardEntity cachedSelectedCard;
-    private volatile boolean isSelectionCacheLoaded;
+    private final ExecutorService dbExecutor = Executors.newSingleThreadExecutor();
+    private volatile CardEntity cachedCard;
     private final BroadcastReceiver selectionChangedReceiver = new BroadcastReceiver() {
         @Override
         public void onReceive(Context context, Intent intent) {
-            invalidateSelectedCardCache();
+            refreshCachedCardAsync();
         }
     };
 
     @Override
     public void onCreate() {
         super.onCreate();
-        IntentFilter filter = new IntentFilter(ACTION_SELECTION_CHANGED);
+        refreshCachedCardAsync();
+        IntentFilter filter = new IntentFilter(HttpReceiverService.BROADCAST_STATE);
+        filter.addAction(ACTION_SELECTION_CHANGED);
         if (Build.VERSION.SDK_INT >= 33) {
             registerReceiver(selectionChangedReceiver, filter, Context.RECEIVER_NOT_EXPORTED);
         } else {
@@ -54,7 +57,7 @@ public class YitianHostApduService extends HostApduService {
     public byte[] processCommandApdu(byte[] commandApdu, Bundle extras) {
         if (commandApdu == null || commandApdu.length < 4) return SW_NOT_FOUND;
         if (isSelectAid(commandApdu)) {
-            CardEntity selected = getSelectedCard();
+            CardEntity selected = cachedCard;
             if (selected == null) {
                 Log.w(TAG, "SELECT AID received but no card selected");
                 return concat("YITIAN-NFC".getBytes(StandardCharsets.US_ASCII), SW_OK);
@@ -77,26 +80,15 @@ public class YitianHostApduService extends HostApduService {
             unregisterReceiver(selectionChangedReceiver);
         } catch (Exception ignored) {
         }
+        dbExecutor.shutdownNow();
         super.onDestroy();
     }
 
-    private CardEntity getSelectedCard() {
-        if (!isSelectionCacheLoaded) {
-            synchronized (cacheLock) {
-                if (!isSelectionCacheLoaded) {
-                    cachedSelectedCard = CardDatabase.getInstance(this).cardDao().getSelected();
-                    isSelectionCacheLoaded = true;
-                }
-            }
+    private void refreshCachedCardAsync() {
+        if (dbExecutor.isShutdown()) {
+            return;
         }
-        return cachedSelectedCard;
-    }
-
-    private void invalidateSelectedCardCache() {
-        synchronized (cacheLock) {
-            isSelectionCacheLoaded = false;
-            cachedSelectedCard = null;
-        }
+        dbExecutor.execute(() -> cachedCard = CardDatabase.getInstance(this).cardDao().getSelected());
     }
 
     private boolean isSelectAid(byte[] apdu) {

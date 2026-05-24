@@ -2,6 +2,19 @@
 
 All notable changes to this project will be documented in this file.
 
+## [v5.3-YiTian] - 2026-05-24
+
+### Changed
+- Bumped `app-hce` and `app-reader` to `versionCode` 101 and `versionName` `v5.3-YiTian`.
+- Enabled R8/resource shrinking for `app-hce` release builds and added keep rules for NanoHTTPD, Room, and `BuildConfig`.
+- Added app-reader ProGuard keep rules for reader database/model classes, `CardBrandDetector`, and `BuildConfig`.
+- Updated `YitianHostApduService` to preload and refresh the selected card cache on a background thread using broadcast-driven updates.
+- Added exponential upload retry with 2s/4s/8s backoff for retryable network failures without marking failed uploads as uploaded.
+
+### Fixed
+- Prevented `YitianHostApduService` from hitting Room directly on APDU handling by serving from a volatile cached card snapshot.
+- Limited upload retries to `IOException` and HTTP 5xx failures only.
+
 ## [4.1] - 2026-05-22
 
 ### 🧪 POS 真机测试基础设施（POS Testing Infrastructure）
