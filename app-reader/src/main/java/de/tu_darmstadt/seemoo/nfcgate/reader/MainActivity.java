@@ -31,6 +31,7 @@ import com.google.android.material.card.MaterialCardView;
 import com.google.android.material.tabs.TabLayout;
 import com.google.android.material.tabs.TabLayoutMediator;
 
+import java.io.BufferedWriter;
 import java.io.File;
 import java.io.FileWriter;
 import java.io.IOException;
@@ -338,26 +339,55 @@ public class MainActivity extends AppCompatActivity {
         return null;
     }
 
+    /**
+     * RFC 4180 CSV field escaping: wrap in quotes when the field contains
+     * a comma, quote, CR, or LF; double any embedded quotes.
+     */
+    private static String csvEscape(String value) {
+        if (value == null) return "";
+        boolean needsQuoting = value.indexOf(',') >= 0
+                || value.indexOf('"') >= 0
+                || value.indexOf('\n') >= 0
+                || value.indexOf('\r') >= 0;
+        String escaped = value.replace("\"", "\"\"");
+        return needsQuoting ? "\"" + escaped + "\"" : escaped;
+    }
+
     private void exportHistory() {
         List<ScanRecord> records = scanHistoryAdapter.getRecords();
         if (records.isEmpty()) {
             Toast.makeText(this, R.string.toast_no_history_export, Toast.LENGTH_SHORT).show();
             return;
         }
-        try {
-            File exportDir = new File(getCacheDir(), "exports");
-            if (!exportDir.exists()) {
-                exportDir.mkdirs();
-            }
-            File exportFile = new File(exportDir, "yitian_wallet_export.csv");
-            FileWriter writer = new FileWriter(exportFile);
-            writer.write("Time,Device,Source,Brand,PAN,Data\\n");
+        File exportDir = new File(getCacheDir(), "exports");
+        if (!exportDir.exists() && !exportDir.mkdirs()) {
+            Toast.makeText(this, getString(R.string.toast_export_failed, "mkdirs"), Toast.LENGTH_LONG).show();
+            return;
+        }
+        File exportFile = new File(exportDir, "yitian_wallet_export.csv");
+        // try-with-resources guarantees the writer is closed even on IOException.
+        try (BufferedWriter writer = new BufferedWriter(new FileWriter(exportFile))) {
+            writer.write("Time,Device,Source,Brand,PAN,Data\n");
             for (ScanRecord r : records) {
-                writer.write(String.format("%s,%s,%s,%s,%s,%s\\n",
-                        r.getFormattedDate(), r.getDeviceName(), r.getSourceType(), r.getCardBrand().name(), r.getMaskedPan(), r.getRawData()));
+                writer.write(csvEscape(r.getFormattedDate()));
+                writer.write(',');
+                writer.write(csvEscape(r.getDeviceName()));
+                writer.write(',');
+                writer.write(csvEscape(r.getSourceType()));
+                writer.write(',');
+                writer.write(csvEscape(r.getCardBrand().name()));
+                writer.write(',');
+                writer.write(csvEscape(r.getMaskedPan()));
+                writer.write(',');
+                writer.write(csvEscape(r.getRawData()));
+                writer.write('\n');
             }
-            writer.close();
+        } catch (IOException e) {
+            Toast.makeText(this, getString(R.string.toast_export_failed, e.getMessage()), Toast.LENGTH_LONG).show();
+            return;
+        }
 
+        try {
             Uri uri = FileProvider.getUriForFile(this,
                     getPackageName() + ".provider", exportFile);
             Intent intent = new Intent(Intent.ACTION_SEND);
@@ -365,7 +395,7 @@ public class MainActivity extends AppCompatActivity {
             intent.putExtra(Intent.EXTRA_STREAM, uri);
             intent.addFlags(Intent.FLAG_GRANT_READ_URI_PERMISSION);
             startActivity(Intent.createChooser(intent, getString(R.string.export_chooser)));
-        } catch (IOException e) {
+        } catch (IllegalArgumentException e) {
             Toast.makeText(this, getString(R.string.toast_export_failed, e.getMessage()), Toast.LENGTH_LONG).show();
         }
     }
