@@ -1,24 +1,17 @@
 <?xml version="1.0" encoding="utf-8"?>
 <resources>
-    <!-- Material Design 3 Primary Colors -->
-    <color name="md3_primary">#6750A4</color>
-    <color name="md3_secondary">#625B71</color>
-    <color name="md3_tertiary">#7D5260</color>
-    <color name="md3_background">#FFFBFE</color>
-    <color name="md3_surface">#FFFBFE</color>
+    <color name="black">#000000</color>
+    <color name="white">#FFFFFF</color>
+    <color name="gold">#D4AF37</color>
+    <color name="dark_surface">#1A1A1A</color>
+    <color name="secondary_text">#9E9E9E</color>
 
-    <!-- Custom NFCGate Colors -->
-    <color name="nfc_gradient_start">#6750A4</color>
-    <color name="nfc_gradient_end">#4A90E2</color>
-    <color name="card_background">#FFFFFF</color>
-    <color name="card_shadow">#1F000000</color>
-
-    <!-- Author Branding -->
-    <color name="author_text">#9C9C9C</color>
-    <color name="author_yitian">#6750A4</color>
-
-    <!-- Status Colors -->
-    <color name="status_ready">#4CAF50</color>
-    <color name="status_scanning">#FF9800</color>
+    <color name="status_ready">#66BB6A</color>
+    <color name="status_scanning">#D4AF37</color>
     <color name="status_error">#F44336</color>
+
+    <color name="author_text">#D4AF37</color>
+
+    <color name="md3_primary">#D4AF37</color>
+    <color name="md3_secondary">#1A1A1A</color>
 </resources>
