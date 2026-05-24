@@ -1,4 +1,4 @@
-name: release-v5.3-YiTian
+name: Upload APKs to v5.3-YiTian
 
 on:
   push:
@@ -10,88 +10,35 @@ permissions:
   contents: write
 
 jobs:
-  release:
+  upload:
     runs-on: ubuntu-latest
-    env:
-      GH_TOKEN: ${{ secrets.GITHUB_TOKEN }}
     steps:
-      - name: Checkout
-        uses: actions/checkout@v4
+      - uses: actions/checkout@v4
         with:
-          fetch-depth: 0
+          submodules: recursive
 
-      - name: Set up JDK 17
+      - name: Set up JDK 21
         uses: actions/setup-java@v4
         with:
           distribution: temurin
-          java-version: '17'
+          java-version: '21'
+          cache: gradle
 
-      - name: Set up Gradle
-        uses: gradle/actions/setup-gradle@v3
-        continue-on-error: true
+      - name: Grant execute permission
+        run: chmod +x ./gradlew
 
-      - name: Build APKs
-        id: build
-        continue-on-error: true
-        run: |
-          chmod +x ./gradlew || true
-          ./gradlew \
-            :app-reader:assembleRelease \
-            :app-hce:assembleRelease \
-            --no-daemon --stacktrace 2>/dev/null || \
-          ./gradlew \
-            :app-reader:assembleDebug \
-            :app-hce:assembleDebug \
-            --no-daemon --stacktrace || true
+      - name: Build debug APKs
+        run: ./gradlew :app-reader:assembleDebug :app-hce:assembleDebug --no-daemon --stacktrace
 
-      - name: Collect artifacts
-        run: |
-          mkdir -p release-assets
-          shopt -s nullglob
-          for f in \
-              app-reader/build/outputs/apk/release/*.apk \
-              app-reader/build/outputs/apk/debug/*.apk \
-              app-hce/build/outputs/apk/release/*.apk \
-              app-hce/build/outputs/apk/debug/*.apk; do
-            cp "$f" release-assets/ || true
-          done
-          echo "Artifacts:"
-          ls -la release-assets || echo "none"
-          COUNT=$(find release-assets -type f | wc -l | tr -d ' ')
-          echo "count=${COUNT}" >> "$GITHUB_OUTPUT"
-
-      - name: Create Release and upload APKs
+      - name: Upload APKs to release
+        env:
+          GH_TOKEN: ${{ secrets.GITHUB_TOKEN }}
         run: |
           TAG="v5.3-YiTian"
-          gh release view "$TAG" --repo ${{ github.repository }} > /dev/null 2>&1 || \
-            gh release create "$TAG" \
-              --repo ${{ github.repository }} \
-              --target v2 \
-              --title "NFCGate v5.3-YiTian" \
-              --latest \
-              --notes "## NFCGate v5.3-YiTian
-
-### Bug Fixes (PR #57, #58)
-- Fixed missing ic_launcher_round resources in app-hce
-- Fixed Room main thread queries in app-hce
-- Fixed CSV export line endings and RFC4180 escaping in app-reader
-- Fixed inverted black/white color values
-- Fixed HttpReceiverService null intent and API 34+ foreground type
-- Fixed USBConnection permission check and bulkTransfer return value
-- Fixed UploadService stream close and error handling
-- Fixed app-reader AndroidManifest usesCleartextTraffic
-
-### Optimizations (PR #59)
-- versionCode bumped to 101, versionName v5.3-YiTian
-- Enabled R8/ProGuard with keep rules for NanoHTTPD and Room
-- YitianHostApduService: volatile cachedCard + BroadcastReceiver refresh
-- UploadService: exponential backoff retry (3x, 2s/4s/8s, IOException/5xx only)"
-          COUNT=$(find release-assets -type f | wc -l | tr -d ' ')
-          if [ "$COUNT" -gt 0 ]; then
-            gh release upload "$TAG" release-assets/* \
-              --repo ${{ github.repository }} \
-              --clobber
-            echo "APKs uploaded: $COUNT file(s)"
-          else
-            echo "No APKs to upload - release created without assets"
-          fi
+          find . -name "*.apk" -path "*/build/outputs/*"
+          gh release upload "$TAG" \
+            app-reader/build/outputs/apk/debug/*.apk \
+            app-hce/build/outputs/apk/debug/*.apk \
+            --repo "${{ github.repository }}" \
+            --clobber
+          echo "Done - APKs uploaded to $TAG"
