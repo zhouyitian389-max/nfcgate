@@ -1,6 +1,7 @@
 package de.tu_darmstadt.seemoo.nfcgate.hce;
 
 import android.os.Bundle;
+import android.widget.Toast;
 
 import androidx.appcompat.app.AppCompatActivity;
 import androidx.preference.EditTextPreference;
@@ -25,6 +26,20 @@ public class SettingsActivity extends AppCompatActivity {
             if (port != null) {
                 port.setOnBindEditTextListener(et -> et.setInputType(
                         android.text.InputType.TYPE_CLASS_NUMBER));
+            }
+            EditTextPreference pinCode = findPreference(SplashActivity.PREF_PIN_CODE);
+            if (pinCode != null) {
+                pinCode.setOnBindEditTextListener(et -> et.setInputType(
+                        android.text.InputType.TYPE_CLASS_NUMBER
+                                | android.text.InputType.TYPE_NUMBER_VARIATION_PASSWORD));
+                pinCode.setOnPreferenceChangeListener((preference, newValue) -> {
+                    String pin = newValue == null ? "" : String.valueOf(newValue).trim();
+                    if (pin.isEmpty() || pin.matches("\\d{4,6}")) {
+                        return true;
+                    }
+                    Toast.makeText(requireContext(), R.string.pin_invalid_format, Toast.LENGTH_SHORT).show();
+                    return false;
+                });
             }
         }
     }

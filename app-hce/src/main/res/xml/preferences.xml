@@ -5,6 +5,12 @@
         android:title="@string/settings_port"
         android:summary="@string/settings_port_summary"
         android:defaultValue="8080" />
+    <EditTextPreference
+        android:key="pref_pin_code"
+        android:title="@string/settings_pin_code"
+        android:summary="@string/settings_pin_code_summary"
+        android:useSimpleSummaryProvider="true"
+        android:defaultValue="" />
     <ListPreference
         android:key="theme"
         android:title="@string/settings_theme"
