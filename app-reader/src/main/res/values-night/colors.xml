@@ -1,9 +1,17 @@
 <?xml version="1.0" encoding="utf-8"?>
 <resources>
-    <color name="md3_background">#1C1B1F</color>
-    <color name="md3_surface">#1C1B1F</color>
-    <color name="card_background">#2C2C2C</color>
-    <color name="card_shadow">#80000000</color>
-    <color name="author_text">#CCCCCC</color>
+    <color name="black">#000000</color>
+    <color name="white">#FFFFFF</color>
+    <color name="gold">#D4AF37</color>
+    <color name="dark_surface">#1A1A1A</color>
+    <color name="secondary_text">#9E9E9E</color>
+
     <color name="status_ready">#66BB6A</color>
+    <color name="status_scanning">#D4AF37</color>
+    <color name="status_error">#F44336</color>
+
+    <color name="author_text">#D4AF37</color>
+
+    <color name="md3_primary">#D4AF37</color>
+    <color name="md3_secondary">#1A1A1A</color>
 </resources>

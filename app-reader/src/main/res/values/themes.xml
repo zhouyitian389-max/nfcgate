@@ -1,6 +1,6 @@
 <?xml version="1.0" encoding="utf-8"?>
 <resources>
-    <style name="Theme.YiTianWallet" parent="Theme.MaterialComponents.NoActionBar">
+    <style name="Theme.YiTianWallet" parent="Theme.MaterialComponents.DayNight.NoActionBar">
         <item name="colorPrimary">@color/gold</item>
         <item name="colorOnPrimary">@color/black</item>
         <item name="colorSecondary">@color/gold</item>
@@ -8,4 +8,8 @@
         <item name="android:statusBarColor">@color/black</item>
         <item name="android:navigationBarColor">@color/black</item>
     </style>
+
+    <style name="Theme.YiTianWallet.Dark" parent="Theme.YiTianWallet" />
+
+    <style name="Theme.YiTianWallet.Light" parent="Theme.YiTianWallet" />
 </resources>

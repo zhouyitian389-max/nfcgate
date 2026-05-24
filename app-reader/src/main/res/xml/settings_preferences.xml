@@ -1,0 +1,37 @@
+<?xml version="1.0" encoding="utf-8"?>
+<PreferenceScreen xmlns:android="http://schemas.android.com/apk/res/android"
+    xmlns:app="http://schemas.android.com/apk/res-auto">
+
+    <EditTextPreference
+        android:defaultValue="https://relay.example.com/api/upload"
+        android:key="server_url"
+        android:title="@string/settings_server_url"
+        app:useSimpleSummaryProvider="true" />
+
+    <SwitchPreferenceCompat
+        android:defaultValue="false"
+        android:key="auto_scan"
+        android:title="@string/settings_auto_scan" />
+
+    <SeekBarPreference
+        android:defaultValue="15"
+        android:key="scan_timeout"
+        android:max="60"
+        android:title="@string/settings_scan_timeout"
+        app:min="5"
+        app:showSeekBarValue="true"
+        app:updatesContinuously="true" />
+
+    <ListPreference
+        android:defaultValue="dark"
+        android:entries="@array/settings_theme_entries"
+        android:entryValues="@array/settings_theme_values"
+        android:key="theme"
+        android:title="@string/settings_theme" />
+
+    <SwitchPreferenceCompat
+        android:defaultValue="true"
+        android:key="haptic_feedback"
+        android:title="@string/settings_haptic_feedback" />
+
+</PreferenceScreen>

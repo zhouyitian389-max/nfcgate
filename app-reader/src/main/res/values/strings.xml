@@ -12,25 +12,29 @@
     <string name="last_card_template">Last card: %1$s</string>
     <string name="no_history">No scan history yet</string>
 
-    <string name="section_nfc_status">NFC 状态</string>
-    <string name="section_history">扫描历史</string>
-    <string name="section_actions">快捷操作</string>
+    <string name="section_nfc_status">NFC Status</string>
+    <string name="section_history">Scan History</string>
+    <string name="section_actions">Quick Actions</string>
 
-    <string name="btn_start_scan">开始扫描</string>
-    <string name="btn_export">导出</string>
-    <string name="btn_upload">上传</string>
-    <string name="btn_settings">设置</string>
+    <string name="btn_start_scan">Start Scan</string>
+    <string name="btn_export">Export</string>
+    <string name="btn_upload">Upload</string>
+    <string name="btn_settings">Settings</string>
 
     <string name="toast_no_device">No NFC devices available</string>
     <string name="toast_no_history_export">No scan history to export</string>
     <string name="toast_no_history_upload">No scan history to upload</string>
-    <string name="toast_upload_queued">Upload: %1$d records queued (server not configured)</string>
+    <string name="toast_upload_success">Uploaded %1$d records</string>
+    <string name="toast_upload_failed">Upload failed: %1$s</string>
+    <string name="toast_upload_failed_code">Upload failed (HTTP %1$d)</string>
     <string name="toast_export_failed">Export failed: %1$s</string>
+    <string name="toast_scan_success">Card scanned</string>
+    <string name="toast_scan_timeout">Scan timeout reached</string>
     <string name="export_chooser">Export Scan History</string>
 
-    <string name="nav_home">首页</string>
-    <string name="nav_wallet">卡包</string>
-    <string name="nav_settings">设置</string>
+    <string name="nav_home">Home</string>
+    <string name="nav_wallet">Wallet</string>
+    <string name="nav_settings">Settings</string>
 
     <string name="card_holder">YITIAN</string>
     <string name="card_expiry">MM/YY</string>
@@ -40,9 +44,33 @@
     <string name="splash_name">YiTian Wallet</string>
     <string name="about_title">About YiTian Wallet</string>
     <string name="about_version">Version: %1$s</string>
-    <string name="about_github">GitHub: zhouyitian389-max/nfcgate</string>
+    <string name="about_github">GitHub: zhouyitian389-max</string>
+    <string name="about_repo_url">https://github.com/zhouyitian389-max</string>
     <string name="about_open_github">Open GitHub</string>
     <string name="card_list_title">Card Brands</string>
+    <string name="total_scan_count">Total scans: %1$d</string>
+    <string name="no_cards_detected">No cards detected yet</string>
+    <string name="brand_bin_range_template">BIN range: %1$s</string>
+    <string name="brand_count_template">Detected: %1$d</string>
+
+    <string name="settings_title">Settings</string>
+    <string name="settings_server_url">Server URL</string>
+    <string name="settings_auto_scan">Auto scan on home open</string>
+    <string name="settings_scan_timeout">Scan timeout</string>
+    <string name="settings_timeout_summary">%1$d seconds</string>
+    <string name="settings_theme">Theme</string>
+    <string name="settings_haptic_feedback">Haptic feedback</string>
+
+    <string-array name="settings_theme_entries">
+        <item>Dark</item>
+        <item>Light</item>
+        <item>Follow system</item>
+    </string-array>
+    <string-array name="settings_theme_values">
+        <item>dark</item>
+        <item>light</item>
+        <item>system</item>
+    </string-array>
 
     <string name="brand_unionpay">UnionPay</string>
     <string name="brand_mastercard">Mastercard</string>

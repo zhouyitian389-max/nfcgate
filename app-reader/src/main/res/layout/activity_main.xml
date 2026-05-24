@@ -33,13 +33,22 @@
             android:orientation="vertical"
             android:padding="16dp">
 
-            <androidx.recyclerview.widget.RecyclerView
-                android:id="@+id/rv_wallet_cards"
+            <androidx.viewpager2.widget.ViewPager2
+                android:id="@+id/vp_wallet_cards"
                 android:layout_width="match_parent"
                 android:layout_height="200dp"
                 android:clipToPadding="false"
-                android:paddingEnd="12dp"
-                android:paddingStart="4dp" />
+                android:paddingHorizontal="20dp" />
+
+            <com.google.android.material.tabs.TabLayout
+                android:id="@+id/tab_card_indicator"
+                android:layout_width="wrap_content"
+                android:layout_height="wrap_content"
+                android:layout_gravity="center_horizontal"
+                android:layout_marginTop="6dp"
+                app:tabIndicatorColor="@color/gold"
+                app:tabIndicatorHeight="0dp"
+                app:tabRippleColor="@android:color/transparent" />
 
             <com.google.android.material.card.MaterialCardView
                 android:id="@+id/card_nfc_status"

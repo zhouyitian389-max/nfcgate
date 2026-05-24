@@ -25,6 +25,12 @@ public class ScanHistoryAdapter extends RecyclerView.Adapter<ScanHistoryAdapter.
         notifyItemInserted(0);
     }
 
+    public void setRecords(List<ScanRecord> newRecords) {
+        records.clear();
+        records.addAll(newRecords);
+        notifyDataSetChanged();
+    }
+
     public List<ScanRecord> getRecords() {
         return new ArrayList<>(records);
     }
