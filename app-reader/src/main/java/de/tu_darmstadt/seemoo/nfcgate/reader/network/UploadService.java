@@ -21,6 +21,8 @@ import de.tu_darmstadt.seemoo.nfcgate.reader.settings.SettingsManager;
  *   { pan, brand, holder, expiry, track2 }
  */
 public final class UploadService {
+    static final int MAX_RETRIES = 3;
+    private static final long INITIAL_RETRY_DELAY_MS = 2000L;
 
     private UploadService() {}
 
@@ -51,22 +53,63 @@ public final class UploadService {
             String host = SettingsManager.getYitianHost(appCtx);
             int    port = SettingsManager.getYitianPort(appCtx);
 
-            YitianNfcSender.send(host, port, cards, new YitianNfcSender.Callback() {
-                @Override
-                public void onSuccess(int count) {
+            YitianNfcSender.SendResult result = null;
+            for (int retry = 0; retry <= MAX_RETRIES; retry++) {
+                result = YitianNfcSender.sendOnce(host, port, cards);
+                if (result.isSuccess()) {
                     database.scanRecordDao().markUploaded(ids);
                     mainHandler.post(() -> Toast.makeText(appCtx,
-                            appCtx.getString(R.string.toast_upload_success, count),
+                            appCtx.getString(R.string.toast_upload_success, cards.size()),
                             Toast.LENGTH_SHORT).show());
+                    return;
                 }
+                if (!shouldRetry(result) || retry == MAX_RETRIES) {
+                    break;
+                }
+                if (!sleepBeforeRetry(retry)) {
+                    break;
+                }
+            }
 
-                @Override
-                public void onError(String msg) {
-                    mainHandler.post(() -> Toast.makeText(appCtx,
-                            appCtx.getString(R.string.toast_upload_failed, msg),
-                            Toast.LENGTH_LONG).show());
-                }
-            });
+            String message = buildFailureMessage(result);
+            mainHandler.post(() -> Toast.makeText(appCtx,
+                    appCtx.getString(R.string.toast_upload_failed, message),
+                    Toast.LENGTH_LONG).show());
         });
+    }
+
+    static boolean shouldRetry(YitianNfcSender.SendResult result) {
+        if (result == null) {
+            return false;
+        }
+        if (result.getIoException() != null) {
+            return true;
+        }
+        int responseCode = result.getResponseCode();
+        return responseCode >= 500 && responseCode <= 599;
+    }
+
+    static long retryDelayMillis(int retry) {
+        return INITIAL_RETRY_DELAY_MS << retry;
+    }
+
+    private static boolean sleepBeforeRetry(int retry) {
+        try {
+            Thread.sleep(retryDelayMillis(retry));
+            return true;
+        } catch (InterruptedException e) {
+            Thread.currentThread().interrupt();
+            return false;
+        }
+    }
+
+    private static String buildFailureMessage(YitianNfcSender.SendResult result) {
+        if (result != null && result.getResponseCode() > 0) {
+            return "HTTP " + result.getResponseCode();
+        }
+        if (result != null && result.getErrorMessage() != null && !result.getErrorMessage().isEmpty()) {
+            return result.getErrorMessage();
+        }
+        return "Unknown error";
     }
 }

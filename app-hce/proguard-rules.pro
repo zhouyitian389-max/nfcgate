@@ -4,3 +4,7 @@
 #
 # For more details, see
 #   http://developer.android.com/guide/developing/tools/proguard.html
+
+-keep class fi.iki.elonen.** { *; }
+-keep class de.tu_darmstadt.seemoo.nfcgate.hce.db.** { *; }
+-keep class de.tu_darmstadt.seemoo.nfcgate.hce.BuildConfig { *; }
