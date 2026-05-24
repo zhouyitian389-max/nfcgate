@@ -6,6 +6,7 @@ import android.hardware.usb.UsbManager;
 
 import java.util.ArrayList;
 import java.util.List;
+import java.util.Locale;
 import java.util.Map;
 
 import de.tu_darmstadt.seemoo.nfcgate.reader.nfc.handlers.ACR122UHandler;
@@ -109,6 +110,6 @@ public class NFCManager {
     }
 
     private String toHex(int value) {
-        return String.format("%04X", value & 0xFFFF);
+        return String.format(Locale.ROOT, "%04X", value & 0xFFFF);
     }
 }

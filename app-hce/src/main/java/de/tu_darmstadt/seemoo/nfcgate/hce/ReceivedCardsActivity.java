@@ -1,6 +1,9 @@
 package de.tu_darmstadt.seemoo.nfcgate.hce;
 
+import android.content.Intent;
 import android.os.Bundle;
+import android.os.Handler;
+import android.os.Looper;
 import android.view.LayoutInflater;
 import android.view.View;
 import android.view.ViewGroup;
@@ -12,17 +15,23 @@ import androidx.appcompat.app.AppCompatActivity;
 import androidx.recyclerview.widget.LinearLayoutManager;
 import androidx.recyclerview.widget.RecyclerView;
 
+import java.util.ArrayList;
 import java.util.List;
+import java.util.concurrent.ExecutorService;
+import java.util.concurrent.Executors;
 
 import de.tu_darmstadt.seemoo.nfcgate.hce.db.CardDao;
 import de.tu_darmstadt.seemoo.nfcgate.hce.db.CardDatabase;
 import de.tu_darmstadt.seemoo.nfcgate.hce.db.CardEntity;
+import de.tu_darmstadt.seemoo.nfcgate.hce.service.YitianHostApduService;
 
 public class ReceivedCardsActivity extends AppCompatActivity {
     private RecyclerView rv;
     private TextView tvEmpty;
     private CardDao dao;
     private Adapter adapter;
+    private final Handler mainHandler = new Handler(Looper.getMainLooper());
+    private final ExecutorService dbExecutor = Executors.newSingleThreadExecutor();
 
     @Override
     protected void onCreate(Bundle savedInstanceState) {
@@ -44,15 +53,26 @@ public class ReceivedCardsActivity extends AppCompatActivity {
         adapter.reload();
     }
 
+    @Override
+    protected void onDestroy() {
+        super.onDestroy();
+        dbExecutor.shutdownNow();
+    }
+
     class Adapter extends RecyclerView.Adapter<Adapter.VH> {
-        private List<CardEntity> data;
+        private List<CardEntity> data = new ArrayList<>();
 
         void reload() {
-            data = dao.getAll();
-            notifyDataSetChanged();
-            boolean empty = data.isEmpty();
-            tvEmpty.setVisibility(empty ? View.VISIBLE : View.GONE);
-            rv.setVisibility(empty ? View.GONE : View.VISIBLE);
+            dbExecutor.execute(() -> {
+                List<CardEntity> newData = dao.getAll();
+                mainHandler.post(() -> {
+                    data = newData;
+                    notifyDataSetChanged();
+                    boolean empty = data.isEmpty();
+                    tvEmpty.setVisibility(empty ? View.VISIBLE : View.GONE);
+                    rv.setVisibility(empty ? View.GONE : View.VISIBLE);
+                });
+            });
         }
 
         @NonNull
@@ -72,17 +92,27 @@ public class ReceivedCardsActivity extends AppCompatActivity {
                     ? getString(R.string.card_holder) : c.holder);
             h.tvSelected.setVisibility(c.isSelected ? View.VISIBLE : View.GONE);
             h.itemView.setOnClickListener(v -> {
-                dao.clearSelection();
-                dao.select(c.id);
-                reload();
-                Toast.makeText(ReceivedCardsActivity.this,
-                        getString(R.string.toast_card_selected, c.last4()),
-                        Toast.LENGTH_SHORT).show();
+                dbExecutor.execute(() -> {
+                    dao.clearSelection();
+                    dao.select(c.id);
+                    mainHandler.post(() -> {
+                        sendSelectionChangedBroadcast();
+                        reload();
+                        Toast.makeText(ReceivedCardsActivity.this,
+                                getString(R.string.toast_card_selected, c.last4()),
+                                Toast.LENGTH_SHORT).show();
+                    });
+                });
             });
             h.btnDelete.setOnClickListener(v -> {
-                dao.deleteById(c.id);
-                reload();
-                Toast.makeText(ReceivedCardsActivity.this, R.string.toast_card_deleted, Toast.LENGTH_SHORT).show();
+                dbExecutor.execute(() -> {
+                    dao.deleteById(c.id);
+                    mainHandler.post(() -> {
+                        sendSelectionChangedBroadcast();
+                        reload();
+                        Toast.makeText(ReceivedCardsActivity.this, R.string.toast_card_deleted, Toast.LENGTH_SHORT).show();
+                    });
+                });
             });
         }
 
@@ -101,5 +131,11 @@ public class ReceivedCardsActivity extends AppCompatActivity {
                 btnDelete = v.findViewById(R.id.btn_delete);
             }
         }
+    }
+
+    private void sendSelectionChangedBroadcast() {
+        Intent intent = new Intent(YitianHostApduService.ACTION_SELECTION_CHANGED);
+        intent.setPackage(getPackageName());
+        sendBroadcast(intent);
     }
 }

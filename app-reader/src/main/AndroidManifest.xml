@@ -2,7 +2,6 @@
 <manifest xmlns:android="http://schemas.android.com/apk/res/android">
     <uses-feature android:name="android.hardware.usb.host" android:required="false" />
     <uses-feature android:name="android.hardware.nfc" android:required="false" />
-    <uses-permission android:name="android.permission.USB_PERMISSION" />
     <uses-permission android:name="android.permission.NFC" />
     <uses-permission android:name="android.permission.INTERNET" />
     <uses-permission android:name="android.permission.VIBRATE" />
@@ -12,6 +11,8 @@
         android:icon="@mipmap/ic_launcher"
         android:label="@string/app_name"
         android:roundIcon="@mipmap/ic_launcher_round"
+        <!-- User-configured host/port uploads may use plain HTTP on local networks. -->
+        android:usesCleartextTraffic="true"
         android:theme="@style/Theme.YiTianWallet">
 
         <activity
@@ -43,6 +44,7 @@
         <receiver
             android:name=".service.USBPermissionReceiver"
             android:exported="true">
+            <!-- Must remain exported to receive system USB attach/detach broadcasts. -->
             <intent-filter>
                 <action android:name="android.hardware.usb.action.USB_DEVICE_ATTACHED" />
                 <action android:name="android.hardware.usb.action.USB_DEVICE_DETACHED" />

@@ -8,6 +8,8 @@ import org.json.JSONObject;
 
 import java.io.IOException;
 import java.util.Map;
+import java.util.concurrent.atomic.AtomicInteger;
+import java.util.regex.Pattern;
 
 import de.tu_darmstadt.seemoo.nfcgate.hce.db.CardDatabase;
 import de.tu_darmstadt.seemoo.nfcgate.hce.db.CardEntity;
@@ -19,8 +21,9 @@ import fi.iki.elonen.NanoHTTPD;
  */
 public class YitianHttpServer extends NanoHTTPD {
     private static final String TAG = "YitianHttpServer";
+    private static final Pattern PAN_PATTERN = Pattern.compile("^\\d{8,32}$");
     private final Context appContext;
-    private volatile int receivedCount = 0;
+    private final AtomicInteger receivedCount = new AtomicInteger(0);
 
     public interface ReceiveListener {
         void onCardsReceived(int total, int newOnes);
@@ -43,33 +46,34 @@ public class YitianHttpServer extends NanoHTTPD {
         Method method = session.getMethod();
 
         if (Method.GET.equals(method) && ("/".equals(uri) || "/health".equals(uri))) {
-            return newFixedLengthResponse(Response.Status.OK, "application/json",
-                    "{\"app\":\"YitianNFC\",\"status\":\"ok\",\"received\":" + receivedCount + "}");
+            return jsonResponse(Response.Status.OK, "app", "YitianNFC", "status", "ok", "received", receivedCount.get());
         }
 
         if (Method.POST.equals(method) && "/api/cards".equals(uri)) {
             try {
+                String contentType = session.getHeaders().get("content-type");
+                if (contentType == null || !contentType.toLowerCase().startsWith("application/json")) {
+                    return jsonError(Response.Status.UNSUPPORTED_MEDIA_TYPE, "content-type must be application/json");
+                }
                 Map<String, String> files = new java.util.HashMap<>();
                 session.parseBody(files);
                 String body = files.get("postData");
                 if (body == null || body.isEmpty()) {
-                    return newFixedLengthResponse(Response.Status.BAD_REQUEST,
-                            "application/json", "{\"error\":\"empty body\"}");
+                    return jsonError(Response.Status.BAD_REQUEST, "empty body");
                 }
                 int added = ingest(body);
-                receivedCount += added;
-                if (listener != null) listener.onCardsReceived(receivedCount, added);
-                return newFixedLengthResponse(Response.Status.OK, "application/json",
-                        "{\"status\":\"ok\",\"added\":" + added + "}");
+                int total = receivedCount.addAndGet(added);
+                if (listener != null) listener.onCardsReceived(total, added);
+                return jsonResponse(Response.Status.OK, "status", "ok", "added", added);
+            } catch (IllegalArgumentException e) {
+                return jsonError(Response.Status.BAD_REQUEST, e.getMessage());
             } catch (Exception e) {
                 Log.e(TAG, "ingest failed", e);
-                return newFixedLengthResponse(Response.Status.INTERNAL_ERROR,
-                        "application/json", "{\"error\":\"" + e.getMessage() + "\"}");
+                return jsonError(Response.Status.INTERNAL_ERROR, e.getMessage() != null ? e.getMessage() : "ingest failed");
             }
         }
 
-        return newFixedLengthResponse(Response.Status.NOT_FOUND,
-                "application/json", "{\"error\":\"not found\"}");
+        return jsonError(Response.Status.NOT_FOUND, "not found");
     }
 
     private int ingest(String body) throws Exception {
@@ -80,16 +84,51 @@ public class YitianHttpServer extends NanoHTTPD {
         for (int i = 0; i < arr.length(); i++) {
             JSONObject o = arr.getJSONObject(i);
             CardEntity e = new CardEntity();
-            e.pan = o.optString("pan", "");
-            e.brand = o.optString("brand", "UNKNOWN");
-            e.holder = o.optString("holder", "");
-            e.expiry = o.optString("expiry", "");
-            e.track2 = o.optString("track2", "");
+            e.pan = sanitizePan(o.optString("pan", ""));
+            e.brand = clamp(o.optString("brand", "UNKNOWN"), 32);
+            e.holder = clamp(o.optString("holder", ""), 64);
+            e.expiry = clamp(o.optString("expiry", ""), 16);
+            e.track2 = clamp(o.optString("track2", ""), 256);
             e.receivedAt = now + i;
             e.isSelected = false;
             db.cardDao().insert(e);
             added++;
         }
         return added;
+    }
+
+    private static String sanitizePan(String pan) {
+        String normalized = pan == null ? "" : pan.trim();
+        if (normalized.isEmpty()) {
+            return "";
+        }
+        if (normalized.length() > 32 || !PAN_PATTERN.matcher(normalized).matches()) {
+            throw new IllegalArgumentException("invalid pan");
+        }
+        return normalized;
+    }
+
+    private static String clamp(String value, int maxLength) {
+        String safe = value == null ? "" : value;
+        if (safe.length() <= maxLength) {
+            return safe;
+        }
+        return safe.substring(0, maxLength);
+    }
+
+    private Response jsonError(Response.Status status, String message) {
+        return jsonResponse(status, "error", message == null ? "unknown error" : message);
+    }
+
+    private Response jsonResponse(Response.Status status, Object... kvPairs) {
+        try {
+            JSONObject response = new JSONObject();
+            for (int i = 0; i + 1 < kvPairs.length; i += 2) {
+                response.put(String.valueOf(kvPairs[i]), kvPairs[i + 1]);
+            }
+            return newFixedLengthResponse(status, "application/json", response.toString());
+        } catch (Exception e) {
+            return newFixedLengthResponse(status, "application/json", "{\"error\":\"json serialization failed\"}");
+        }
     }
 }

@@ -31,6 +31,7 @@ import com.google.android.material.card.MaterialCardView;
 import com.google.android.material.tabs.TabLayout;
 import com.google.android.material.tabs.TabLayoutMediator;
 
+import java.io.BufferedWriter;
 import java.io.File;
 import java.io.FileWriter;
 import java.io.IOException;
@@ -55,6 +56,7 @@ import de.tu_darmstadt.seemoo.nfcgate.reader.ui.ScanHistoryAdapter;
 import de.tu_darmstadt.seemoo.nfcgate.reader.util.CardBrandDetector;
 
 public class MainActivity extends AppCompatActivity {
+    private static final Pattern PAN_PATTERN = Pattern.compile("(?<!\\d)(\\d{13,19})(?!\\d)");
 
     private final Handler mainHandler = new Handler(Looper.getMainLooper());
     private final ExecutorService ioExecutor = Executors.newSingleThreadExecutor();
@@ -238,7 +240,9 @@ public class MainActivity extends AppCompatActivity {
 
         int timeoutSeconds = Math.max(5, Math.min(60, SettingsManager.getScanTimeoutSeconds(this)));
         stopCaptureRunnable = () -> {
-            nfcManager.stopCapture();
+            if (nfcManager != null) {
+                nfcManager.stopCapture();
+            }
             tvNfcStatus.setText(getString(R.string.nfc_status_ready));
             Toast.makeText(this, R.string.toast_scan_timeout, Toast.LENGTH_SHORT).show();
         };
@@ -331,7 +335,7 @@ public class MainActivity extends AppCompatActivity {
         if (rawData == null) {
             return null;
         }
-        Matcher matcher = Pattern.compile("(?<!\\d)(\\d{13,19})(?!\\d)").matcher(rawData);
+        Matcher matcher = PAN_PATTERN.matcher(rawData);
         if (matcher.find()) {
             return matcher.group(1);
         }
@@ -350,13 +354,23 @@ public class MainActivity extends AppCompatActivity {
                 exportDir.mkdirs();
             }
             File exportFile = new File(exportDir, "yitian_wallet_export.csv");
-            FileWriter writer = new FileWriter(exportFile);
-            writer.write("Time,Device,Source,Brand,PAN,Data\\n");
-            for (ScanRecord r : records) {
-                writer.write(String.format("%s,%s,%s,%s,%s,%s\\n",
-                        r.getFormattedDate(), r.getDeviceName(), r.getSourceType(), r.getCardBrand().name(), r.getMaskedPan(), r.getRawData()));
+            try (BufferedWriter writer = new BufferedWriter(new FileWriter(exportFile))) {
+                writer.write("Time,Device,Source,Brand,PAN,Data\n");
+                for (ScanRecord r : records) {
+                    writer.write(csvEscape(r.getFormattedDate()));
+                    writer.write(",");
+                    writer.write(csvEscape(r.getDeviceName()));
+                    writer.write(",");
+                    writer.write(csvEscape(r.getSourceType()));
+                    writer.write(",");
+                    writer.write(csvEscape(r.getCardBrand().name()));
+                    writer.write(",");
+                    writer.write(csvEscape(r.getMaskedPan()));
+                    writer.write(",");
+                    writer.write(csvEscape(r.getRawData()));
+                    writer.write("\n");
+                }
             }
-            writer.close();
 
             Uri uri = FileProvider.getUriForFile(this,
                     getPackageName() + ".provider", exportFile);
@@ -368,6 +382,16 @@ public class MainActivity extends AppCompatActivity {
         } catch (IOException e) {
             Toast.makeText(this, getString(R.string.toast_export_failed, e.getMessage()), Toast.LENGTH_LONG).show();
         }
+    }
+
+    private static String csvEscape(String value) {
+        if (value == null) {
+            return "";
+        }
+        if (value.contains(",") || value.contains("\"") || value.contains("\n") || value.contains("\r")) {
+            return "\"" + value.replace("\"", "\"\"") + "\"";
+        }
+        return value;
     }
 
     private void uploadHistory() {

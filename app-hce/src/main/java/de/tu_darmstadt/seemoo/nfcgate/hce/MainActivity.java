@@ -6,13 +6,19 @@ import android.content.Intent;
 import android.content.IntentFilter;
 import android.os.Build;
 import android.os.Bundle;
+import android.os.Handler;
+import android.os.Looper;
 import android.view.View;
 import android.widget.TextView;
 import android.widget.Toast;
 
 import androidx.appcompat.app.AppCompatActivity;
+import androidx.preference.PreferenceManager;
 
 import com.google.android.material.button.MaterialButton;
+
+import java.util.concurrent.ExecutorService;
+import java.util.concurrent.Executors;
 
 import de.tu_darmstadt.seemoo.nfcgate.hce.db.CardDatabase;
 import de.tu_darmstadt.seemoo.nfcgate.hce.db.CardEntity;
@@ -22,6 +28,8 @@ public class MainActivity extends AppCompatActivity {
     private TextView tvHttpStatus, tvCardCount, tvSelected, tvAuthor;
     private MaterialButton btnStart, btnStop, btnReceived, btnSettings, btnAbout;
     private boolean running = false;
+    private final Handler mainHandler = new Handler(Looper.getMainLooper());
+    private final ExecutorService dbExecutor = Executors.newSingleThreadExecutor();
 
     private final BroadcastReceiver stateReceiver = new BroadcastReceiver() {
         @Override
@@ -83,11 +91,17 @@ public class MainActivity extends AppCompatActivity {
         try { unregisterReceiver(stateReceiver); } catch (Exception ignored) {}
     }
 
+    @Override
+    protected void onDestroy() {
+        super.onDestroy();
+        dbExecutor.shutdownNow();
+    }
+
     private void startReceiver() {
         Intent i = new Intent(this, HttpReceiverService.class);
         i.setAction(HttpReceiverService.ACTION_START);
         if (Build.VERSION.SDK_INT >= Build.VERSION_CODES.O) startForegroundService(i); else startService(i);
-        Toast.makeText(this, getString(R.string.toast_started, 8080), Toast.LENGTH_SHORT).show();
+        Toast.makeText(this, getString(R.string.toast_started, getConfiguredPort()), Toast.LENGTH_SHORT).show();
     }
 
     private void stopReceiver() {
@@ -98,19 +112,35 @@ public class MainActivity extends AppCompatActivity {
     }
 
     private void refreshFromDb() {
-        int count = CardDatabase.getInstance(this).cardDao().count();
-        tvCardCount.setText(getString(R.string.status_cards, count));
-        CardEntity sel = CardDatabase.getInstance(this).cardDao().getSelected();
-        if (sel != null) {
-            tvSelected.setText(getString(R.string.status_selected,
-                    (sel.brand == null ? "" : sel.brand) + " **** " + sel.last4()));
-        } else {
-            tvSelected.setText(R.string.status_none_selected);
-        }
+        dbExecutor.execute(() -> {
+            CardDatabase database = CardDatabase.getInstance(this);
+            int count = database.cardDao().count();
+            CardEntity sel = database.cardDao().getSelected();
+            mainHandler.post(() -> {
+                tvCardCount.setText(getString(R.string.status_cards, count));
+                if (sel != null) {
+                    tvSelected.setText(getString(R.string.status_selected,
+                            (sel.brand == null ? "" : sel.brand) + " **** " + sel.last4()));
+                } else {
+                    tvSelected.setText(R.string.status_none_selected);
+                }
+            });
+        });
     }
 
     private void updateButtons() {
         btnStart.setVisibility(running ? View.GONE : View.VISIBLE);
         btnStop.setVisibility(running ? View.VISIBLE : View.GONE);
+    }
+
+    private int getConfiguredPort() {
+        String rawPort = PreferenceManager.getDefaultSharedPreferences(this).getString("server_port", "8080");
+        int resolvedPort;
+        try {
+            resolvedPort = Integer.parseInt(rawPort);
+        } catch (NumberFormatException e) {
+            return 8080;
+        }
+        return resolvedPort >= 1 && resolvedPort <= 65535 ? resolvedPort : 8080;
     }
 }

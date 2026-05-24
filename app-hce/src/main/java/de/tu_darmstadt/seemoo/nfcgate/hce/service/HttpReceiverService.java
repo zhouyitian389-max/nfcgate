@@ -6,6 +6,7 @@ import android.app.NotificationManager;
 import android.app.Service;
 import android.content.Context;
 import android.content.Intent;
+import android.content.pm.ServiceInfo;
 import android.content.SharedPreferences;
 import android.os.Build;
 import android.os.IBinder;
@@ -39,10 +40,17 @@ public class HttpReceiverService extends Service {
 
     @Override
     public int onStartCommand(Intent intent, int flags, int startId) {
-        String action = intent == null ? ACTION_START : intent.getAction();
+        String action = ACTION_START;
+        if (intent != null && intent.getAction() != null) {
+            action = intent.getAction();
+        }
         if (ACTION_STOP.equals(action)) {
             stopServer();
-            stopForeground(true);
+            if (Build.VERSION.SDK_INT >= Build.VERSION_CODES.N) {
+                stopForeground(Service.STOP_FOREGROUND_REMOVE);
+            } else {
+                stopForeground(true);
+            }
             stopSelf();
             broadcast(false, port, 0);
             return START_NOT_STICKY;
@@ -52,7 +60,12 @@ public class HttpReceiverService extends Service {
             port = Integer.parseInt(sp.getString("server_port", "8080"));
         } catch (NumberFormatException e) { port = 8080; }
         startServer();
-        startForeground(NOTIF_ID, buildNotification());
+        Notification notification = buildNotification();
+        if (Build.VERSION.SDK_INT >= Build.VERSION_CODES.UPSIDE_DOWN_CAKE) {
+            startForeground(NOTIF_ID, notification, ServiceInfo.FOREGROUND_SERVICE_TYPE_CONNECTED_DEVICE);
+        } else {
+            startForeground(NOTIF_ID, notification);
+        }
         broadcast(true, port, 0);
         return START_STICKY;
     }
