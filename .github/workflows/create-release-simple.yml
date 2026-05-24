@@ -1,0 +1,26 @@
+name: create-release-simple
+
+on:
+  push:
+    branches: [v2]
+    paths:
+      - '.github/workflows/create-release-simple.yml'
+
+permissions:
+  contents: write
+
+jobs:
+  create:
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+
+      - name: Create GitHub Release
+        env:
+          GH_TOKEN: ${{ secrets.GITHUB_TOKEN }}
+        run: |
+          TAG="v5.3-YiTian"
+          REPO="${{ github.repository }}"
+          NOTES="NFCGate v5.3-YiTian release with comprehensive bug fixes and performance optimizations. See CHANGELOG.md for details."
+          gh release create "$TAG" --repo "$REPO" --target v2 --title "NFCGate v5.3-YiTian" --latest --notes "$NOTES"
+          echo "Release created successfully"
