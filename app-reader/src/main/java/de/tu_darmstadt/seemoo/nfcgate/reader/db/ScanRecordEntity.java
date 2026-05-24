@@ -17,9 +17,13 @@ public class ScanRecordEntity {
     @PrimaryKey(autoGenerate = true)
     public long id;
 
+    @ColumnInfo(name = "deviceName")
     @NonNull public String deviceName;
+    @ColumnInfo(name = "sourceType")
     @NonNull public String sourceType;
+    @ColumnInfo(name = "rawData")
     @NonNull public String rawData;
+    @ColumnInfo(name = "cardBrand")
     @NonNull public String cardBrand;
 
     /** PAN extracted at scan time and stored directly. */
@@ -27,7 +31,9 @@ public class ScanRecordEntity {
     @ColumnInfo(name = "pan")
     public String pan;
 
+    @ColumnInfo(name = "timestamp")
     public long    timestamp;
+    @ColumnInfo(name = "uploaded")
     public boolean uploaded;
 
     public static ScanRecordEntity fromRecord(ScanRecord record) {

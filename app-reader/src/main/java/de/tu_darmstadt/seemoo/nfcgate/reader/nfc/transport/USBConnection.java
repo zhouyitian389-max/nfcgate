@@ -5,13 +5,17 @@ import android.hardware.usb.UsbDevice;
 import android.hardware.usb.UsbDeviceConnection;
 import android.hardware.usb.UsbEndpoint;
 import android.hardware.usb.UsbManager;
+import android.util.Log;
 
 import androidx.annotation.Nullable;
+
+import java.util.Arrays;
 
 import de.tu_darmstadt.seemoo.nfcgate.reader.nfc.NFCDevice;
 import de.tu_darmstadt.seemoo.nfcgate.reader.nfc.NFCSource;
 
 public class USBConnection {
+    private static final String TAG = "USBConnection";
     private final UsbManager usbManager;
     @Nullable
     private UsbDeviceConnection connection;
@@ -25,6 +29,10 @@ public class USBConnection {
     public boolean connect(UsbDevice device) {
         disconnect();
         this.device = device;
+        if (!usbManager.hasPermission(device)) {
+            Log.w(TAG, "No USB permission for device " + device.getDeviceName());
+            return false;
+        }
         this.connection = usbManager.openDevice(device);
         return connection != null;
     }
@@ -44,7 +52,7 @@ public class USBConnection {
         byte[] out = new byte[Math.max(endpoint.getMaxPacketSize(), data.length)];
         if (endpoint.getDirection() == android.hardware.usb.UsbConstants.USB_DIR_OUT) {
             int sent = connection.bulkTransfer(endpoint, data, data.length, timeout);
-            return sent >= 0 ? data : new byte[0];
+            return sent >= 0 ? Arrays.copyOf(data, sent) : new byte[0];
         }
         int read = connection.bulkTransfer(endpoint, out, out.length, timeout);
         if (read <= 0) {

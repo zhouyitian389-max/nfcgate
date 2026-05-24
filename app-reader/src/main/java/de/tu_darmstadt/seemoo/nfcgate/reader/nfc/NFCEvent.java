@@ -2,6 +2,8 @@ package de.tu_darmstadt.seemoo.nfcgate.reader.nfc;
 
 import androidx.annotation.NonNull;
 
+import java.util.Locale;
+
 public abstract class NFCEvent {
     private final NFCSource source;
 
@@ -16,7 +18,7 @@ public abstract class NFCEvent {
     private static String hex(byte[] bytes) {
         if (bytes == null) return "<null>";
         StringBuilder sb = new StringBuilder(bytes.length * 2);
-        for (byte b : bytes) sb.append(String.format("%02X", b));
+        for (byte b : bytes) sb.append(String.format(Locale.ROOT, "%02X", b));
         return sb.toString();
     }
 

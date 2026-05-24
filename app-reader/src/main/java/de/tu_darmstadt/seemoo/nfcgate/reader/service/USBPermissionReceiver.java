@@ -64,8 +64,8 @@ public class USBPermissionReceiver extends BroadcastReceiver {
         PendingIntent intent = PendingIntent.getBroadcast(
                 context,
                 0,
-                new Intent(ACTION_USB_PERMISSION),
-                PendingIntent.FLAG_IMMUTABLE
+                new Intent(ACTION_USB_PERMISSION).setPackage(context.getPackageName()),
+                PendingIntent.FLAG_IMMUTABLE | PendingIntent.FLAG_UPDATE_CURRENT
         );
         usbManager.requestPermission(device, intent);
     }

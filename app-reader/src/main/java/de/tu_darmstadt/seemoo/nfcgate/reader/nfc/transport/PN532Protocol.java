@@ -5,6 +5,8 @@ import android.hardware.usb.UsbEndpoint;
 
 import androidx.annotation.Nullable;
 
+import java.util.Locale;
+
 public class PN532Protocol {
     private static final byte PREAMBLE = 0x00;
     private static final byte START_CODE_1 = 0x00;
@@ -118,7 +120,7 @@ public class PN532Protocol {
     private static String bytesToHex(byte[] data) {
         StringBuilder sb = new StringBuilder(data.length * 2);
         for (byte b : data) {
-            sb.append(String.format("%02X", b));
+            sb.append(String.format(Locale.ROOT, "%02X", b));
         }
         return sb.toString();
     }

@@ -20,7 +20,7 @@ public abstract class CardDatabase extends RoomDatabase {
                             context.getApplicationContext(),
                             CardDatabase.class,
                             "yitian_nfc.db"
-                    ).allowMainThreadQueries().fallbackToDestructiveMigration().build();
+                    ).fallbackToDestructiveMigration().build();
                 }
             }
         }
