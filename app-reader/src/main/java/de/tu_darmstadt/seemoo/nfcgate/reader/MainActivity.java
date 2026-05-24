@@ -5,9 +5,9 @@ import android.widget.TextView;
 import android.widget.Toast;
 
 import androidx.appcompat.app.AppCompatActivity;
+import androidx.appcompat.widget.Toolbar;
 import androidx.recyclerview.widget.RecyclerView;
 
-import com.google.android.material.appbarLayout.MaterialToolbar;
 import com.google.android.material.bottomnavigation.BottomNavigationView;
 import com.google.android.material.button.MaterialButton;
 import com.google.android.material.card.MaterialCardView;
@@ -24,7 +24,7 @@ public class MainActivity extends AppCompatActivity {
     private NFCDevice selectedDevice;
 
     // Views
-    private MaterialToolbar toolbar;
+    private Toolbar toolbar;
     private MaterialCardView cardNfcStatus;
     private MaterialCardView cardScanHistory;
     private MaterialCardView cardQuickActions;
