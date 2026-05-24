@@ -57,6 +57,8 @@ jobs:
           done
           echo "Artifacts:"
           ls -la release-assets || echo "none"
+          COUNT=$(find release-assets -type f | wc -l | tr -d ' ')
+          echo "count=${COUNT}" >> "$GITHUB_OUTPUT"
 
       - name: Create Release and upload APKs
         run: |
@@ -69,7 +71,7 @@ jobs:
               --latest \
               --notes "## NFCGate v5.3-YiTian
 
-### 🔧 Bug Fixes (PR #57, #58)
+### Bug Fixes (PR #57, #58)
 - Fixed missing ic_launcher_round resources in app-hce
 - Fixed Room main thread queries in app-hce
 - Fixed CSV export line endings and RFC4180 escaping in app-reader
@@ -79,18 +81,17 @@ jobs:
 - Fixed UploadService stream close and error handling
 - Fixed app-reader AndroidManifest usesCleartextTraffic
 
-### ⚡ Optimizations (PR #59)
+### Optimizations (PR #59)
 - versionCode bumped to 101, versionName v5.3-YiTian
 - Enabled R8/ProGuard with keep rules for NanoHTTPD and Room
 - YitianHostApduService: volatile cachedCard + BroadcastReceiver refresh
-- UploadService: exponential backoff retry (3x, 2s/4s/8s, IOException/5xx only)
-
-**Full Changelog**: https://github.com/zhouyitian389-max/nfcgate/compare/off-v5.0Yitian...v5.3-YiTian"
-          if [ "\$(find release-assets -type f | wc -l)" -gt 0 ]; then
+- UploadService: exponential backoff retry (3x, 2s/4s/8s, IOException/5xx only)"
+          COUNT=$(find release-assets -type f | wc -l | tr -d ' ')
+          if [ "$COUNT" -gt 0 ]; then
             gh release upload "$TAG" release-assets/* \
               --repo ${{ github.repository }} \
               --clobber
-            echo "✅ APKs uploaded"
+            echo "APKs uploaded: $COUNT file(s)"
           else
-            echo "⚠️ No APKs to upload"
+            echo "No APKs to upload - release created without assets"
           fi
