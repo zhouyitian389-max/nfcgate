@@ -6,6 +6,8 @@ import android.util.Log;
 import org.json.JSONArray;
 import org.json.JSONObject;
 
+import java.util.ArrayList;
+import java.util.List;
 import java.io.IOException;
 import java.util.Map;
 import java.util.concurrent.atomic.AtomicInteger;
@@ -79,8 +81,8 @@ public class YitianHttpServer extends NanoHTTPD {
     private int ingest(String body) throws Exception {
         JSONArray arr = new JSONArray(body);
         CardDatabase db = CardDatabase.getInstance(appContext);
-        int added = 0;
         long now = System.currentTimeMillis();
+        List<CardEntity> entities = new ArrayList<>(arr.length());
         for (int i = 0; i < arr.length(); i++) {
             JSONObject o = arr.getJSONObject(i);
             CardEntity e = new CardEntity();
@@ -91,10 +93,13 @@ public class YitianHttpServer extends NanoHTTPD {
             e.track2 = clamp(o.optString("track2", ""), 256);
             e.receivedAt = now + i;
             e.isSelected = false;
-            db.cardDao().insert(e);
-            added++;
+            entities.add(e);
         }
-        return added;
+        if (entities.isEmpty()) {
+            return 0;
+        }
+        db.runInTransaction(() -> db.cardDao().insertAll(entities));
+        return entities.size();
     }
 
     private static String sanitizePan(String pan) {

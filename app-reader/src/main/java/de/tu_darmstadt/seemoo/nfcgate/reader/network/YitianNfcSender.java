@@ -13,8 +13,8 @@ import java.nio.charset.StandardCharsets;
 import java.util.List;
 
 /**
- * Sends scanned card records to a remote YitianNFC instance over HTTP.
- * Endpoint: POST http://<host>:<port>/api/cards
+ * Sends scanned card records to a remote YitianNFC instance over HTTP/HTTPS.
+ * Endpoint: POST <host>/api/cards
  * Body: JSON array of {pan, brand, holder, expiry, track2}
  */
 public class YitianNfcSender {
@@ -104,11 +104,11 @@ public class YitianNfcSender {
     static SendResult sendOnce(final String host, final int port, final List<CardData> cards) {
         HttpURLConnection conn = null;
         try {
-            URL url = new URL("http://" + host + ":" + port + "/api/cards");
+            URL url = buildUploadUrl(host, port);
             conn = (HttpURLConnection) url.openConnection();
             conn.setRequestMethod("POST");
             conn.setRequestProperty("Content-Type", "application/json; charset=utf-8");
-            conn.setRequestProperty("User-Agent", "YitianRead/v5.3-YiTian");
+            conn.setRequestProperty("User-Agent", "YitianRead/v5.4-YiTian");
             conn.setDoOutput(true);
             conn.setConnectTimeout(5000);
             conn.setReadTimeout(10000);
@@ -143,5 +143,19 @@ public class YitianNfcSender {
                 conn.disconnect();
             }
         }
+    }
+
+    static URL buildUploadUrl(String host, int port) throws IOException {
+        String normalizedHost = host == null ? "" : host.trim();
+        String baseUrl;
+        if (normalizedHost.startsWith("http://") || normalizedHost.startsWith("https://")) {
+            baseUrl = normalizedHost;
+        } else {
+            baseUrl = "http://" + normalizedHost + ":" + port;
+        }
+        if (baseUrl.endsWith("/")) {
+            baseUrl = baseUrl.substring(0, baseUrl.length() - 1);
+        }
+        return new URL(baseUrl + "/api/cards");
     }
 }

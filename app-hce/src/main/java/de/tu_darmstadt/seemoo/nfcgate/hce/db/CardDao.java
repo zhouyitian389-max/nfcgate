@@ -11,6 +11,9 @@ public interface CardDao {
     @Insert
     long insert(CardEntity card);
 
+    @Insert
+    void insertAll(List<CardEntity> cards);
+
     @Query("SELECT * FROM cards ORDER BY received_at DESC")
     List<CardEntity> getAll();
 
