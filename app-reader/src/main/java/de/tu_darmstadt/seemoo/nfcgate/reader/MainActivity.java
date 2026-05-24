@@ -34,7 +34,6 @@ public class MainActivity extends AppCompatActivity {
     private NFCDevice selectedDevice;
     private ScanHistoryAdapter scanHistoryAdapter;
 
-    // Views
     private Toolbar toolbar;
     private MaterialCardView cardNfcStatus;
     private MaterialCardView cardScanHistory;
@@ -54,34 +53,27 @@ public class MainActivity extends AppCompatActivity {
         super.onCreate(savedInstanceState);
         setContentView(R.layout.activity_main);
 
-        // Toolbar
         toolbar = findViewById(R.id.toolbar);
         setSupportActionBar(toolbar);
 
-        // NFC Manager
         nfcManager = new NFCManager(this);
 
-        // Card Views
         cardNfcStatus    = findViewById(R.id.card_nfc_status);
         cardScanHistory  = findViewById(R.id.card_scan_history);
         cardQuickActions = findViewById(R.id.card_quick_actions);
 
-        // Text Views
         tvNfcStatus    = findViewById(R.id.tv_nfc_status);
         tvLastCard     = findViewById(R.id.tv_last_card);
         tvHistoryEmpty = findViewById(R.id.tv_history_empty);
 
-        // Buttons
         btnStartScan = findViewById(R.id.btn_start_scan);
         btnExport    = findViewById(R.id.btn_export);
         btnUpload    = findViewById(R.id.btn_upload);
         btnSettings  = findViewById(R.id.btn_settings);
 
-        // RecyclerView
         rvScanHistory = findViewById(R.id.rv_scan_history);
         setupRecyclerView();
 
-        // Bottom Navigation
         bottomNav = findViewById(R.id.bottom_nav);
 
         setupButtons();
@@ -137,12 +129,10 @@ public class MainActivity extends AppCompatActivity {
             String source     = selectedDevice.getSource().name();
             String rawData    = event != null ? event.toString() : "No data";
 
-            // Add to history
             ScanRecord record = new ScanRecord(deviceName, source, rawData);
             scanHistoryAdapter.addRecord(record);
 
-            // Update UI
-            tvLastCard.setText(getString(R.string.last_card_none) + " " + deviceName);
+            tvLastCard.setText("Last Card: " + deviceName);
             tvHistoryEmpty.setVisibility(View.GONE);
             rvScanHistory.setVisibility(View.VISIBLE);
 
@@ -150,7 +140,6 @@ public class MainActivity extends AppCompatActivity {
         }));
     }
 
-    // ─── Export ────────────────────────────────────────────────────────────────
     private void exportHistory() {
         List<ScanRecord> records = scanHistoryAdapter.getRecords();
         if (records.isEmpty()) {
@@ -158,7 +147,9 @@ public class MainActivity extends AppCompatActivity {
             return;
         }
         try {
-            File exportFile = new File(getCacheDir(), "nfcgate_export.csv");
+            File exportDir = new File(getCacheDir(), "exports");
+            if (!exportDir.exists()) exportDir.mkdirs();
+            File exportFile = new File(exportDir, "nfcgate_export.csv");
             FileWriter writer = new FileWriter(exportFile);
             writer.write("Time,Device,Source,Data\n");
             for (ScanRecord r : records) {
@@ -179,24 +170,20 @@ public class MainActivity extends AppCompatActivity {
         }
     }
 
-    // ─── Upload ────────────────────────────────────────────────────────────────
     private void uploadHistory() {
         List<ScanRecord> records = scanHistoryAdapter.getRecords();
         if (records.isEmpty()) {
             Toast.makeText(this, "No scan history to upload", Toast.LENGTH_SHORT).show();
             return;
         }
-        // TODO: connect to real server endpoint
         Toast.makeText(this, "Upload: " + records.size() + " records queued (server not configured)",
                 Toast.LENGTH_LONG).show();
     }
 
-    // ─── Settings ──────────────────────────────────────────────────────────────
     private void openSettings() {
         Toast.makeText(this, "Settings screen coming soon", Toast.LENGTH_SHORT).show();
     }
 
-    // ─── Data Tab ──────────────────────────────────────────────────────────────
     private void showDataTab() {
         List<ScanRecord> records = scanHistoryAdapter.getRecords();
         Toast.makeText(this, records.size() + " scan records total", Toast.LENGTH_SHORT).show();

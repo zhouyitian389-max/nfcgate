@@ -1,5 +1,7 @@
 package de.tu_darmstadt.seemoo.nfcgate.reader.nfc;
 
+import androidx.annotation.NonNull;
+
 public abstract class NFCEvent {
     private final NFCSource source;
 
@@ -9,6 +11,13 @@ public abstract class NFCEvent {
 
     public NFCSource getSource() {
         return source;
+    }
+
+    private static String hex(byte[] bytes) {
+        if (bytes == null) return "<null>";
+        StringBuilder sb = new StringBuilder(bytes.length * 2);
+        for (byte b : bytes) sb.append(String.format("%02X", b));
+        return sb.toString();
     }
 
     public static class CardDetected extends NFCEvent {
@@ -23,16 +32,14 @@ public abstract class NFCEvent {
             this.timestamp = timestamp;
         }
 
-        public String getType() {
-            return type;
-        }
+        public String getType()      { return type; }
+        public byte[] getUid()       { return uid; }
+        public long getTimestamp()   { return timestamp; }
 
-        public byte[] getUid() {
-            return uid;
-        }
-
-        public long getTimestamp() {
-            return timestamp;
+        @NonNull
+        @Override
+        public String toString() {
+            return "Card[" + type + "] UID=" + hex(uid);
         }
     }
 
@@ -46,12 +53,13 @@ public abstract class NFCEvent {
             this.response = response;
         }
 
-        public byte[] getApdu() {
-            return apdu;
-        }
+        public byte[] getApdu()     { return apdu; }
+        public byte[] getResponse() { return response; }
 
-        public byte[] getResponse() {
-            return response;
+        @NonNull
+        @Override
+        public String toString() {
+            return "APDU=" + hex(apdu) + " -> " + hex(response);
         }
     }
 
@@ -65,12 +73,13 @@ public abstract class NFCEvent {
             this.data = data;
         }
 
-        public int getBlockNum() {
-            return blockNum;
-        }
+        public int getBlockNum() { return blockNum; }
+        public byte[] getData()  { return data; }
 
-        public byte[] getData() {
-            return data;
+        @NonNull
+        @Override
+        public String toString() {
+            return "MIFARE blk#" + blockNum + "=" + hex(data);
         }
     }
 
@@ -82,8 +91,12 @@ public abstract class NFCEvent {
             this.message = message;
         }
 
-        public String getMessage() {
-            return message;
+        public String getMessage() { return message; }
+
+        @NonNull
+        @Override
+        public String toString() {
+            return "Error: " + message;
         }
     }
 }
