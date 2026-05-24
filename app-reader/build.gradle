@@ -12,9 +12,7 @@ if (keystorePropertiesFile.exists()) {
 android {
     namespace 'de.tu_darmstadt.seemoo.nfcgate.reader'
 
-    compileSdk {
-        version = release(35)
-    }
+    compileSdk 35
     ndkVersion '28.2.13676358'
 
     compileOptions {
@@ -26,8 +24,8 @@ android {
         applicationId 'yitian.read'
         minSdkVersion 21
         targetSdkVersion 35
-        versionCode 101
-        versionName 'v5.3-YiTian'
+        versionCode 102
+        versionName 'v5.4-YiTian'
         testInstrumentationRunner "androidx.test.runner.AndroidJUnitRunner"
     }
 

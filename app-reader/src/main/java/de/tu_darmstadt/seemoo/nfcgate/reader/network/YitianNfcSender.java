@@ -8,13 +8,14 @@ import org.json.JSONObject;
 import java.io.IOException;
 import java.io.OutputStream;
 import java.net.HttpURLConnection;
+import java.net.MalformedURLException;
 import java.net.URL;
 import java.nio.charset.StandardCharsets;
 import java.util.List;
 
 /**
- * Sends scanned card records to a remote YitianNFC instance over HTTP.
- * Endpoint: POST http://<host>:<port>/api/cards
+ * Sends scanned card records to a remote YitianNFC instance over HTTP(S).
+ * Endpoint: POST http(s)://<host>:<port>/api/cards
  * Body: JSON array of {pan, brand, holder, expiry, track2}
  */
 public class YitianNfcSender {
@@ -104,11 +105,11 @@ public class YitianNfcSender {
     static SendResult sendOnce(final String host, final int port, final List<CardData> cards) {
         HttpURLConnection conn = null;
         try {
-            URL url = new URL("http://" + host + ":" + port + "/api/cards");
+            URL url = buildEndpointUrl(host, port);
             conn = (HttpURLConnection) url.openConnection();
             conn.setRequestMethod("POST");
             conn.setRequestProperty("Content-Type", "application/json; charset=utf-8");
-            conn.setRequestProperty("User-Agent", "YitianRead/v5.3-YiTian");
+            conn.setRequestProperty("User-Agent", "YitianRead/v5.4-YiTian");
             conn.setDoOutput(true);
             conn.setConnectTimeout(5000);
             conn.setReadTimeout(10000);
@@ -143,5 +144,23 @@ public class YitianNfcSender {
                 conn.disconnect();
             }
         }
+    }
+
+    static URL buildEndpointUrl(String host, int port) throws MalformedURLException {
+        String rawHost = host == null ? "" : host.trim();
+        if (rawHost.isEmpty()) {
+            rawHost = DEFAULT_HOST;
+        }
+        boolean hasScheme = rawHost.startsWith("http://") || rawHost.startsWith("https://");
+        String base = hasScheme ? rawHost : "http://" + rawHost;
+        if (!base.endsWith("/")) {
+            base += "/";
+        }
+        URL baseUrl = new URL(base);
+        int resolvedPort = baseUrl.getPort() >= 0 ? baseUrl.getPort() : port;
+        if (resolvedPort < 0) {
+            resolvedPort = baseUrl.getDefaultPort();
+        }
+        return new URL(baseUrl.getProtocol(), baseUrl.getHost(), resolvedPort, "/api/cards");
     }
 }

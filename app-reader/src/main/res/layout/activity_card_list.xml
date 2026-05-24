@@ -14,33 +14,10 @@
         app:title="@string/card_list_title"
         app:titleTextColor="@color/gold" />
 
-    <TextView
-        android:id="@+id/tv_total_count"
-        android:layout_width="match_parent"
-        android:layout_height="wrap_content"
-        android:layout_marginHorizontal="16dp"
-        android:layout_marginTop="12dp"
-        android:textColor="@color/white"
-        android:textSize="14sp"
-        android:textStyle="bold" />
-
-    <androidx.recyclerview.widget.RecyclerView
-        android:id="@+id/rv_cards"
+    <FrameLayout
+        android:id="@+id/stats_container"
         android:layout_width="match_parent"
         android:layout_height="0dp"
-        android:layout_weight="1"
-        android:layout_marginTop="10dp"
-        android:paddingHorizontal="16dp" />
-
-    <TextView
-        android:id="@+id/tv_empty"
-        android:layout_width="wrap_content"
-        android:layout_height="wrap_content"
-        android:layout_gravity="center_horizontal"
-        android:layout_marginBottom="20dp"
-        android:text="@string/no_cards_detected"
-        android:textColor="@color/secondary_text"
-        android:textSize="13sp"
-        android:visibility="gone" />
+        android:layout_weight="1" />
 
 </LinearLayout>

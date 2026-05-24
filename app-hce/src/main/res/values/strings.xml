@@ -40,6 +40,13 @@
     <string name="about_description">YitianNFC receives card data over HTTP from YitianRead and emulates it via NFC HCE.</string>
     <string name="about_author">Author: YiTian</string>
     <string name="about_github">https://github.com/zhouyitian389-max</string>
+    <string name="pin_lock_title">PIN Lock</string>
+    <string name="pin_lock_set_message">Create a 4-6 digit PIN to protect stored cards</string>
+    <string name="pin_lock_enter_message">Enter your 4-6 digit PIN</string>
+    <string name="pin_lock_hint">PIN</string>
+    <string name="pin_lock_confirm">Continue</string>
+    <string name="pin_lock_error_length">PIN must be 4-6 digits</string>
+    <string name="pin_lock_error_mismatch">Incorrect PIN</string>
 
     <string name="settings_port">HTTP server port</string>
     <string name="settings_port_summary">Default 8080</string>

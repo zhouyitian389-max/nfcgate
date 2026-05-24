@@ -57,6 +57,10 @@
     <string name="about_open_github">Open GitHub</string>
     <string name="card_list_title">Card Brands</string>
     <string name="total_scan_count">Total scans: %1$d</string>
+    <string name="upload_success_rate">Upload success rate: %1$s</string>
+    <string name="recent_trend_title">Last 7 days</string>
+    <string name="recent_trend_format">%1$s · %2$d scans</string>
+    <string name="upload_rate_empty">0%% (0/0)</string>
     <string name="no_cards_detected">No cards detected yet</string>
     <string name="brand_bin_range_template">BIN range: %1$s</string>
     <string name="brand_count_template">Detected: %1$d</string>
@@ -72,7 +76,7 @@
     <!-- Settings keys -->
     <string name="settings_server_url">Server URL</string>
     <string name="settings_yitian_nfc_host">YitianNFC Host</string>
-    <string name="settings_yitian_nfc_host_summary">IP address of the YitianNFC receiver</string>
+    <string name="settings_yitian_nfc_host_summary">IP address or full http(s):// host of the YitianNFC receiver</string>
     <string name="settings_yitian_nfc_port">YitianNFC Port</string>
     <string name="settings_yitian_nfc_port_summary">TCP port of the YitianNFC receiver (default 8080)</string>
     <string name="settings_auto_scan">Auto scan on home open</string>

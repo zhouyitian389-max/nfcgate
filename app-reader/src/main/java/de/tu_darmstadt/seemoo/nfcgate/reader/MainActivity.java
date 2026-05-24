@@ -25,6 +25,7 @@ import androidx.viewpager2.widget.CompositePageTransformer;
 import androidx.viewpager2.widget.MarginPageTransformer;
 import androidx.viewpager2.widget.ViewPager2;
 
+import com.google.android.material.color.MaterialColors;
 import com.google.android.material.bottomnavigation.BottomNavigationView;
 import com.google.android.material.button.MaterialButton;
 import com.google.android.material.card.MaterialCardView;
@@ -54,6 +55,7 @@ import de.tu_darmstadt.seemoo.nfcgate.reader.ui.CardPagerAdapter;
 import de.tu_darmstadt.seemoo.nfcgate.reader.ui.DeviceSelector;
 import de.tu_darmstadt.seemoo.nfcgate.reader.ui.ScanHistoryAdapter;
 import de.tu_darmstadt.seemoo.nfcgate.reader.util.CardBrandDetector;
+import de.tu_darmstadt.seemoo.nfcgate.reader.util.DatabaseBackupHelper;
 
 public class MainActivity extends AppCompatActivity {
     private static final Pattern PAN_PATTERN = Pattern.compile("(?<!\\d)(\\d{13,19})(?!\\d)");
@@ -287,10 +289,13 @@ public class MainActivity extends AppCompatActivity {
     }
 
     private void animateScanSuccess() {
+        int surfaceColor = cardNfcStatus.getCardBackgroundColor() != null
+                ? cardNfcStatus.getCardBackgroundColor().getDefaultColor()
+                : MaterialColors.getColor(cardNfcStatus, com.google.android.material.R.attr.colorSurface);
         ValueAnimator animator = ValueAnimator.ofArgb(
-                ContextCompat.getColor(this, R.color.dark_surface),
+                surfaceColor,
                 ContextCompat.getColor(this, R.color.gold),
-                ContextCompat.getColor(this, R.color.dark_surface));
+                surfaceColor);
         animator.setDuration(500L);
         animator.addUpdateListener(a -> cardNfcStatus.setCardBackgroundColor((Integer) a.getAnimatedValue()));
         animator.start();
@@ -343,45 +348,56 @@ public class MainActivity extends AppCompatActivity {
     }
 
     private void exportHistory() {
-        List<ScanRecord> records = scanHistoryAdapter.getRecords();
+        List<ScanRecord> records = new ArrayList<>(scanHistoryAdapter.getRecords());
         if (records.isEmpty()) {
             Toast.makeText(this, R.string.toast_no_history_export, Toast.LENGTH_SHORT).show();
             return;
         }
-        try {
-            File exportDir = new File(getCacheDir(), "exports");
-            if (!exportDir.exists()) {
-                exportDir.mkdirs();
-            }
-            File exportFile = new File(exportDir, "yitian_wallet_export.csv");
-            try (BufferedWriter writer = new BufferedWriter(new FileWriter(exportFile))) {
-                writer.write("Time,Device,Source,Brand,PAN,Data\n");
-                for (ScanRecord r : records) {
-                    writer.write(csvEscape(r.getFormattedDate()));
-                    writer.write(",");
-                    writer.write(csvEscape(r.getDeviceName()));
-                    writer.write(",");
-                    writer.write(csvEscape(r.getSourceType()));
-                    writer.write(",");
-                    writer.write(csvEscape(r.getCardBrand().name()));
-                    writer.write(",");
-                    writer.write(csvEscape(r.getMaskedPan()));
-                    writer.write(",");
-                    writer.write(csvEscape(r.getRawData()));
-                    writer.write("\n");
+        ioExecutor.execute(() -> {
+            try {
+                File exportDir = new File(getCacheDir(), "exports");
+                if (!exportDir.exists()) {
+                    exportDir.mkdirs();
                 }
+                File exportFile = new File(exportDir, "yitian_wallet_export.csv");
+                try (BufferedWriter writer = new BufferedWriter(new FileWriter(exportFile))) {
+                    writer.write("Time,Device,Source,Brand,PAN,Data\n");
+                    for (ScanRecord r : records) {
+                        writer.write(csvEscape(r.getFormattedDate()));
+                        writer.write(",");
+                        writer.write(csvEscape(r.getDeviceName()));
+                        writer.write(",");
+                        writer.write(csvEscape(r.getSourceType()));
+                        writer.write(",");
+                        writer.write(csvEscape(r.getCardBrand().name()));
+                        writer.write(",");
+                        writer.write(csvEscape(r.getMaskedPan()));
+                        writer.write(",");
+                        writer.write(csvEscape(r.getRawData()));
+                        writer.write("\n");
+                    }
+                }
+                File backupFile = DatabaseBackupHelper.exportToJson(appDatabase, exportDir);
+                mainHandler.post(() -> {
+                    Uri csvUri = FileProvider.getUriForFile(this,
+                            getPackageName() + ".provider", exportFile);
+                    Uri backupUri = FileProvider.getUriForFile(this,
+                            getPackageName() + ".provider", backupFile);
+                    ArrayList<Uri> uris = new ArrayList<>();
+                    uris.add(csvUri);
+                    uris.add(backupUri);
+                    Intent intent = new Intent(Intent.ACTION_SEND_MULTIPLE);
+                    intent.setType("*/*");
+                    intent.putParcelableArrayListExtra(Intent.EXTRA_STREAM, uris);
+                    intent.addFlags(Intent.FLAG_GRANT_READ_URI_PERMISSION);
+                    startActivity(Intent.createChooser(intent, getString(R.string.export_chooser)));
+                });
+            } catch (IOException e) {
+                mainHandler.post(() -> Toast.makeText(this,
+                        getString(R.string.toast_export_failed, e.getMessage()),
+                        Toast.LENGTH_LONG).show());
             }
-
-            Uri uri = FileProvider.getUriForFile(this,
-                    getPackageName() + ".provider", exportFile);
-            Intent intent = new Intent(Intent.ACTION_SEND);
-            intent.setType("text/csv");
-            intent.putExtra(Intent.EXTRA_STREAM, uri);
-            intent.addFlags(Intent.FLAG_GRANT_READ_URI_PERMISSION);
-            startActivity(Intent.createChooser(intent, getString(R.string.export_chooser)));
-        } catch (IOException e) {
-            Toast.makeText(this, getString(R.string.toast_export_failed, e.getMessage()), Toast.LENGTH_LONG).show();
-        }
+        });
     }
 
     private static String csvEscape(String value) {
@@ -424,6 +440,7 @@ public class MainActivity extends AppCompatActivity {
     protected void onResume() {
         super.onResume();
         if (autoScrollRunnable != null) {
+            mainHandler.removeCallbacks(autoScrollRunnable);
             mainHandler.postDelayed(autoScrollRunnable, 3000L);
         }
     }

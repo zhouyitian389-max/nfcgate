@@ -7,6 +7,8 @@ import org.json.JSONArray;
 import org.json.JSONObject;
 
 import java.io.IOException;
+import java.util.ArrayList;
+import java.util.List;
 import java.util.Map;
 import java.util.concurrent.atomic.AtomicInteger;
 import java.util.regex.Pattern;
@@ -79,8 +81,8 @@ public class YitianHttpServer extends NanoHTTPD {
     private int ingest(String body) throws Exception {
         JSONArray arr = new JSONArray(body);
         CardDatabase db = CardDatabase.getInstance(appContext);
-        int added = 0;
         long now = System.currentTimeMillis();
+        List<CardEntity> cards = new ArrayList<>(arr.length());
         for (int i = 0; i < arr.length(); i++) {
             JSONObject o = arr.getJSONObject(i);
             CardEntity e = new CardEntity();
@@ -91,10 +93,13 @@ public class YitianHttpServer extends NanoHTTPD {
             e.track2 = clamp(o.optString("track2", ""), 256);
             e.receivedAt = now + i;
             e.isSelected = false;
-            db.cardDao().insert(e);
-            added++;
+            cards.add(e);
         }
-        return added;
+        if (cards.isEmpty()) {
+            return 0;
+        }
+        db.runInTransaction(() -> db.cardDao().insertAll(cards));
+        return cards.size();
     }
 
     private static String sanitizePan(String pan) {

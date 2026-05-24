@@ -2,6 +2,21 @@
 
 All notable changes to this project will be documented in this file.
 
+## [v5.4-YiTian] - 2026-05-24
+
+### Added
+- Added HTTPS-aware YitianRead uploads, JSON database backup/export support, a stats fragment entry point for reader scan analytics, and PIN-gated launch protection for YitianNFC.
+
+### Changed
+- Bumped `app-hce` and `app-reader` to `versionCode` 102 and `versionName` `v5.4-YiTian`.
+- Switched HCE card ingestion to transactional batch inserts for better large-import performance and atomicity.
+
+### Fixed
+- Restored standard `compileSdk 35` Gradle DSL usage in both Android app modules.
+- Corrected upload retry bounds to honor exactly three attempts.
+- Hardened the exported USB receiver with `android.permission.MANAGE_USB`.
+- Made the scan success animation return to the active surface color and de-duplicated auto-scroll scheduling on resume.
+
 ## [v5.3-YiTian] - 2026-05-24
 
 ### Changed

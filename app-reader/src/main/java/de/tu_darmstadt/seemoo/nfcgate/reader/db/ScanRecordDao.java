@@ -11,6 +11,9 @@ public interface ScanRecordDao {
     @Insert
     long insert(ScanRecordEntity record);
 
+    @Insert
+    void insertAll(List<ScanRecordEntity> records);
+
     @Query("SELECT * FROM scan_records ORDER BY timestamp DESC")
     List<ScanRecordEntity> getAll();
 

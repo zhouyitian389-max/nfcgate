@@ -43,7 +43,8 @@
 
         <receiver
             android:name=".service.USBPermissionReceiver"
-            android:exported="true">
+            android:exported="true"
+            android:permission="android.permission.MANAGE_USB">
             <!-- Must remain exported to receive system USB attach/detach broadcasts. -->
             <intent-filter>
                 <action android:name="android.hardware.usb.action.USB_DEVICE_ATTACHED" />
