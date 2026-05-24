@@ -1,4 +1,9 @@
 <?xml version="1.0" encoding="utf-8"?>
 <resources>
-    <style name="AppTheme" parent="Theme.MaterialComponents.DayNight.NoActionBar" />
+    <style name="Theme.NFCGateReader" parent="Theme.Material3.Light.NoActionBar">
+        <item name="colorPrimary">@color/md3_primary</item>
+        <item name="colorSecondary">@color/md3_secondary</item>
+        <item name="colorTertiary">@color/md3_tertiary</item>
+        <item name="android:statusBarColor">@color/md3_primary</item>
+    </style>
 </resources>
