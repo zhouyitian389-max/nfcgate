@@ -1,0 +1,18 @@
+<?xml version="1.0" encoding="utf-8"?>
+<PreferenceScreen xmlns:android="http://schemas.android.com/apk/res/android">
+    <EditTextPreference
+        android:key="server_port"
+        android:title="@string/settings_port"
+        android:summary="@string/settings_port_summary"
+        android:defaultValue="8080" />
+    <ListPreference
+        android:key="theme"
+        android:title="@string/settings_theme"
+        android:entries="@array/settings_theme_entries"
+        android:entryValues="@array/settings_theme_values"
+        android:defaultValue="dark" />
+    <SwitchPreferenceCompat
+        android:key="haptic"
+        android:title="@string/settings_haptic"
+        android:defaultValue="true" />
+</PreferenceScreen>
