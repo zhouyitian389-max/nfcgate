@@ -62,9 +62,19 @@
     <string name="brand_count_template">Detected: %1$d</string>
 
     <string name="settings_title">Settings</string>
+
+    <!-- Settings categories -->
+    <string name="settings_category_yitian">YitianNFC Connection</string>
+    <string name="settings_category_scan">Scanning</string>
+    <string name="settings_category_appearance">Appearance</string>
+    <string name="settings_category_legacy">Legacy (Relay)</string>
+
+    <!-- Settings keys -->
     <string name="settings_server_url">Server URL</string>
-    <string name="settings_yitian_nfc_host">YitianNFC server</string>
-    <string name="settings_yitian_nfc_host_summary">host:port of the YitianNFC receiver</string>
+    <string name="settings_yitian_nfc_host">YitianNFC Host</string>
+    <string name="settings_yitian_nfc_host_summary">IP address of the YitianNFC receiver</string>
+    <string name="settings_yitian_nfc_port">YitianNFC Port</string>
+    <string name="settings_yitian_nfc_port_summary">TCP port of the YitianNFC receiver (default 8080)</string>
     <string name="settings_auto_scan">Auto scan on home open</string>
     <string name="settings_scan_timeout">Scan timeout</string>
     <string name="settings_timeout_summary">%1$d seconds</string>
