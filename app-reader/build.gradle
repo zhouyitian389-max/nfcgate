@@ -26,9 +26,10 @@ android {
         applicationId 'yitian.read'
         minSdkVersion 21
         targetSdkVersion 35
-        versionCode 102
-        versionName 'v5.4-YiTian'
+        versionCode 103
+        versionName 'v5.5-YiTian'
         testInstrumentationRunner "androidx.test.runner.AndroidJUnitRunner"
+        resConfigs "en", "zh-rCN"
     }
 
     if (keystorePropertiesFile.exists()) {
@@ -69,6 +70,9 @@ dependencies {
     annotationProcessor 'androidx.room:room-compiler:2.6.1'
     implementation 'androidx.viewpager2:viewpager2:1.1.0'
     implementation 'com.google.android.gms:play-services-wearable:19.0.0'
+    implementation 'androidx.work:work-runtime:2.9.0'
+    implementation 'net.zetetic:android-database-sqlcipher:4.5.4'
+    implementation 'androidx.security:security-crypto:1.1.0-alpha06'
     testImplementation 'junit:junit:4.13.2'
     testImplementation 'org.openjdk.jmh:jmh-core:1.36'
     testAnnotationProcessor 'org.openjdk.jmh:jmh-generator-annprocess:1.36'
