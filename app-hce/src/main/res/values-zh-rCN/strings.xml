@@ -1,0 +1,75 @@
+<?xml version="1.0" encoding="utf-8"?>
+<resources>
+    <string name="app_name">YitianNFC</string>
+    <string name="author_credit">由 YiTian 用心打造 ❤️</string>
+
+    <string name="hce_service_description">YitianNFC HCE 模拟器</string>
+    <string name="hce_aid_group">YitianNFC</string>
+
+    <string name="title_main">YitianNFC</string>
+    <string name="title_received_cards">已接收卡片</string>
+    <string name="title_settings">设置</string>
+    <string name="title_about">关于</string>
+
+    <string name="status_hce_active">HCE 激活中</string>
+    <string name="status_hce_idle">HCE 空闲</string>
+    <string name="status_http_running">HTTP 服务运行中，端口 %1$d</string>
+    <string name="status_http_stopped">HTTP 服务已停止</string>
+    <string name="status_cards">已接收卡片数：%1$d</string>
+    <string name="status_selected">当前选中卡片：%1$s</string>
+    <string name="status_none_selected">未选择卡片</string>
+
+    <string name="btn_start">启动接收器</string>
+    <string name="btn_stop">停止接收器</string>
+    <string name="btn_received_cards">已接收卡片</string>
+    <string name="btn_settings">设置</string>
+    <string name="btn_about">关于</string>
+
+    <string name="notif_channel_name">YitianNFC 接收器</string>
+    <string name="notif_title">YitianNFC HTTP 接收器运行中</string>
+    <string name="notif_text">监听端口 %1$d</string>
+
+    <string name="toast_started">接收器已在端口 %1$d 启动</string>
+    <string name="toast_stopped">接收器已停止</string>
+    <string name="toast_card_selected">已选中 HCE 模拟卡片：%1$s</string>
+    <string name="toast_card_deleted">卡片已删除</string>
+    <string name="toast_no_cards">暂无接收到的卡片，请使用 YitianRead 发送。</string>
+
+    <string name="about_title">关于 YitianNFC</string>
+    <string name="about_version">版本：%1$s</string>
+    <string name="about_description">YitianNFC 通过 HTTP 从 YitianRead 接收卡片数据，并通过 NFC HCE 进行模拟。</string>
+    <string name="about_author">作者：YiTian</string>
+    <string name="about_github">https://github.com/zhouyitian389-max</string>
+
+    <string name="settings_port">HTTP 服务端口</string>
+    <string name="settings_port_summary">默认 8080</string>
+    <string name="settings_pin_code">启动 PIN 码</string>
+    <string name="settings_pin_code_summary">可选的 4-6 位启动密码</string>
+    <string name="settings_biometric">生物识别解锁</string>
+    <string name="settings_biometric_summary">使用指纹/面容替代 PIN 解锁</string>
+    <string name="settings_theme">主题</string>
+    <string name="settings_haptic">触觉反馈</string>
+    <string name="pin_verify_title">PIN 验证</string>
+    <string name="pin_verify_hint">请输入 4-6 位 PIN 码</string>
+    <string name="pin_verify_button">验证</string>
+    <string name="pin_attempts_left">剩余尝试次数：%1$d</string>
+    <string name="pin_invalid_format">PIN 必须为 4-6 位数字</string>
+    <string name="pin_verify_failed">PIN 码错误</string>
+    <string name="pin_verify_locked">尝试次数过多，已锁定</string>
+    <string name="biometric_subtitle">验证您的身份</string>
+
+    <string name="card_holder">YITIAN</string>
+    <string name="masked_pan">**** **** **** %1$s</string>
+    <string name="unknown_pan">0000</string>
+
+    <string-array name="settings_theme_entries">
+        <item>深色</item>
+        <item>浅色</item>
+        <item>跟随系统</item>
+    </string-array>
+    <string-array name="settings_theme_values">
+        <item>dark</item>
+        <item>light</item>
+        <item>system</item>
+    </string-array>
+</resources>
