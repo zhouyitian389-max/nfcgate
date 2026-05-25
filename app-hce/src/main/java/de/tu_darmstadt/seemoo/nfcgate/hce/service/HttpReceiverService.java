@@ -29,6 +29,8 @@ public class HttpReceiverService extends Service {
     public static final String EXTRA_PORT = "port";
     public static final String EXTRA_COUNT = "count";
     public static final String PREF_SERVER_PORT = "server_port";
+    public static final String PREF_HTTP_AUTH_ENABLED = "pref_http_auth_enabled";
+    public static final String PREF_HTTP_AUTH_TOKEN_DISPLAY = "pref_http_auth_token_display";
 
     private YitianHttpServer server;
     private int port = 8080;
@@ -80,7 +82,10 @@ public class HttpReceiverService extends Service {
     private boolean startServer() {
         stopServer();
         try {
-            server = new YitianHttpServer(this, port);
+            SharedPreferences sp = PreferenceManager.getDefaultSharedPreferences(this);
+            boolean authEnabled = sp.getBoolean(PREF_HTTP_AUTH_ENABLED, true);
+            String authToken = authEnabled ? HttpAuthTokenProvider.getOrCreateToken(this) : null;
+            server = new YitianHttpServer(this, port, authEnabled, authToken);
             server.setListener((total, newOnes) -> broadcast(true, port, total));
             server.start(5000, false);
             Log.i(TAG, "YitianHttpServer started on " + port);

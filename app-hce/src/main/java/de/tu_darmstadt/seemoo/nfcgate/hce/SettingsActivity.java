@@ -8,11 +8,13 @@ import android.widget.Toast;
 
 import androidx.appcompat.app.AppCompatActivity;
 import androidx.preference.EditTextPreference;
+import androidx.preference.Preference;
 import androidx.preference.PreferenceFragmentCompat;
 import androidx.security.crypto.EncryptedSharedPreferences;
 import androidx.security.crypto.MasterKey;
 
 import de.tu_darmstadt.seemoo.nfcgate.hce.security.PinHasher;
+import de.tu_darmstadt.seemoo.nfcgate.hce.service.HttpAuthTokenProvider;
 import de.tu_darmstadt.seemoo.nfcgate.hce.service.HttpReceiverService;
 
 public class SettingsActivity extends AppCompatActivity {
@@ -64,6 +66,15 @@ public class SettingsActivity extends AppCompatActivity {
                     // Return false so the plaintext value is NOT saved to default SharedPreferences
                     return false;
                 });
+            }
+            Preference httpAuthToken = findPreference(HttpReceiverService.PREF_HTTP_AUTH_TOKEN_DISPLAY);
+            if (httpAuthToken != null) {
+                try {
+                    httpAuthToken.setSummary(HttpAuthTokenProvider.getOrCreateToken(requireContext()));
+                    httpAuthToken.setCopyingEnabled(true);
+                } catch (RuntimeException e) {
+                    httpAuthToken.setSummary(R.string.settings_http_auth_token_unavailable);
+                }
             }
         }
 

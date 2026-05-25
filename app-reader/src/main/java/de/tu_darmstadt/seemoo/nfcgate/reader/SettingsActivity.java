@@ -48,6 +48,12 @@ public class SettingsActivity extends AppCompatActivity {
                 server.setSummaryProvider(EditTextPreference.SimpleSummaryProvider.getInstance());
             }
 
+            EditTextPreference authToken = findPreference(SettingsManager.KEY_YITIAN_AUTH_TOKEN);
+            if (authToken != null) {
+                authToken.setOnBindEditTextListener(editText -> editText.setSingleLine(true));
+                authToken.setSummaryProvider(EditTextPreference.SimpleSummaryProvider.getInstance());
+            }
+
             SeekBarPreference timeout = findPreference(SettingsManager.KEY_SCAN_TIMEOUT);
             if (timeout != null) {
                 timeout.setSummaryProvider((Preference.SummaryProvider<SeekBarPreference>) preference ->

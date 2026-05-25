@@ -93,6 +93,7 @@ public final class UploadScheduler {
 
                 String host = SettingsManager.getYitianHost(ctx);
                 int port = SettingsManager.getYitianPort(ctx);
+                String authToken = SettingsManager.getYitianAuthToken(ctx);
 
                 List<YitianNfcSender.CardData> cards = new ArrayList<>(pending.size());
                 List<Long> ids = new ArrayList<>(pending.size());
@@ -104,7 +105,7 @@ public final class UploadScheduler {
                     ids.add(rec.id);
                 }
 
-                YitianNfcSender.SendResult result = YitianNfcSender.sendOnce(host, port, cards);
+                YitianNfcSender.SendResult result = YitianNfcSender.sendOnce(host, port, authToken, cards);
                 if (result.isSuccess()) {
                     db.scanRecordDao().markUploaded(ids);
                     return Result.success();

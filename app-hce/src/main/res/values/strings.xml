@@ -43,6 +43,11 @@
 
     <string name="settings_port">HTTP server port</string>
     <string name="settings_port_summary">Default 8080</string>
+    <string name="settings_http_auth_enabled">Require auth token</string>
+    <string name="settings_http_auth_enabled_summary">Require a Bearer token for card uploads</string>
+    <string name="settings_http_auth_token">HTTP auth token</string>
+    <string name="settings_http_auth_token_summary">Generated and stored securely for reader app configuration</string>
+    <string name="settings_http_auth_token_unavailable">Unavailable until encrypted storage can be opened</string>
     <string name="settings_pin_code">Startup PIN</string>
     <string name="settings_pin_code_summary">Optional 4-6 digit launch PIN</string>
     <string name="settings_biometric">Biometric unlock</string>

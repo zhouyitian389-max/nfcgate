@@ -75,6 +75,8 @@
     <string name="settings_yitian_nfc_host_summary">IP address of the YitianNFC receiver</string>
     <string name="settings_yitian_nfc_port">YitianNFC Port</string>
     <string name="settings_yitian_nfc_port_summary">TCP port of the YitianNFC receiver (default 8080)</string>
+    <string name="settings_yitian_nfc_auth_token">YitianNFC Auth Token</string>
+    <string name="settings_yitian_nfc_auth_token_summary">Paste the Bearer token shown by YitianNFC</string>
     <string name="settings_auto_scan">Auto scan on home open</string>
     <string name="settings_scan_timeout">Scan timeout</string>
     <string name="settings_timeout_summary">%1$d seconds</string>

@@ -43,6 +43,11 @@
 
     <string name="settings_port">HTTP 服务端口</string>
     <string name="settings_port_summary">默认 8080</string>
+    <string name="settings_http_auth_enabled">启用认证令牌</string>
+    <string name="settings_http_auth_enabled_summary">上传卡片数据时要求携带 Bearer 令牌</string>
+    <string name="settings_http_auth_token">HTTP 认证令牌</string>
+    <string name="settings_http_auth_token_summary">已安全生成并存储，可用于配置读卡器应用</string>
+    <string name="settings_http_auth_token_unavailable">加密存储不可用时无法显示</string>
     <string name="settings_pin_code">启动 PIN 码</string>
     <string name="settings_pin_code_summary">可选的 4-6 位启动密码</string>
     <string name="settings_biometric">生物识别解锁</string>

@@ -10,6 +10,7 @@ public final class SettingsManager {
     public static final String KEY_SERVER_URL   = "server_url";
     public static final String KEY_YITIAN_HOST  = "yitian_host";
     public static final String KEY_YITIAN_PORT  = "yitian_port";
+    public static final String KEY_YITIAN_AUTH_TOKEN = "yitian_auth_token";
     public static final String KEY_AUTO_SCAN    = "auto_scan";
     public static final String KEY_SCAN_TIMEOUT = "scan_timeout";
     public static final String KEY_THEME        = "theme";
@@ -23,6 +24,7 @@ public final class SettingsManager {
     public static final String DEFAULT_SERVER_URL  = "https://relay.example.com/api/upload";
     public static final String DEFAULT_YITIAN_HOST = "192.168.1.100";
     public static final int    DEFAULT_YITIAN_PORT = 8080;
+    public static final String DEFAULT_YITIAN_AUTH_TOKEN = "";
 
     private SettingsManager() {}
 
@@ -42,6 +44,10 @@ public final class SettingsManager {
         } catch (NumberFormatException e) {
             return DEFAULT_YITIAN_PORT;
         }
+    }
+
+    public static String getYitianAuthToken(Context ctx) {
+        return prefs(ctx).getString(KEY_YITIAN_AUTH_TOKEN, DEFAULT_YITIAN_AUTH_TOKEN);
     }
 
     // ── Legacy relay URL ───────────────────────────────────────────────────

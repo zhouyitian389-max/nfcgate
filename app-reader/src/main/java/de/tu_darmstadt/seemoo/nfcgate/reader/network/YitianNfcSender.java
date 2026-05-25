@@ -89,8 +89,13 @@ public class YitianNfcSender {
 
     public static void send(final String host, final int port,
                             final List<CardData> cards, final Callback cb) {
+        send(host, port, null, cards, cb);
+    }
+
+    public static void send(final String host, final int port, final String authToken,
+                            final List<CardData> cards, final Callback cb) {
         new Thread(() -> {
-            SendResult result = sendOnce(host, port, cards);
+            SendResult result = sendOnce(host, port, authToken, cards);
             if (cb == null) {
                 return;
             }
@@ -103,6 +108,11 @@ public class YitianNfcSender {
     }
 
     static SendResult sendOnce(final String host, final int port, final List<CardData> cards) {
+        return sendOnce(host, port, null, cards);
+    }
+
+    static SendResult sendOnce(final String host, final int port,
+                               final String authToken, final List<CardData> cards) {
         HttpURLConnection conn = null;
         try {
             URL url = buildUploadUrl(host, port);
@@ -110,6 +120,10 @@ public class YitianNfcSender {
             conn.setRequestMethod("POST");
             conn.setRequestProperty("Content-Type", "application/json; charset=utf-8");
             conn.setRequestProperty("User-Agent", USER_AGENT);
+            String authorization = buildAuthorizationHeaderValue(authToken);
+            if (authorization != null) {
+                conn.setRequestProperty("Authorization", authorization);
+            }
             conn.setDoOutput(true);
             conn.setConnectTimeout(5000);
             conn.setReadTimeout(10000);
@@ -144,6 +158,17 @@ public class YitianNfcSender {
                 conn.disconnect();
             }
         }
+    }
+
+    static String buildAuthorizationHeaderValue(String authToken) {
+        if (authToken == null) {
+            return null;
+        }
+        String trimmed = authToken.trim();
+        if (trimmed.isEmpty()) {
+            return null;
+        }
+        return "Bearer " + trimmed;
     }
 
     static URL buildUploadUrl(String host, int port) throws IOException {

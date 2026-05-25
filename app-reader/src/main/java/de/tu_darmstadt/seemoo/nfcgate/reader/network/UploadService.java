@@ -52,10 +52,11 @@ public final class UploadService {
 
             String host = SettingsManager.getYitianHost(appCtx);
             int    port = SettingsManager.getYitianPort(appCtx);
+            String authToken = SettingsManager.getYitianAuthToken(appCtx);
 
             YitianNfcSender.SendResult result = null;
             for (int retry = 0; retry < MAX_RETRIES; retry++) {
-                result = YitianNfcSender.sendOnce(host, port, cards);
+                result = YitianNfcSender.sendOnce(host, port, authToken, cards);
                 if (result.isSuccess()) {
                     database.scanRecordDao().markUploaded(ids);
                     mainHandler.post(() -> Toast.makeText(appCtx,

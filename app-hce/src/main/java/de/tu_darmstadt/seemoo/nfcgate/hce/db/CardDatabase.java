@@ -2,15 +2,26 @@ package de.tu_darmstadt.seemoo.nfcgate.hce.db;
 
 import android.content.Context;
 
+import androidx.annotation.NonNull;
 import androidx.room.Database;
+import androidx.room.migration.Migration;
 import androidx.room.Room;
 import androidx.room.RoomDatabase;
+import androidx.sqlite.db.SupportSQLiteDatabase;
 
 import net.sqlcipher.database.SupportFactory;
 
 @Database(entities = {CardEntity.class}, version = 1, exportSchema = false)
 public abstract class CardDatabase extends RoomDatabase {
     private static volatile CardDatabase instance;
+    private static final Migration MIGRATION_1_2 = new Migration(1, 2) {
+        @Override
+        public void migrate(@NonNull SupportSQLiteDatabase database) {
+            // Template only. When version 2 exists, replace this stub with the real schema
+            // migration and register it in getInstance(). Do not use destructive migration
+            // because it would delete encrypted card data during upgrades.
+        }
+    };
 
     public abstract CardDao cardDao();
 
@@ -25,11 +36,10 @@ public abstract class CardDatabase extends RoomDatabase {
                             CardDatabase.class,
                             "yitian_nfc.db"
                     ).openHelperFactory(factory)
-                     // NOTE: fallbackToDestructiveMigration is acceptable for v1 (no prior schema).
-                     // Future schema changes MUST include explicit Migration objects to avoid
-                     // losing encrypted card data on upgrade.
-                     .fallbackToDestructiveMigration()
-                     .build();
+                            // IMPORTANT: Every future schema version bump must register an
+                            // explicit Migration. Do not restore destructive migration here
+                            // or encrypted card data will be lost during upgrades.
+                            .build();
                 }
             }
         }

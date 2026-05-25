@@ -9,6 +9,8 @@ import org.json.JSONObject;
 import java.util.ArrayList;
 import java.util.List;
 import java.io.IOException;
+import java.nio.charset.StandardCharsets;
+import java.security.MessageDigest;
 import java.util.Map;
 import java.util.concurrent.atomic.AtomicInteger;
 
@@ -25,6 +27,8 @@ public class YitianHttpServer extends NanoHTTPD {
     private static final String TAG = "YitianHttpServer";
     private final Context appContext;
     private final AtomicInteger receivedCount = new AtomicInteger(0);
+    private final boolean authEnabled;
+    private final String authToken;
 
     public interface ReceiveListener {
         void onCardsReceived(int total, int newOnes);
@@ -32,9 +36,11 @@ public class YitianHttpServer extends NanoHTTPD {
 
     private ReceiveListener listener;
 
-    public YitianHttpServer(Context context, int port) {
+    public YitianHttpServer(Context context, int port, boolean authEnabled, String authToken) {
         super(port);
         this.appContext = context.getApplicationContext();
+        this.authEnabled = authEnabled;
+        this.authToken = authToken;
     }
 
     public void setListener(ReceiveListener l) {
@@ -52,6 +58,11 @@ public class YitianHttpServer extends NanoHTTPD {
 
         if (Method.POST.equals(method) && "/api/cards".equals(uri)) {
             try {
+                if (authEnabled && !isAuthorized(getHeader(session.getHeaders(), "authorization"), authToken)) {
+                    Response response = jsonError(Response.Status.UNAUTHORIZED, "unauthorized");
+                    response.addHeader("WWW-Authenticate", "Bearer");
+                    return response;
+                }
                 String contentType = session.getHeaders().get("content-type");
                 if (contentType == null || !contentType.toLowerCase().startsWith("application/json")) {
                     return jsonError(Response.Status.UNSUPPORTED_MEDIA_TYPE, "content-type must be application/json");
@@ -75,6 +86,36 @@ public class YitianHttpServer extends NanoHTTPD {
         }
 
         return jsonError(Response.Status.NOT_FOUND, "not found");
+    }
+
+    static boolean isAuthorized(String authorizationHeader, String expectedToken) {
+        if (expectedToken == null || expectedToken.isEmpty() || authorizationHeader == null) {
+            return false;
+        }
+        String header = authorizationHeader.trim();
+        if (!header.regionMatches(true, 0, "Bearer ", 0, 7)) {
+            return false;
+        }
+        String providedToken = header.substring(7).trim();
+        return MessageDigest.isEqual(
+                providedToken.getBytes(StandardCharsets.UTF_8),
+                expectedToken.getBytes(StandardCharsets.UTF_8));
+    }
+
+    private static String getHeader(Map<String, String> headers, String name) {
+        if (headers == null || name == null) {
+            return null;
+        }
+        String direct = headers.get(name);
+        if (direct != null) {
+            return direct;
+        }
+        for (Map.Entry<String, String> entry : headers.entrySet()) {
+            if (name.equalsIgnoreCase(entry.getKey())) {
+                return entry.getValue();
+            }
+        }
+        return null;
     }
 
     private int ingest(String body) throws Exception {

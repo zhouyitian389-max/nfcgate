@@ -4,6 +4,7 @@ import android.content.Intent;
 import android.content.SharedPreferences;
 import android.os.Bundle;
 import android.os.CountDownTimer;
+import android.os.SystemClock;
 import android.util.Log;
 import android.widget.EditText;
 import android.widget.TextView;
@@ -29,6 +30,8 @@ public class PinVerifyActivity extends FragmentActivity {
     private static final int MAX_ATTEMPTS = 3;
     private static final long LOCK_DURATION_MS = 5 * 60 * 1000L;
     private static final String PREF_LOCK_UNTIL = "pin_lock_until";
+    private static final String PREF_LOCK_UNTIL_ELAPSED = "pin_lock_until_elapsed";
+    private static final String PREF_LOCK_UNTIL_WALL = "pin_lock_until_wall";
 
     private int attemptsLeft = MAX_ATTEMPTS;
     private EditText etPinCode;
@@ -66,10 +69,9 @@ public class PinVerifyActivity extends FragmentActivity {
         btnVerify.setOnClickListener(v -> verifyPin());
 
         // Check for persistent lockout
-        long lockUntil = encPrefs.getLong(PREF_LOCK_UNTIL, 0L);
-        long now = System.currentTimeMillis();
-        if (lockUntil > now) {
-            applyLockout(lockUntil - now);
+        long remainingLockMs = getRemainingLockoutMs();
+        if (remainingLockMs > 0L) {
+            applyLockout(remainingLockMs);
             return;
         }
 
@@ -117,7 +119,7 @@ public class PinVerifyActivity extends FragmentActivity {
 
             @Override
             public void onFinish() {
-                encPrefs.edit().remove(PREF_LOCK_UNTIL).apply();
+                clearLockout();
                 etPinCode.setEnabled(true);
                 btnVerify.setEnabled(true);
                 attemptsLeft = MAX_ATTEMPTS;
@@ -189,9 +191,7 @@ public class PinVerifyActivity extends FragmentActivity {
             etPinCode.setEnabled(false);
             btnVerify.setEnabled(false);
             Toast.makeText(this, R.string.pin_verify_locked, Toast.LENGTH_LONG).show();
-            // Persist lockout timestamp
-            long lockUntil = System.currentTimeMillis() + LOCK_DURATION_MS;
-            encPrefs.edit().putLong(PREF_LOCK_UNTIL, lockUntil).apply();
+            persistLockout(LOCK_DURATION_MS);
             applyLockout(LOCK_DURATION_MS);
         }
     }
@@ -203,6 +203,59 @@ public class PinVerifyActivity extends FragmentActivity {
     private void openMainAndFinish() {
         startActivity(new Intent(this, MainActivity.class));
         finish();
+    }
+
+    private void persistLockout(long durationMs) {
+        long nowElapsed = SystemClock.elapsedRealtime();
+        long nowWall = System.currentTimeMillis();
+        encPrefs.edit()
+                .putLong(PREF_LOCK_UNTIL_ELAPSED, nowElapsed + durationMs)
+                .putLong(PREF_LOCK_UNTIL_WALL, nowWall + durationMs)
+                .remove(PREF_LOCK_UNTIL)
+                .apply();
+    }
+
+    private long getRemainingLockoutMs() {
+        long nowElapsed = SystemClock.elapsedRealtime();
+        long nowWall = System.currentTimeMillis();
+        long lockUntilElapsed = encPrefs.getLong(PREF_LOCK_UNTIL_ELAPSED, 0L);
+        long lockUntilWall = encPrefs.getLong(PREF_LOCK_UNTIL_WALL, 0L);
+
+        if (lockUntilElapsed == 0L && lockUntilWall == 0L) {
+            long legacyLockUntil = encPrefs.getLong(PREF_LOCK_UNTIL, 0L);
+            if (legacyLockUntil > nowWall) {
+                long remaining = legacyLockUntil - nowWall;
+                persistLockout(remaining);
+                return remaining;
+            }
+            if (legacyLockUntil > 0L) {
+                clearLockout();
+            }
+            return 0L;
+        }
+
+        long remainingElapsed = lockUntilElapsed - nowElapsed;
+        long remainingWall = lockUntilWall - nowWall;
+        if (remainingElapsed <= 0L && remainingWall <= 0L) {
+            clearLockout();
+            return 0L;
+        }
+        if (remainingElapsed > LOCK_DURATION_MS) {
+            if (remainingWall > 0L) {
+                return remainingWall;
+            }
+            clearLockout();
+            return 0L;
+        }
+        return Math.max(remainingElapsed, remainingWall);
+    }
+
+    private void clearLockout() {
+        encPrefs.edit()
+                .remove(PREF_LOCK_UNTIL)
+                .remove(PREF_LOCK_UNTIL_ELAPSED)
+                .remove(PREF_LOCK_UNTIL_WALL)
+                .apply();
     }
 
     @Override

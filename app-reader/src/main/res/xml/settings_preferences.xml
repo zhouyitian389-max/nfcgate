@@ -20,6 +20,13 @@
             android:inputType="number"
             app:useSimpleSummaryProvider="true" />
 
+        <EditTextPreference
+            android:key="yitian_auth_token"
+            android:title="@string/settings_yitian_nfc_auth_token"
+            android:summary="@string/settings_yitian_nfc_auth_token_summary"
+            android:defaultValue=""
+            app:useSimpleSummaryProvider="true" />
+
     </PreferenceCategory>
 
     <!-- ── 扫描设置 ───────────────────────────────────────────────────── -->

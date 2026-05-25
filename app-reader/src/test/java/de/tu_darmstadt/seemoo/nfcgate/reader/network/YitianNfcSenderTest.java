@@ -2,8 +2,6 @@ package de.tu_darmstadt.seemoo.nfcgate.reader.network;
 
 import org.junit.Test;
 
-import java.net.MalformedURLException;
-
 import static org.junit.Assert.assertEquals;
 import static org.junit.Assert.assertTrue;
 import static org.junit.Assert.fail;
@@ -90,5 +88,17 @@ public class YitianNfcSenderTest {
                 YitianNfcSender.USER_AGENT.startsWith("YitianRead/"));
         assertTrue("User-Agent must contain the current version string 'v5.6-YiTian'",
                 YitianNfcSender.USER_AGENT.contains("v5.6-YiTian"));
+    }
+
+    @Test
+    public void buildAuthorizationHeaderValueSkipsBlankTokens() {
+        assertEquals(null, YitianNfcSender.buildAuthorizationHeaderValue(null));
+        assertEquals(null, YitianNfcSender.buildAuthorizationHeaderValue("   "));
+    }
+
+    @Test
+    public void buildAuthorizationHeaderValueFormatsBearerToken() {
+        assertEquals("Bearer secret-token",
+                YitianNfcSender.buildAuthorizationHeaderValue("  secret-token  "));
     }
 }

@@ -75,6 +75,8 @@
     <string name="settings_yitian_nfc_host_summary">YitianNFC 接收端的 IP 地址</string>
     <string name="settings_yitian_nfc_port">YitianNFC 端口</string>
     <string name="settings_yitian_nfc_port_summary">YitianNFC 接收端的 TCP 端口（默认 8080）</string>
+    <string name="settings_yitian_nfc_auth_token">YitianNFC 认证令牌</string>
+    <string name="settings_yitian_nfc_auth_token_summary">填写 YitianNFC 中显示的 Bearer 令牌</string>
     <string name="settings_auto_scan">进入主页自动扫描</string>
     <string name="settings_scan_timeout">扫描超时</string>
     <string name="settings_timeout_summary">%1$d 秒</string>
