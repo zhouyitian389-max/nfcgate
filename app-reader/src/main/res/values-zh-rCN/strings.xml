@@ -100,4 +100,16 @@
     <string name="brand_discover">Discover</string>
     <string name="brand_unknown">未知</string>
     <string name="token_count_template">已存 Tokens：%1$d</string>
+
+    <!-- 备份 / 恢复 -->
+    <string name="backup_password_prompt">输入备份密码</string>
+    <string name="backup_password_confirm">确认备份密码</string>
+    <string name="backup_password_mismatch">两次输入的密码不一致</string>
+    <string name="backup_success">备份保存成功</string>
+    <string name="backup_failed">备份失败：%1$s</string>
+    <string name="restore_password_prompt">输入备份密码以恢复</string>
+    <string name="restore_success">恢复成功：已导入 %1$d 条记录</string>
+    <string name="restore_failed">恢复失败：%1$s</string>
+    <string name="restore_chooser_title">选择备份文件（.ybak）</string>
+    <string name="menu_encrypted_backup">加密备份</string>
 </resources>

@@ -63,6 +63,18 @@
     <string name="masked_pan">**** **** **** %1$s</string>
     <string name="unknown_pan">0000</string>
 
+    <!-- Backup / restore -->
+    <string name="backup_password_prompt">Enter backup password</string>
+    <string name="backup_password_confirm">Confirm backup password</string>
+    <string name="backup_password_mismatch">Passwords do not match</string>
+    <string name="backup_success">Backup saved successfully</string>
+    <string name="backup_failed">Backup failed: %1$s</string>
+    <string name="restore_password_prompt">Enter backup password to restore</string>
+    <string name="restore_success">Restore succeeded: %1$d records imported</string>
+    <string name="restore_failed">Restore failed: %1$s</string>
+    <string name="restore_chooser_title">Select backup file (.ybak)</string>
+    <string name="menu_encrypted_backup">Encrypted Backup</string>
+
     <string-array name="settings_theme_entries">
         <item>Dark</item>
         <item>Light</item>
