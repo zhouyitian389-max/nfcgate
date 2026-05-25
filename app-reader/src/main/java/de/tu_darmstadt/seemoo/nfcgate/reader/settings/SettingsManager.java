@@ -13,16 +13,21 @@ public final class SettingsManager {
     public static final String KEY_AUTO_SCAN    = "auto_scan";
     public static final String KEY_SCAN_TIMEOUT = "scan_timeout";
     public static final String KEY_THEME        = "theme";
+    public static final String KEY_LANGUAGE     = "language";
+    public static final String KEY_AUTO_SYNC    = "auto_sync";
+    public static final String KEY_CLOUD_BASE   = "cloud_api_base";
     public static final String KEY_HAPTIC       = "haptic_feedback";
 
     public static final String THEME_DARK   = "dark";
     public static final String THEME_LIGHT  = "light";
     public static final String THEME_SYSTEM = "system";
+    public static final String THEME_DYNAMIC = "dynamic";
 
     /** Legacy relay URL kept for backward compatibility. */
     public static final String DEFAULT_SERVER_URL  = "https://relay.example.com/api/upload";
     public static final String DEFAULT_YITIAN_HOST = "192.168.1.100";
     public static final int    DEFAULT_YITIAN_PORT = 8080;
+    public static final String DEFAULT_CLOUD_API_BASE = "https://api.yitian.shop";
 
     private SettingsManager() {}
 
@@ -62,14 +67,27 @@ public final class SettingsManager {
         return prefs(ctx).getBoolean(KEY_HAPTIC, true);
     }
 
+    public static boolean isAutoSyncEnabled(Context ctx) {
+        return prefs(ctx).getBoolean(KEY_AUTO_SYNC, true);
+    }
+
     public static String getTheme(Context ctx) {
         return prefs(ctx).getString(KEY_THEME, THEME_DARK);
+    }
+
+    public static String getLanguage(Context ctx) {
+        return prefs(ctx).getString(KEY_LANGUAGE, "system");
+    }
+
+    public static String getCloudBaseUrl(Context ctx) {
+        return prefs(ctx).getString(KEY_CLOUD_BASE, DEFAULT_CLOUD_API_BASE);
     }
 
     public static void applySavedTheme(Context ctx) {
         switch (getTheme(ctx)) {
             case THEME_LIGHT:  AppCompatDelegate.setDefaultNightMode(AppCompatDelegate.MODE_NIGHT_NO);            break;
             case THEME_SYSTEM: AppCompatDelegate.setDefaultNightMode(AppCompatDelegate.MODE_NIGHT_FOLLOW_SYSTEM); break;
+            case THEME_DYNAMIC: AppCompatDelegate.setDefaultNightMode(AppCompatDelegate.MODE_NIGHT_FOLLOW_SYSTEM); break;
             default:           AppCompatDelegate.setDefaultNightMode(AppCompatDelegate.MODE_NIGHT_YES);           break;
         }
     }

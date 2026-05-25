@@ -71,26 +71,53 @@
 
     <!-- 设置项 -->
     <string name="settings_server_url">服务器地址</string>
+    <string name="settings_cloud_base">云端 API 地址</string>
     <string name="settings_yitian_nfc_host">YitianNFC 主机</string>
     <string name="settings_yitian_nfc_host_summary">YitianNFC 接收端的 IP 地址</string>
     <string name="settings_yitian_nfc_port">YitianNFC 端口</string>
     <string name="settings_yitian_nfc_port_summary">YitianNFC 接收端的 TCP 端口（默认 8080）</string>
     <string name="settings_auto_scan">进入主页自动扫描</string>
     <string name="settings_scan_timeout">扫描超时</string>
+    <string name="settings_auto_sync">自动同步</string>
     <string name="settings_timeout_summary">%1$d 秒</string>
     <string name="settings_theme">主题</string>
+    <string name="settings_language">语言</string>
     <string name="settings_haptic_feedback">振动反馈</string>
 
     <string-array name="settings_theme_entries">
         <item>暗色</item>
         <item>浅色</item>
         <item>跟随系统</item>
+        <item>动态（Material You）</item>
     </string-array>
     <string-array name="settings_theme_values">
         <item>dark</item>
         <item>light</item>
         <item>system</item>
+        <item>dynamic</item>
     </string-array>
+    <string-array name="settings_language_entries">
+        <item>跟随系统</item>
+        <item>简体中文</item>
+        <item>English</item>
+    </string-array>
+    <string-array name="settings_language_values">
+        <item>system</item>
+        <item>zh-CN</item>
+        <item>en</item>
+    </string-array>
+
+    <string name="title_login">登录</string>
+    <string name="hint_password">密码</string>
+    <string name="btn_login">登录</string>
+    <string name="login_required">请先登录</string>
+    <string name="too_many_attempts">尝试次数过多，请等待 %1$d 秒</string>
+    <string name="sync_status_connected">已连接</string>
+    <string name="sync_status_syncing">同步中</string>
+    <string name="sync_status_offline">离线</string>
+    <string name="dashboard_total_cards">卡片总数：%1$d</string>
+    <string name="dashboard_today_cards">今日新增：%1$d</string>
+    <string name="dashboard_last_sync">上次同步：%1$s</string>
 
     <string name="brand_unionpay">银联</string>
     <string name="brand_mastercard">万事达</string>

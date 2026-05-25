@@ -18,7 +18,9 @@ import android.widget.Toast;
 import androidx.annotation.NonNull;
 import androidx.appcompat.app.AlertDialog;
 import androidx.appcompat.app.AppCompatActivity;
+import androidx.appcompat.widget.SearchView;
 import androidx.core.content.FileProvider;
+import androidx.recyclerview.widget.ItemTouchHelper;
 import androidx.recyclerview.widget.LinearLayoutManager;
 import androidx.recyclerview.widget.RecyclerView;
 
@@ -33,6 +35,7 @@ import java.util.concurrent.Executors;
 import de.tu_darmstadt.seemoo.nfcgate.hce.db.CardDao;
 import de.tu_darmstadt.seemoo.nfcgate.hce.db.CardDatabase;
 import de.tu_darmstadt.seemoo.nfcgate.hce.db.CardEntity;
+import de.tu_darmstadt.seemoo.nfcgate.hce.cloud.CloudApiClient;
 import de.tu_darmstadt.seemoo.nfcgate.hce.service.YitianHostApduService;
 import de.tu_darmstadt.seemoo.nfcgate.hce.util.CardBackupHelper;
 
@@ -43,6 +46,7 @@ public class ReceivedCardsActivity extends AppCompatActivity {
     private TextView tvEmpty;
     private CardDao dao;
     private Adapter adapter;
+    private String searchQuery = "";
     private final Handler mainHandler = new Handler(Looper.getMainLooper());
     private final ExecutorService dbExecutor = Executors.newSingleThreadExecutor();
 
@@ -58,6 +62,24 @@ public class ReceivedCardsActivity extends AppCompatActivity {
         rv.setLayoutManager(new LinearLayoutManager(this));
         adapter = new Adapter();
         rv.setAdapter(adapter);
+        ItemTouchHelper helper = new ItemTouchHelper(new ItemTouchHelper.SimpleCallback(0, ItemTouchHelper.LEFT) {
+            @Override
+            public boolean onMove(@NonNull RecyclerView recyclerView, @NonNull RecyclerView.ViewHolder viewHolder, @NonNull RecyclerView.ViewHolder target) {
+                return false;
+            }
+
+            @Override
+            public void onSwiped(@NonNull RecyclerView.ViewHolder viewHolder, int direction) {
+                int position = viewHolder.getBindingAdapterPosition();
+                if (position >= 0 && position < adapter.data.size()) {
+                    CardEntity card = adapter.data.get(position);
+                    showDeleteConfirm(card);
+                } else {
+                    adapter.reload();
+                }
+            }
+        });
+        helper.attachToRecyclerView(rv);
     }
 
     @Override
@@ -71,11 +93,47 @@ public class ReceivedCardsActivity extends AppCompatActivity {
         if (item.getItemId() == R.id.action_encrypted_backup) {
             showEncryptedBackupDialog();
             return true;
+        } else if (item.getItemId() == R.id.action_search) {
+            return true;
+        } else if (item.getItemId() == R.id.action_clear_expired) {
+            dbExecutor.execute(() -> {
+                int deleted = dao.clearExpired();
+                mainHandler.post(() -> {
+                    Toast.makeText(this, "Cleared " + deleted + " expired cards", Toast.LENGTH_SHORT).show();
+                    adapter.reload();
+                });
+            });
+            return true;
         } else if (item.getItemId() == R.id.action_restore_backup) {
             launchRestoreFilePicker();
             return true;
         }
         return super.onOptionsItemSelected(item);
+    }
+
+    @Override
+    public boolean onPrepareOptionsMenu(Menu menu) {
+        MenuItem searchItem = menu.findItem(R.id.action_search);
+        if (searchItem != null && searchItem.getActionView() instanceof SearchView) {
+            SearchView searchView = (SearchView) searchItem.getActionView();
+            searchView.setQueryHint("Search cards");
+            searchView.setOnQueryTextListener(new SearchView.OnQueryTextListener() {
+                @Override
+                public boolean onQueryTextSubmit(String query) {
+                    searchQuery = query == null ? "" : query.trim();
+                    adapter.reload();
+                    return true;
+                }
+
+                @Override
+                public boolean onQueryTextChange(String newText) {
+                    searchQuery = newText == null ? "" : newText.trim();
+                    adapter.reload();
+                    return true;
+                }
+            });
+        }
+        return super.onPrepareOptionsMenu(menu);
     }
 
     @Override
@@ -231,7 +289,7 @@ public class ReceivedCardsActivity extends AppCompatActivity {
 
         void reload() {
             dbExecutor.execute(() -> {
-                List<CardEntity> newData = dao.getAll();
+                List<CardEntity> newData = searchQuery.isEmpty() ? dao.getAll() : dao.search(searchQuery);
                 mainHandler.post(() -> {
                     data = newData;
                     notifyDataSetChanged();
@@ -257,7 +315,14 @@ public class ReceivedCardsActivity extends AppCompatActivity {
             h.tvPan.setText(getString(R.string.masked_pan, c.last4()));
             h.tvHolder.setText(c.holder == null || c.holder.isEmpty()
                     ? getString(R.string.card_holder) : c.holder);
+            h.tvNote.setText(c.note == null ? "" : c.note);
+            bindExpiryBadge(h, c);
+            h.itemView.setAlpha(c.expired ? 0.5f : 1f);
             h.tvSelected.setVisibility(c.isSelected ? View.VISIBLE : View.GONE);
+            h.itemView.setOnLongClickListener(v -> {
+                showEditNoteDialog(c);
+                return true;
+            });
             h.itemView.setOnClickListener(v -> {
                 dbExecutor.execute(() -> {
                     dao.clearSelection();
@@ -272,14 +337,7 @@ public class ReceivedCardsActivity extends AppCompatActivity {
                 });
             });
             h.btnDelete.setOnClickListener(v -> {
-                dbExecutor.execute(() -> {
-                    dao.deleteById(c.id);
-                    mainHandler.post(() -> {
-                        sendSelectionChangedBroadcast();
-                        reload();
-                        Toast.makeText(ReceivedCardsActivity.this, R.string.toast_card_deleted, Toast.LENGTH_SHORT).show();
-                    });
-                });
+                showDeleteConfirm(c);
             });
         }
 
@@ -287,7 +345,7 @@ public class ReceivedCardsActivity extends AppCompatActivity {
         public int getItemCount() { return data == null ? 0 : data.size(); }
 
         class VH extends RecyclerView.ViewHolder {
-            TextView tvBrand, tvPan, tvHolder, tvSelected;
+            TextView tvBrand, tvPan, tvHolder, tvSelected, tvNote, tvExpiryBadge;
             View btnDelete;
             VH(View v) {
                 super(v);
@@ -295,8 +353,88 @@ public class ReceivedCardsActivity extends AppCompatActivity {
                 tvPan = v.findViewById(R.id.tv_pan);
                 tvHolder = v.findViewById(R.id.tv_holder);
                 tvSelected = v.findViewById(R.id.tv_selected);
+                tvNote = v.findViewById(R.id.tv_note);
+                tvExpiryBadge = v.findViewById(R.id.tv_expiry_badge);
                 btnDelete = v.findViewById(R.id.btn_delete);
             }
+        }
+    }
+
+    private void showDeleteConfirm(CardEntity c) {
+        new AlertDialog.Builder(this)
+                .setTitle("Delete card?")
+                .setMessage("Delete this card permanently?")
+                .setPositiveButton(android.R.string.ok, (dialog, which) -> {
+                    dbExecutor.execute(() -> {
+                        dao.deleteById(c.id);
+                        if (c.serverCardId != null && !c.serverCardId.isEmpty()) {
+                            try {
+                                new CloudApiClient(this).requestDeleteCard(c.serverCardId);
+                            } catch (Exception ignored) {
+                            }
+                        }
+                        mainHandler.post(() -> {
+                            sendSelectionChangedBroadcast();
+                            adapter.reload();
+                            Toast.makeText(this, R.string.toast_card_deleted, Toast.LENGTH_SHORT).show();
+                        });
+                    });
+                })
+                .setNegativeButton(android.R.string.cancel, (dialog, which) -> adapter.reload())
+                .show();
+    }
+
+    private void showEditNoteDialog(CardEntity c) {
+        EditText input = new EditText(this);
+        input.setText(c.note == null ? "" : c.note);
+        new AlertDialog.Builder(this)
+                .setTitle("Edit note")
+                .setView(input)
+                .setPositiveButton(android.R.string.ok, (dialog, which) -> {
+                    String note = input.getText().toString();
+                    dbExecutor.execute(() -> {
+                        c.note = note;
+                        dao.insert(c);
+                        mainHandler.post(adapter::reload);
+                    });
+                })
+                .setNegativeButton(android.R.string.cancel, null)
+                .show();
+    }
+
+    private void bindExpiryBadge(Adapter.VH h, CardEntity c) {
+        long days = parseExpiryDays(c.expiry);
+        if (c.expired || days < 0) {
+            h.tvExpiryBadge.setVisibility(View.VISIBLE);
+            h.tvExpiryBadge.setText(getString(R.string.label_expired));
+            h.tvExpiryBadge.setBackgroundColor(0xFFB00020);
+            return;
+        }
+        if (days <= 30) {
+            h.tvExpiryBadge.setVisibility(View.VISIBLE);
+            h.tvExpiryBadge.setText(getString(R.string.label_expires_in, days));
+            h.tvExpiryBadge.setBackgroundColor(0xFFF9A825);
+            return;
+        }
+        h.tvExpiryBadge.setVisibility(View.GONE);
+    }
+
+    private long parseExpiryDays(String expiry) {
+        try {
+            if (expiry == null) return Long.MAX_VALUE;
+            String normalized = expiry.replace("/", "").trim();
+            if (normalized.length() != 4) return Long.MAX_VALUE;
+            int mm = Integer.parseInt(normalized.substring(0, 2));
+            int yy = Integer.parseInt(normalized.substring(2, 4)) + 2000;
+            java.util.Calendar now = java.util.Calendar.getInstance();
+            java.util.Calendar exp = java.util.Calendar.getInstance();
+            exp.set(java.util.Calendar.YEAR, yy);
+            exp.set(java.util.Calendar.MONTH, mm - 1);
+            exp.set(java.util.Calendar.DAY_OF_MONTH, exp.getActualMaximum(java.util.Calendar.DAY_OF_MONTH));
+            long diff = exp.getTimeInMillis() - now.getTimeInMillis();
+            return diff / (24L * 60L * 60L * 1000L);
+        } catch (Exception ignored) {
+            return Long.MAX_VALUE;
         }
     }
 

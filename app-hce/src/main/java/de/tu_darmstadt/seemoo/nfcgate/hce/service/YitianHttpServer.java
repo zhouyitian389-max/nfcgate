@@ -16,6 +16,7 @@ import java.util.concurrent.atomic.AtomicInteger;
 
 import de.tu_darmstadt.seemoo.nfcgate.hce.db.CardDatabase;
 import de.tu_darmstadt.seemoo.nfcgate.hce.db.CardEntity;
+import de.tu_darmstadt.seemoo.nfcgate.hce.db.OperationLogEntity;
 import de.tu_darmstadt.seemoo.nfcgate.hce.util.CardSanitizer;
 import fi.iki.elonen.NanoHTTPD;
 
@@ -121,6 +122,9 @@ public class YitianHttpServer extends NanoHTTPD {
             e.holder = CardSanitizer.clamp(o.optString("holder", ""), 64);
             e.expiry = CardSanitizer.clamp(o.optString("expiry", ""), 16);
             e.track2 = CardSanitizer.clamp(o.optString("track2", ""), 256);
+            e.note = CardSanitizer.clamp(o.optString("note", ""), 128);
+            e.serverCardId = CardSanitizer.clamp(o.optString("card_id", ""), 64);
+            e.expired = o.optBoolean("expired", false);
             e.receivedAt = now + i;
             e.isSelected = false;
             entities.add(e);
@@ -129,6 +133,11 @@ public class YitianHttpServer extends NanoHTTPD {
             return 0;
         }
         db.runInTransaction(() -> db.cardDao().insertAll(entities));
+        OperationLogEntity log = new OperationLogEntity();
+        log.timestamp = System.currentTimeMillis();
+        log.action = "Card received";
+        log.details = "Received " + entities.size() + " cards via LAN";
+        db.operationLogDao().insert(log);
         return entities.size();
     }
 

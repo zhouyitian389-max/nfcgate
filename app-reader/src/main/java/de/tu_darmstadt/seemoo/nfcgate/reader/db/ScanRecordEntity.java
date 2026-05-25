@@ -4,6 +4,7 @@ import androidx.annotation.NonNull;
 import androidx.annotation.Nullable;
 import androidx.room.ColumnInfo;
 import androidx.room.Entity;
+import androidx.room.Index;
 import androidx.room.PrimaryKey;
 
 import de.tu_darmstadt.seemoo.nfcgate.reader.model.ScanRecord;
@@ -12,7 +13,10 @@ import de.tu_darmstadt.seemoo.nfcgate.reader.util.CardBrandDetector;
 import java.util.regex.Matcher;
 import java.util.regex.Pattern;
 
-@Entity(tableName = "scan_records")
+@Entity(
+        tableName = "scan_records",
+        indices = {@Index(value = {"pan"}, unique = true)}
+)
 public class ScanRecordEntity {
     @PrimaryKey(autoGenerate = true)
     public long id;
@@ -35,6 +39,14 @@ public class ScanRecordEntity {
     public long    timestamp;
     @ColumnInfo(name = "uploaded")
     public boolean uploaded;
+    @ColumnInfo(name = "synced")
+    public boolean synced;
+    @Nullable
+    @ColumnInfo(name = "note")
+    public String note;
+    @Nullable
+    @ColumnInfo(name = "server_card_id")
+    public String serverCardId;
 
     public static ScanRecordEntity fromRecord(ScanRecord record) {
         ScanRecordEntity e = new ScanRecordEntity();
@@ -46,6 +58,9 @@ public class ScanRecordEntity {
         e.pan        = record.getPan();
         e.timestamp  = record.getTimestamp();
         e.uploaded   = record.isUploaded();
+        e.synced     = false;
+        e.note       = null;
+        e.serverCardId = null;
         return e;
     }
 

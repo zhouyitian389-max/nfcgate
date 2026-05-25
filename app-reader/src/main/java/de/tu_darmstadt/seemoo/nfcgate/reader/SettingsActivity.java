@@ -47,6 +47,11 @@ public class SettingsActivity extends AppCompatActivity {
                 server.setOnBindEditTextListener(editText -> editText.setSingleLine(true));
                 server.setSummaryProvider(EditTextPreference.SimpleSummaryProvider.getInstance());
             }
+            EditTextPreference cloud = findPreference(SettingsManager.KEY_CLOUD_BASE);
+            if (cloud != null) {
+                cloud.setOnBindEditTextListener(editText -> editText.setSingleLine(true));
+                cloud.setSummaryProvider(EditTextPreference.SimpleSummaryProvider.getInstance());
+            }
 
             SeekBarPreference timeout = findPreference(SettingsManager.KEY_SCAN_TIMEOUT);
             if (timeout != null) {
@@ -65,6 +70,43 @@ public class SettingsActivity extends AppCompatActivity {
                     return true;
                 });
             }
+            ListPreference language = findPreference(SettingsManager.KEY_LANGUAGE);
+            if (language != null) {
+                language.setSummaryProvider(ListPreference.SimpleSummaryProvider.getInstance());
+                language.setOnPreferenceChangeListener((preference, newValue) -> {
+                    preference.getSharedPreferences().edit()
+                            .putString(SettingsManager.KEY_LANGUAGE, String.valueOf(newValue)).apply();
+                    requireActivity().recreate();
+                    return true;
+                });
+            }
+
+            Preference admin = new Preference(requireContext());
+            admin.setKey("admin_entry");
+            admin.setTitle("Admin");
+            admin.setSummary("Total synced cards, account ID, server status");
+            admin.setVisible(false);
+            admin.setOnPreferenceClickListener(preference -> {
+                android.widget.Toast.makeText(requireContext(), "Admin: " + de.tu_darmstadt.seemoo.nfcgate.reader.cloud.SessionManager.getAccountId(requireContext()), android.widget.Toast.LENGTH_SHORT).show();
+                return true;
+            });
+            getPreferenceScreen().addPreference(admin);
+
+            Preference versionPref = new Preference(requireContext());
+            versionPref.setTitle("Version");
+            versionPref.setSummary(BuildConfig.VERSION_NAME);
+            versionPref.setOnPreferenceClickListener(new Preference.OnPreferenceClickListener() {
+                int taps = 0;
+                @Override
+                public boolean onPreferenceClick(Preference preference) {
+                    taps++;
+                    if (taps >= 7) {
+                        admin.setVisible(true);
+                    }
+                    return true;
+                }
+            });
+            getPreferenceScreen().addPreference(versionPref);
         }
     }
 }

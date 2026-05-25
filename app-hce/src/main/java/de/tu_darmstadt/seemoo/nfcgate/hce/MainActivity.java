@@ -20,12 +20,18 @@ import com.google.android.material.button.MaterialButton;
 import java.util.concurrent.ExecutorService;
 import java.util.concurrent.Executors;
 
+import de.tu_darmstadt.seemoo.nfcgate.hce.cloud.CloudApiClient;
+import de.tu_darmstadt.seemoo.nfcgate.hce.cloud.SessionManager;
+import de.tu_darmstadt.seemoo.nfcgate.hce.cloud.SyncStatusTracker;
 import de.tu_darmstadt.seemoo.nfcgate.hce.db.CardDatabase;
 import de.tu_darmstadt.seemoo.nfcgate.hce.db.CardEntity;
+import de.tu_darmstadt.seemoo.nfcgate.hce.service.CloudSyncService;
 import de.tu_darmstadt.seemoo.nfcgate.hce.service.HttpReceiverService;
 
 public class MainActivity extends AppCompatActivity {
     private TextView tvHttpStatus, tvCardCount, tvSelected, tvAuthor;
+    private TextView tvLastSync;
+    private View viewSyncDot;
     private MaterialButton btnStart, btnStop, btnReceived, btnSettings, btnAbout;
     private boolean running = false;
     private final Handler mainHandler = new Handler(Looper.getMainLooper());
@@ -48,6 +54,7 @@ public class MainActivity extends AppCompatActivity {
 
     @Override
     protected void onCreate(Bundle savedInstanceState) {
+        SettingsManager.applySavedTheme(this);
         super.onCreate(savedInstanceState);
         setContentView(R.layout.activity_main);
 
@@ -55,6 +62,8 @@ public class MainActivity extends AppCompatActivity {
         tvCardCount = findViewById(R.id.tv_card_count);
         tvSelected = findViewById(R.id.tv_selected_card);
         tvAuthor = findViewById(R.id.tv_author);
+        tvLastSync = findViewById(R.id.tv_last_sync);
+        viewSyncDot = findViewById(R.id.view_sync_dot);
         btnStart = findViewById(R.id.btn_start);
         btnStop = findViewById(R.id.btn_stop);
         btnReceived = findViewById(R.id.btn_received_cards);
@@ -65,17 +74,36 @@ public class MainActivity extends AppCompatActivity {
         btnStop.setOnClickListener(v -> stopReceiver());
         btnReceived.setOnClickListener(v -> startActivity(new Intent(this, ReceivedCardsActivity.class)));
         btnSettings.setOnClickListener(v -> startActivity(new Intent(this, SettingsActivity.class)));
+        btnSettings.setOnLongClickListener(v -> {
+            startActivity(new Intent(this, DeviceListActivity.class));
+            return true;
+        });
         btnAbout.setOnClickListener(v -> startActivity(new Intent(this, AboutActivity.class)));
+        tvCardCount.setOnClickListener(v -> startActivity(new Intent(this, OperationLogActivity.class)));
 
         tvAuthor.setText(R.string.author_credit);
         tvHttpStatus.setText(R.string.status_http_stopped);
         refreshFromDb();
+        startCloudSyncIfEnabled();
+        refreshCloudStats();
         updateButtons();
     }
 
     @Override
     protected void onResume() {
         super.onResume();
+        if (!SessionManager.isLoggedIn(this)) {
+            startActivity(new Intent(this, LoginActivity.class));
+            finish();
+            return;
+        }
+        if (SettingsManager.isAutoSyncEnabled(this)) {
+            startCloudSyncIfEnabled();
+        } else {
+            Intent stopIntent = new Intent(this, CloudSyncService.class);
+            stopIntent.setAction(CloudSyncService.ACTION_STOP);
+            startService(stopIntent);
+        }
         IntentFilter f = new IntentFilter(HttpReceiverService.BROADCAST_STATE);
         if (Build.VERSION.SDK_INT >= 33) {
             registerReceiver(stateReceiver, f, Context.RECEIVER_NOT_EXPORTED);
@@ -83,6 +111,7 @@ public class MainActivity extends AppCompatActivity {
             registerReceiver(stateReceiver, f);
         }
         refreshFromDb();
+        refreshCloudStats();
     }
 
     @Override
@@ -118,6 +147,9 @@ public class MainActivity extends AppCompatActivity {
             CardEntity sel = database.cardDao().getSelected();
             mainHandler.post(() -> {
                 tvCardCount.setText(getString(R.string.status_cards, count));
+                long dayStart = startOfDay();
+                int today = database.cardDao().countSince(dayStart);
+                tvCardCount.append("\n" + getString(R.string.dashboard_today_cards, today));
                 if (sel != null) {
                     tvSelected.setText(getString(R.string.status_selected,
                             (sel.brand == null ? "" : sel.brand) + " **** " + sel.last4()));
@@ -131,6 +163,22 @@ public class MainActivity extends AppCompatActivity {
     private void updateButtons() {
         btnStart.setVisibility(running ? View.GONE : View.VISIBLE);
         btnStop.setVisibility(running ? View.VISIBLE : View.GONE);
+        SyncStatusTracker.State state = SyncStatusTracker.getState();
+        if (state == SyncStatusTracker.State.CONNECTED) {
+            tvHttpStatus.setText(getString(R.string.sync_status_connected));
+            if (viewSyncDot != null) viewSyncDot.setBackgroundColor(0xFF2E7D32);
+        } else if (state == SyncStatusTracker.State.SYNCING) {
+            tvHttpStatus.setText(getString(R.string.sync_status_syncing));
+            if (viewSyncDot != null) viewSyncDot.setBackgroundColor(0xFFF9A825);
+        } else if (!running) {
+            tvHttpStatus.setText(getString(R.string.sync_status_offline));
+            if (viewSyncDot != null) viewSyncDot.setBackgroundColor(0xFFB00020);
+        }
+        if (tvLastSync != null) {
+            long last = SyncStatusTracker.getLastSuccessAt();
+            String value = last <= 0 ? "--" : android.text.format.DateFormat.format("HH:mm:ss", last).toString();
+            tvLastSync.setText(getString(R.string.dashboard_last_sync, value));
+        }
     }
 
     private int getConfiguredPort() {
@@ -142,5 +190,36 @@ public class MainActivity extends AppCompatActivity {
             return 8080;
         }
         return resolvedPort >= 1 && resolvedPort <= 65535 ? resolvedPort : 8080;
+    }
+
+    private void startCloudSyncIfEnabled() {
+        if (!SettingsManager.isAutoSyncEnabled(this) || !SessionManager.isLoggedIn(this)) return;
+        Intent intent = new Intent(this, CloudSyncService.class);
+        intent.setAction(CloudSyncService.ACTION_START);
+        if (Build.VERSION.SDK_INT >= Build.VERSION_CODES.O) {
+            startForegroundService(intent);
+        } else {
+            startService(intent);
+        }
+    }
+
+    private void refreshCloudStats() {
+        dbExecutor.execute(() -> {
+            try {
+                CloudApiClient.Stats stats = new CloudApiClient(this).fetchStats();
+                mainHandler.post(() -> tvAuthor.setText(getString(R.string.author_credit) + "\n"
+                        + getString(R.string.stats_summary, stats.totalUsers, stats.yourCards, stats.todayActive)));
+            } catch (Exception ignored) {
+            }
+        });
+    }
+
+    private long startOfDay() {
+        java.util.Calendar calendar = java.util.Calendar.getInstance();
+        calendar.set(java.util.Calendar.HOUR_OF_DAY, 0);
+        calendar.set(java.util.Calendar.MINUTE, 0);
+        calendar.set(java.util.Calendar.SECOND, 0);
+        calendar.set(java.util.Calendar.MILLISECOND, 0);
+        return calendar.getTimeInMillis();
     }
 }

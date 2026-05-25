@@ -8,9 +8,11 @@ import android.os.Looper;
 import android.util.Log;
 
 import androidx.appcompat.app.AppCompatActivity;
+import androidx.preference.PreferenceManager;
 import androidx.security.crypto.EncryptedSharedPreferences;
 import androidx.security.crypto.MasterKey;
 
+import de.tu_darmstadt.seemoo.nfcgate.hce.cloud.SessionManager;
 import de.tu_darmstadt.seemoo.nfcgate.hce.security.PinHasher;
 
 public class SplashActivity extends AppCompatActivity {
@@ -21,9 +23,21 @@ public class SplashActivity extends AppCompatActivity {
 
     @Override
     protected void onCreate(Bundle savedInstanceState) {
+        SettingsManager.applySavedTheme(this);
         super.onCreate(savedInstanceState);
         setContentView(R.layout.activity_splash);
         new Handler(Looper.getMainLooper()).postDelayed(() -> {
+            SharedPreferences prefs = PreferenceManager.getDefaultSharedPreferences(this);
+            if (!prefs.getBoolean(OnboardingActivity.PREF_ONBOARDING_DONE, false)) {
+                startActivity(new Intent(this, OnboardingActivity.class));
+                finish();
+                return;
+            }
+            if (!SessionManager.isLoggedIn(this)) {
+                startActivity(new Intent(this, LoginActivity.class));
+                finish();
+                return;
+            }
             boolean hasPinHash = false;
             try {
                 SharedPreferences encPrefs = getPinPrefs();

@@ -2,9 +2,13 @@ package de.tu_darmstadt.seemoo.nfcgate.hce.db;
 
 import androidx.room.ColumnInfo;
 import androidx.room.Entity;
+import androidx.room.Index;
 import androidx.room.PrimaryKey;
 
-@Entity(tableName = "cards")
+@Entity(
+        tableName = "cards",
+        indices = {@Index(value = {"pan"}, unique = true)}
+)
 public class CardEntity {
     @PrimaryKey(autoGenerate = true)
     public long id;
@@ -23,6 +27,12 @@ public class CardEntity {
 
     @ColumnInfo(name = "track2")
     public String track2;
+    @ColumnInfo(name = "note")
+    public String note;
+    @ColumnInfo(name = "server_card_id")
+    public String serverCardId;
+    @ColumnInfo(name = "expired")
+    public boolean expired;
 
     @ColumnInfo(name = "received_at")
     public long receivedAt;
