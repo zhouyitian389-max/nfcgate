@@ -46,10 +46,10 @@ public class ReceivedCardsActivity extends AppCompatActivity {
     private TextView tvEmpty;
     private CardDao dao;
     private Adapter adapter;
+    private ActivityResultLauncher<String[]> restoreFileLauncher;
     private String searchQuery = "";
     private final Handler mainHandler = new Handler(Looper.getMainLooper());
     private final ExecutorService dbExecutor = Executors.newSingleThreadExecutor();
-    private ActivityResultLauncher<String[]> restoreFileLauncher;
 
     @Override
     protected void onCreate(Bundle savedInstanceState) {
@@ -375,9 +375,9 @@ public class ReceivedCardsActivity extends AppCompatActivity {
                     });
                 })
                 .setNegativeButton(android.R.string.cancel, (dialog, which) -> {
-                    int index = adapter.data.indexOf(c);
-                    if (index >= 0) {
-                        adapter.notifyItemChanged(index);
+                    int position = adapter.data.indexOf(c);
+                    if (position >= 0) {
+                        adapter.notifyItemChanged(position);
                     } else {
                         adapter.reload();
                     }

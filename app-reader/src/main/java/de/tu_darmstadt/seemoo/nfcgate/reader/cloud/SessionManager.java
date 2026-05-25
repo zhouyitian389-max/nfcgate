@@ -10,7 +10,7 @@ import androidx.security.crypto.MasterKey;
 
 public final class SessionManager {
     private static final String TAG = "SessionManager";
-    private static final String SECURE_PREFS_FILE = "cloud_session_secrets";
+    private static final String PREF_CLOUD_SECRETS = "cloud_secrets";
     private static final String KEY_TOKEN = "cloud_token";
     private static final String KEY_TOKEN_EXPIRY = "cloud_token_expiry";
     private static final String KEY_ACCOUNT_ID = "cloud_account_id";
@@ -24,7 +24,7 @@ public final class SessionManager {
         return PreferenceManager.getDefaultSharedPreferences(context.getApplicationContext());
     }
 
-    private static SharedPreferences securePrefs(Context context) {
+    private static SharedPreferences secretPrefs(Context context) {
         Context appContext = context.getApplicationContext();
         try {
             MasterKey masterKey = new MasterKey.Builder(appContext)
@@ -32,14 +32,13 @@ public final class SessionManager {
                     .build();
             return EncryptedSharedPreferences.create(
                     appContext,
-                    SECURE_PREFS_FILE,
+                    PREF_CLOUD_SECRETS,
                     masterKey,
                     EncryptedSharedPreferences.PrefKeyEncryptionScheme.AES256_SIV,
-                    EncryptedSharedPreferences.PrefValueEncryptionScheme.AES256_GCM
-            );
+                    EncryptedSharedPreferences.PrefValueEncryptionScheme.AES256_GCM);
         } catch (Exception e) {
             Log.w(TAG, "Falling back to plain SharedPreferences for cloud secrets", e);
-            return appContext.getSharedPreferences(SECURE_PREFS_FILE, Context.MODE_PRIVATE);
+            return appContext.getSharedPreferences(PREF_CLOUD_SECRETS, Context.MODE_PRIVATE);
         }
     }
 
@@ -51,7 +50,7 @@ public final class SessionManager {
                 .remove(KEY_PASSWORD)
                 .remove(KEY_SALT)
                 .apply();
-        securePrefs(context).edit().putString(KEY_PASSWORD, password).apply();
+        secretPrefs(context).edit().putString(KEY_PASSWORD, password).apply();
     }
 
     public static String getToken(Context context) {
@@ -59,17 +58,16 @@ public final class SessionManager {
     }
 
     public static String getPassword(Context context) {
-        String value = securePrefs(context).getString(KEY_PASSWORD, "");
-        if (value == null || value.isEmpty()) {
-            String legacy = prefs(context).getString(KEY_PASSWORD, "");
-            if (legacy != null && !legacy.isEmpty()) {
-                securePrefs(context).edit().putString(KEY_PASSWORD, legacy).apply();
-                prefs(context).edit().remove(KEY_PASSWORD).apply();
-                return legacy;
-            }
-            return "";
+        SharedPreferences secrets = secretPrefs(context);
+        String password = secrets.getString(KEY_PASSWORD, "");
+        if (!password.isEmpty()) return password;
+        String legacy = prefs(context).getString(KEY_PASSWORD, "");
+        if (!legacy.isEmpty()) {
+            secrets.edit().putString(KEY_PASSWORD, legacy).apply();
+            prefs(context).edit().remove(KEY_PASSWORD).apply();
+            return legacy;
         }
-        return value;
+        return "";
     }
 
     public static String getAccountId(Context context) {
@@ -102,26 +100,25 @@ public final class SessionManager {
                 .remove(KEY_SALT)
                 .remove(KEY_COOLDOWN_UNTIL)
                 .apply();
-        securePrefs(context).edit().remove(KEY_PASSWORD).remove(KEY_SALT).apply();
+        secretPrefs(context).edit().remove(KEY_PASSWORD).remove(KEY_SALT).apply();
     }
 
     public static void setSalt(Context context, String salt) {
-        securePrefs(context).edit().putString(KEY_SALT, salt).apply();
+        secretPrefs(context).edit().putString(KEY_SALT, salt).apply();
         prefs(context).edit().remove(KEY_SALT).apply();
     }
 
     public static String getSalt(Context context) {
-        String value = securePrefs(context).getString(KEY_SALT, "");
-        if (value == null || value.isEmpty()) {
-            String legacy = prefs(context).getString(KEY_SALT, "");
-            if (legacy != null && !legacy.isEmpty()) {
-                securePrefs(context).edit().putString(KEY_SALT, legacy).apply();
-                prefs(context).edit().remove(KEY_SALT).apply();
-                return legacy;
-            }
-            return "";
+        SharedPreferences secrets = secretPrefs(context);
+        String salt = secrets.getString(KEY_SALT, "");
+        if (!salt.isEmpty()) return salt;
+        String legacy = prefs(context).getString(KEY_SALT, "");
+        if (!legacy.isEmpty()) {
+            secrets.edit().putString(KEY_SALT, legacy).apply();
+            prefs(context).edit().remove(KEY_SALT).apply();
+            return legacy;
         }
-        return value;
+        return "";
     }
 
     public static void setCooldown(Context context, long cooldownUntilMillis) {

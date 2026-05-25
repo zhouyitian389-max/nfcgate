@@ -39,6 +39,10 @@
     <string name="toast_sync_success">已从云端同步 %1$d 张卡</string>
     <string name="toast_sync_no_cards">云端暂无新卡片</string>
     <string name="toast_sync_failed">云端同步失败：%1$s</string>
+    <string name="notif_cloud_sync_title">云同步</string>
+    <string name="notif_cloud_sync_text">每30秒同步卡片</string>
+    <string name="channel_cloud_sync">云同步服务</string>
+    <string name="channel_new_card">收到新卡片</string>
 
     <string name="about_title">关于 YitianNFC</string>
     <string name="about_version">版本：%1$s</string>
@@ -100,6 +104,10 @@
     <string name="restore_chooser_title">选择备份文件（.ybak）</string>
     <string name="menu_encrypted_backup">加密备份</string>
     <string name="menu_restore_backup">恢复备份</string>
+    <string name="cleared_expired_cards">已清除 %1$d 张过期卡片</string>
+    <string name="dialog_delete_card_title">删除卡片？</string>
+    <string name="dialog_delete_card_message">确定永久删除此卡片？</string>
+    <string name="dialog_edit_note_title">编辑备注</string>
 
     <string-array name="settings_theme_entries">
         <item>深色</item>
