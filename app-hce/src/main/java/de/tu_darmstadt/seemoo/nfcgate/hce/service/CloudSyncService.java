@@ -10,6 +10,7 @@ import android.content.Intent;
 import android.os.Build;
 import android.os.Handler;
 import android.os.IBinder;
+import android.os.Looper;
 
 import androidx.annotation.Nullable;
 import androidx.core.app.NotificationCompat;
@@ -35,7 +36,7 @@ public class CloudSyncService extends Service {
     private static final String CHANNEL_SERVICE = "cloud_sync_service";
     private static final String CHANNEL_NEW_CARD = "new_card_received";
 
-    private final Handler handler = new Handler();
+    private final Handler handler = new Handler(Looper.getMainLooper());
     private final ExecutorService ioExecutor = Executors.newSingleThreadExecutor();
     private CloudEventSource eventSource;
     private final Runnable pullRunnable = new Runnable() {
@@ -89,27 +90,27 @@ public class CloudSyncService extends Service {
             List<CloudApiClient.CardItem> cards = api.pullCards();
             if (cards.isEmpty()) return;
             CardDatabase db = CardDatabase.getInstance(this);
-            int added = 0;
-            for (CloudApiClient.CardItem item : cards) {
-                CardEntity existing = db.cardDao().findByPan(item.pan);
-                CardEntity e = new CardEntity();
-                if (existing != null) e.id = existing.id;
-                e.pan = item.pan;
-                e.brand = item.brand;
-                e.holder = item.holder;
-                e.expiry = item.expiry;
-                e.track2 = item.track2;
-                e.note = item.note;
-                e.serverCardId = item.serverId;
-                e.expired = item.expired;
-                e.receivedAt = System.currentTimeMillis();
-                e.isSelected = existing != null && existing.isSelected;
-                db.cardDao().insert(e);
-                if (existing == null) {
-                    added++;
-                    showNewCardNotification(e);
+            db.runInTransaction(() -> {
+                for (CloudApiClient.CardItem item : cards) {
+                    CardEntity existing = db.cardDao().findByPan(item.pan);
+                    CardEntity e = new CardEntity();
+                    if (existing != null) e.id = existing.id;
+                    e.pan = item.pan;
+                    e.brand = item.brand;
+                    e.holder = item.holder;
+                    e.expiry = item.expiry;
+                    e.track2 = item.track2;
+                    e.note = item.note;
+                    e.serverCardId = item.serverId;
+                    e.expired = item.expired;
+                    e.receivedAt = System.currentTimeMillis();
+                    e.isSelected = existing != null && existing.isSelected;
+                    db.cardDao().insert(e);
+                    if (existing == null) {
+                        showNewCardNotification(e);
+                    }
                 }
-            }
+            });
             OperationLogEntity log = new OperationLogEntity();
             log.timestamp = System.currentTimeMillis();
             log.action = "Synced cards";
@@ -117,6 +118,7 @@ public class CloudSyncService extends Service {
             db.operationLogDao().insert(log);
             Intent i = new Intent("de.tu_darmstadt.seemoo.nfcgate.hce.SYNC_UPDATE");
             i.putExtra("last_sync", System.currentTimeMillis());
+            i.setPackage(getPackageName());
             sendBroadcast(i);
         } catch (Exception e) {
             // ignore and retry on next cycle
@@ -128,8 +130,8 @@ public class CloudSyncService extends Service {
         PendingIntent pi = PendingIntent.getActivity(this, 0, intent, PendingIntent.FLAG_UPDATE_CURRENT | PendingIntent.FLAG_IMMUTABLE);
         return new NotificationCompat.Builder(this, CHANNEL_SERVICE)
                 .setSmallIcon(R.mipmap.ic_launcher)
-                .setContentTitle("Cloud Sync")
-                .setContentText("Syncing cards every 30 seconds")
+                .setContentTitle(getString(R.string.notif_cloud_sync_title))
+                .setContentText(getString(R.string.notif_cloud_sync_text))
                 .setContentIntent(pi)
                 .setOngoing(true)
                 .build();
@@ -156,8 +158,8 @@ public class CloudSyncService extends Service {
         if (Build.VERSION.SDK_INT < Build.VERSION_CODES.O) return;
         NotificationManager nm = (NotificationManager) getSystemService(Context.NOTIFICATION_SERVICE);
         if (nm == null) return;
-        NotificationChannel serviceChannel = new NotificationChannel(CHANNEL_SERVICE, "Cloud Sync Service", NotificationManager.IMPORTANCE_LOW);
-        NotificationChannel newCardChannel = new NotificationChannel(CHANNEL_NEW_CARD, "New Card Received", NotificationManager.IMPORTANCE_DEFAULT);
+        NotificationChannel serviceChannel = new NotificationChannel(CHANNEL_SERVICE, getString(R.string.channel_cloud_sync), NotificationManager.IMPORTANCE_LOW);
+        NotificationChannel newCardChannel = new NotificationChannel(CHANNEL_NEW_CARD, getString(R.string.channel_new_card), NotificationManager.IMPORTANCE_DEFAULT);
         newCardChannel.enableVibration(true);
         newCardChannel.enableLights(true);
         nm.createNotificationChannel(serviceChannel);

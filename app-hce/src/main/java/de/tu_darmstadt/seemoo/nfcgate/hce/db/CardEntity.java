@@ -14,6 +14,7 @@ public class CardEntity {
     public long id;
 
     @ColumnInfo(name = "pan")
+    // PAN is protected at rest by SQLCipher full-database encryption in this app.
     public String pan;
 
     @ColumnInfo(name = "brand")

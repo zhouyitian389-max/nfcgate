@@ -1,8 +1,0 @@
-Trigger release v5.2-YiTian
-
-YiTian Suite — Brand Purification & Polishing
-- Fixed: app/strings.xml NFCGate -> YiTian Controller
-- Fixed: app-hce/strings.xml expanded with full UI strings
-- Added: Chinese (zh) translations for app + app-hce
-- About text rewritten to YiTian brand
-- Author: YiTian

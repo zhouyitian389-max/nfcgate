@@ -3,6 +3,8 @@ package de.tu_darmstadt.seemoo.nfcgate.hce.cloud;
 public final class SyncStatusTracker {
     public enum State { CONNECTED, SYNCING, OFFLINE }
 
+    // Intentionally memory-only: state is refreshed quickly from active SSE/polling reconnects
+    // and does not represent durable business data that must survive process restarts.
     private static volatile long lastSuccessAt;
     private static volatile boolean syncing;
 

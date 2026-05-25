@@ -4,6 +4,7 @@ import android.content.ContentResolver;
 import android.content.Context;
 import android.os.Build;
 import android.provider.Settings;
+import android.util.Log;
 
 import org.json.JSONArray;
 import org.json.JSONObject;
@@ -133,7 +134,10 @@ public class CloudApiClient {
             String blob = c.optString("blob", "");
             if (!blob.isEmpty() && !password.isEmpty()) {
                 try { card = new JSONObject(E2EEncryption.decrypt(blob, password, salt.isEmpty() ? "default" : salt)); }
-                catch (Exception ignored) { continue; }
+                catch (Exception ignored) {
+                    Log.w("CloudApiClient", "Failed to decrypt card blob, skipping", ignored);
+                    continue;
+                }
             }
             out.add(new CardItem(
                     card.optString("pan", ""),
