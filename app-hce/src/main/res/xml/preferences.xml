@@ -13,6 +13,11 @@
         android:summary="@string/settings_pin_code_summary"
         app:useSimpleSummaryProvider="true"
         android:defaultValue="" />
+    <SwitchPreferenceCompat
+        android:key="pref_biometric_enabled"
+        android:title="@string/settings_biometric"
+        android:summary="@string/settings_biometric_summary"
+        android:defaultValue="true" />
     <ListPreference
         android:key="theme"
         android:title="@string/settings_theme"

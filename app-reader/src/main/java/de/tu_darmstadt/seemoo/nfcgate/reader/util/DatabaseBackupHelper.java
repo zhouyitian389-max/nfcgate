@@ -8,6 +8,7 @@ import org.json.JSONObject;
 import java.io.File;
 import java.io.FileOutputStream;
 import java.nio.charset.StandardCharsets;
+import java.util.ArrayList;
 import java.util.List;
 
 import de.tu_darmstadt.seemoo.nfcgate.reader.db.AppDatabase;
@@ -52,25 +53,25 @@ public final class DatabaseBackupHelper {
             return 0;
         }
 
-        database.runInTransaction(() -> {
-            for (int i = 0; i < array.length(); i++) {
-                JSONObject item = array.optJSONObject(i);
-                if (item == null) {
-                    continue;
-                }
-                ScanRecordEntity record = new ScanRecordEntity();
-                record.deviceName = item.optString("deviceName", "");
-                record.sourceType = item.optString("sourceType", "");
-                record.rawData = item.optString("rawData", "");
-                record.cardBrand = item.optString("cardBrand", "UNKNOWN");
-                String pan = item.optString("pan", "");
-                record.pan = pan.isEmpty() ? null : pan;
-                record.timestamp = item.optLong("timestamp", System.currentTimeMillis());
-                record.uploaded = item.optBoolean("uploaded", false);
-                database.scanRecordDao().insert(record);
+        List<ScanRecordEntity> entities = new ArrayList<>(array.length());
+        for (int i = 0; i < array.length(); i++) {
+            JSONObject item = array.optJSONObject(i);
+            if (item == null) {
+                continue;
             }
-        });
+            ScanRecordEntity record = new ScanRecordEntity();
+            record.deviceName = item.optString("deviceName", "");
+            record.sourceType = item.optString("sourceType", "");
+            record.rawData = item.optString("rawData", "");
+            record.cardBrand = item.optString("cardBrand", "UNKNOWN");
+            String pan = item.optString("pan", "");
+            record.pan = pan.isEmpty() ? null : pan;
+            record.timestamp = item.optLong("timestamp", System.currentTimeMillis());
+            record.uploaded = item.optBoolean("uploaded", false);
+            entities.add(record);
+        }
 
-        return array.length();
+        database.runInTransaction(() -> database.scanRecordDao().insertAll(entities));
+        return entities.size();
     }
 }

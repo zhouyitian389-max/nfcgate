@@ -11,6 +11,9 @@ public interface ScanRecordDao {
     @Insert
     long insert(ScanRecordEntity record);
 
+    @Insert
+    void insertAll(List<ScanRecordEntity> records);
+
     @Query("SELECT * FROM scan_records ORDER BY timestamp DESC")
     List<ScanRecordEntity> getAll();
 
@@ -26,14 +29,8 @@ public interface ScanRecordDao {
     @Query("SELECT COUNT(*) FROM scan_records")
     int count();
 
-    @Query("SELECT COUNT(*) FROM scan_records")
-    int getTotalCount();
-
     @Query("SELECT COUNT(*) FROM scan_records WHERE uploaded = 1")
     int getUploadedCount();
-
-    @Query("SELECT cardBrand AS cardBrand, COUNT(*) AS count FROM scan_records GROUP BY cardBrand")
-    List<BrandCount> getCountByBrand();
 
     @Query("SELECT cardBrand, COUNT(*) AS count FROM scan_records GROUP BY cardBrand ORDER BY count DESC")
     List<CardBrandCount> getBrandCounts();
