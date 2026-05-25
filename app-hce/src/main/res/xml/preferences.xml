@@ -8,10 +8,14 @@
         android:summary="@string/settings_port_summary"
         android:defaultValue="8080" />
     <EditTextPreference
-        android:key="api_server_url"
-        android:title="@string/settings_api_server"
+        android:key="cloud_api_base"
+        android:title="@string/settings_cloud_base"
         android:defaultValue="https://api.yitian.shop"
         app:useSimpleSummaryProvider="true" />
+    <SwitchPreferenceCompat
+        android:key="auto_sync"
+        android:title="@string/settings_auto_sync"
+        android:defaultValue="true" />
     <EditTextPreference
         android:key="pref_pin_code"
         android:title="@string/settings_pin_code"
@@ -34,11 +38,14 @@
         android:entries="@array/settings_theme_entries"
         android:entryValues="@array/settings_theme_values"
         android:defaultValue="dark" />
+    <ListPreference
+        android:key="language"
+        android:title="@string/settings_language"
+        android:entries="@array/settings_language_entries"
+        android:entryValues="@array/settings_language_values"
+        android:defaultValue="system" />
     <SwitchPreferenceCompat
         android:key="haptic"
         android:title="@string/settings_haptic"
         android:defaultValue="true" />
-    <Preference
-        android:key="logout"
-        android:title="@string/settings_logout" />
 </PreferenceScreen>

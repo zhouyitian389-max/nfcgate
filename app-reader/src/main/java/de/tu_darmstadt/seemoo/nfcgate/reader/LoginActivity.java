@@ -2,8 +2,10 @@ package de.tu_darmstadt.seemoo.nfcgate.reader;
 
 import android.content.Intent;
 import android.os.Bundle;
-import android.widget.Button;
+import android.os.Handler;
+import android.os.Looper;
 import android.widget.EditText;
+import android.widget.TextView;
 import android.widget.Toast;
 
 import androidx.appcompat.app.AppCompatActivity;
@@ -11,59 +13,55 @@ import androidx.appcompat.app.AppCompatActivity;
 import java.util.concurrent.ExecutorService;
 import java.util.concurrent.Executors;
 
-import de.tu_darmstadt.seemoo.nfcgate.reader.auth.CloudSessionManager;
-import de.tu_darmstadt.seemoo.nfcgate.reader.network.CloudApiClient;
-import de.tu_darmstadt.seemoo.nfcgate.reader.settings.SettingsManager;
+import de.tu_darmstadt.seemoo.nfcgate.reader.cloud.CloudApiClient;
+import de.tu_darmstadt.seemoo.nfcgate.reader.cloud.SessionManager;
 
 public class LoginActivity extends AppCompatActivity {
     private final ExecutorService ioExecutor = Executors.newSingleThreadExecutor();
-    private EditText etPassword;
-    private Button btnLogin;
+    private final Handler mainHandler = new Handler(Looper.getMainLooper());
 
     @Override
     protected void onCreate(Bundle savedInstanceState) {
-        SettingsManager.applySavedTheme(this);
         super.onCreate(savedInstanceState);
         setContentView(R.layout.activity_login);
 
-        if (CloudSessionManager.hasToken(this)) {
-            openMain();
-            return;
-        }
-
-        etPassword = findViewById(R.id.et_password);
-        btnLogin = findViewById(R.id.btn_login);
-        btnLogin.setOnClickListener(v -> performLogin());
-    }
-
-    private void performLogin() {
-        String password = etPassword.getText() == null ? "" : etPassword.getText().toString().trim();
-        if (password.length() < 4 || password.length() > 32) {
-            Toast.makeText(this, R.string.login_password_invalid, Toast.LENGTH_SHORT).show();
-            return;
-        }
-
-        btnLogin.setEnabled(false);
-        ioExecutor.execute(() -> {
-            try {
-                CloudApiClient.LoginResult result = new CloudApiClient(this).login(password);
-                CloudSessionManager.saveSession(this, result.token, result.accountId);
-                runOnUiThread(this::openMain);
-            } catch (Exception e) {
-                runOnUiThread(() -> {
-                    btnLogin.setEnabled(true);
-                    String msg = e.getMessage() == null ? getString(R.string.login_failed_generic) : e.getMessage();
-                    Toast.makeText(this, getString(R.string.login_failed, msg), Toast.LENGTH_LONG).show();
-                });
+        EditText etPassword = findViewById(R.id.et_password);
+        TextView tvCooldown = findViewById(R.id.tv_cooldown);
+        findViewById(R.id.btn_login).setOnClickListener(v -> {
+            long remain = SessionManager.getCooldownRemainingSeconds(this);
+            if (remain > 0) {
+                tvCooldown.setText(getString(R.string.too_many_attempts, remain));
+                return;
             }
+            String password = etPassword.getText().toString().trim();
+            if (password.isEmpty()) {
+                Toast.makeText(this, R.string.hint_password, Toast.LENGTH_SHORT).show();
+                return;
+            }
+            ioExecutor.execute(() -> doLogin(password));
         });
     }
 
-    private void openMain() {
-        Intent intent = new Intent(this, MainActivity.class);
-        intent.addFlags(Intent.FLAG_ACTIVITY_CLEAR_TOP | Intent.FLAG_ACTIVITY_NEW_TASK | Intent.FLAG_ACTIVITY_CLEAR_TASK);
-        startActivity(intent);
-        finish();
+    private void doLogin(String password) {
+        try {
+            CloudApiClient client = new CloudApiClient(this);
+            CloudApiClient.LoginResult result = client.login(password);
+            SessionManager.saveLogin(this, result.token, result.expiresAt, result.accountId, password);
+            SessionManager.setSalt(this, result.salt);
+            client.registerDevice();
+            try { client.registerFcmToken("no_fcm"); } catch (Exception ignored) {}
+            mainHandler.post(() -> {
+                startActivity(new Intent(this, MainActivity.class));
+                finish();
+            });
+        } catch (CloudApiClient.ApiException e) {
+            if (e.code == 429) {
+                SessionManager.setCooldown(this, System.currentTimeMillis() + (Math.max(1, e.retryAfterSeconds) * 1000L));
+            }
+            mainHandler.post(() -> Toast.makeText(this, e.getMessage(), Toast.LENGTH_LONG).show());
+        } catch (Exception e) {
+            mainHandler.post(() -> Toast.makeText(this, e.getMessage(), Toast.LENGTH_LONG).show());
+        }
     }
 
     @Override
