@@ -102,6 +102,10 @@ public class PinVerifyActivity extends FragmentActivity {
     }
 
     private void applyLockout(long remainingMs) {
+        if (lockCountdown != null) {
+            lockCountdown.cancel();
+            lockCountdown = null;
+        }
         etPinCode.setEnabled(false);
         btnVerify.setEnabled(false);
         lockCountdown = new CountDownTimer(remainingMs, 1000L) {
@@ -166,8 +170,8 @@ public class PinVerifyActivity extends FragmentActivity {
     }
 
     private void verifyPin() {
-        String enteredPin = etPinCode.getText() == null ? "" : etPinCode.getText().toString().trim();
-        if (!enteredPin.matches("\\d{4,6}")) {
+        String enteredPin = etPinCode.getText() == null ? "" : etPinCode.getText().toString();
+        if (enteredPin.length() < 4 || enteredPin.length() > 8 || !enteredPin.matches("\\d+")) {
             Toast.makeText(this, R.string.pin_invalid_format, Toast.LENGTH_SHORT).show();
             return;
         }
@@ -205,6 +209,7 @@ public class PinVerifyActivity extends FragmentActivity {
         super.onDestroy();
         if (lockCountdown != null) {
             lockCountdown.cancel();
+            lockCountdown = null;
         }
     }
 }
