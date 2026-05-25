@@ -75,6 +75,14 @@
     <string name="login_password_invalid">密码必须为 4-32 位</string>
     <string name="login_failed">登录失败：%1$s</string>
     <string name="login_failed_generic">无法登录</string>
+    <string name="notif_cloud_sync_title">云同步</string>
+    <string name="notif_cloud_sync_text">每30秒同步卡片</string>
+    <string name="channel_cloud_sync">云同步服务</string>
+    <string name="channel_new_card">收到新卡片</string>
+    <string name="cleared_expired_cards">已清除 %1$d 张过期卡片</string>
+    <string name="dialog_delete_card_title">删除卡片？</string>
+    <string name="dialog_delete_card_message">确定永久删除此卡片？</string>
+    <string name="dialog_edit_note_title">编辑备注</string>
 
     <string name="card_holder">YITIAN</string>
     <string name="masked_pan">**** **** **** %1$s</string>

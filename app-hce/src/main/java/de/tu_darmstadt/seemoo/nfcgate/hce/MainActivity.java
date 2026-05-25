@@ -151,10 +151,10 @@ public class MainActivity extends AppCompatActivity {
             CardDatabase database = CardDatabase.getInstance(this);
             int count = database.cardDao().count();
             CardEntity sel = database.cardDao().getSelected();
+            long dayStart = startOfDay();
+            int today = database.cardDao().countSince(dayStart);
             mainHandler.post(() -> {
                 tvCardCount.setText(getString(R.string.status_cards, count));
-                long dayStart = startOfDay();
-                int today = database.cardDao().countSince(dayStart);
                 tvCardCount.append("\n" + getString(R.string.dashboard_today_cards, today));
                 if (sel != null) {
                     tvSelected.setText(getString(R.string.status_selected,

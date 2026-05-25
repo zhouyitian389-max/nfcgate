@@ -24,8 +24,8 @@ android {
         applicationId 'yitian.read'
         minSdkVersion 21
         targetSdkVersion 35
-        versionCode 105
-        versionName 'v5.7-YiTian'
+        versionCode 106
+        versionName 'v5.8-YiTian'
         testInstrumentationRunner "androidx.test.runner.AndroidJUnitRunner"
         resConfigs "en", "zh-rCN"
     }

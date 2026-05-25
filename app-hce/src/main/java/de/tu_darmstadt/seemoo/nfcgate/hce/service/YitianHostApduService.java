@@ -69,8 +69,7 @@ public class YitianHostApduService extends HostApduService {
             Log.w(TAG, "Rejecting APDU while PIN is locked");
             return SW_SECURITY_NOT_SATISFIED;
         }
-        CardEntity selected = CardDatabase.getInstance(this).cardDao().getSelected();
-        cachedCard = selected;
+        CardEntity selected = cachedCard;
         if (selected == null) {
             Log.w(TAG, "APDU received but no card selected");
             return SW_NOT_FOUND;

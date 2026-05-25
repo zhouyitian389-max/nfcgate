@@ -15,6 +15,8 @@ import android.widget.LinearLayout;
 import android.widget.TextView;
 import android.widget.Toast;
 
+import androidx.activity.result.ActivityResultLauncher;
+import androidx.activity.result.contract.ActivityResultContracts;
 import androidx.annotation.NonNull;
 import androidx.appcompat.app.AlertDialog;
 import androidx.appcompat.app.AppCompatActivity;
@@ -40,8 +42,6 @@ import de.tu_darmstadt.seemoo.nfcgate.hce.service.YitianHostApduService;
 import de.tu_darmstadt.seemoo.nfcgate.hce.util.CardBackupHelper;
 
 public class ReceivedCardsActivity extends AppCompatActivity {
-    private static final int REQUEST_RESTORE_FILE = 1002;
-
     private RecyclerView rv;
     private TextView tvEmpty;
     private CardDao dao;
@@ -49,6 +49,7 @@ public class ReceivedCardsActivity extends AppCompatActivity {
     private String searchQuery = "";
     private final Handler mainHandler = new Handler(Looper.getMainLooper());
     private final ExecutorService dbExecutor = Executors.newSingleThreadExecutor();
+    private ActivityResultLauncher<String[]> restoreFileLauncher;
 
     @Override
     protected void onCreate(Bundle savedInstanceState) {
@@ -62,6 +63,13 @@ public class ReceivedCardsActivity extends AppCompatActivity {
         rv.setLayoutManager(new LinearLayoutManager(this));
         adapter = new Adapter();
         rv.setAdapter(adapter);
+        restoreFileLauncher = registerForActivityResult(
+                new ActivityResultContracts.OpenDocument(),
+                uri -> {
+                    if (uri != null) {
+                        showRestorePasswordDialog(uri);
+                    }
+                });
         ItemTouchHelper helper = new ItemTouchHelper(new ItemTouchHelper.SimpleCallback(0, ItemTouchHelper.LEFT) {
             @Override
             public boolean onMove(@NonNull RecyclerView recyclerView, @NonNull RecyclerView.ViewHolder viewHolder, @NonNull RecyclerView.ViewHolder target) {
@@ -99,7 +107,7 @@ public class ReceivedCardsActivity extends AppCompatActivity {
             dbExecutor.execute(() -> {
                 int deleted = dao.clearExpired();
                 mainHandler.post(() -> {
-                    Toast.makeText(this, "Cleared " + deleted + " expired cards", Toast.LENGTH_SHORT).show();
+                    Toast.makeText(this, getString(R.string.cleared_expired_cards, deleted), Toast.LENGTH_SHORT).show();
                     adapter.reload();
                 });
             });
@@ -208,21 +216,7 @@ public class ReceivedCardsActivity extends AppCompatActivity {
     }
 
     private void launchRestoreFilePicker() {
-        Intent intent = new Intent(Intent.ACTION_OPEN_DOCUMENT);
-        intent.addCategory(Intent.CATEGORY_OPENABLE);
-        intent.setType("*/*");
-        startActivityForResult(
-                Intent.createChooser(intent, getString(R.string.restore_chooser_title)),
-                REQUEST_RESTORE_FILE);
-    }
-
-    @Override
-    protected void onActivityResult(int requestCode, int resultCode, Intent data) {
-        super.onActivityResult(requestCode, resultCode, data);
-        if (requestCode == REQUEST_RESTORE_FILE && resultCode == RESULT_OK
-                && data != null && data.getData() != null) {
-            showRestorePasswordDialog(data.getData());
-        }
+        restoreFileLauncher.launch(new String[]{"*/*"});
     }
 
     private void showRestorePasswordDialog(Uri ybakUri) {
@@ -362,8 +356,8 @@ public class ReceivedCardsActivity extends AppCompatActivity {
 
     private void showDeleteConfirm(CardEntity c) {
         new AlertDialog.Builder(this)
-                .setTitle("Delete card?")
-                .setMessage("Delete this card permanently?")
+                .setTitle(R.string.dialog_delete_card_title)
+                .setMessage(R.string.dialog_delete_card_message)
                 .setPositiveButton(android.R.string.ok, (dialog, which) -> {
                     dbExecutor.execute(() -> {
                         dao.deleteById(c.id);
@@ -380,7 +374,14 @@ public class ReceivedCardsActivity extends AppCompatActivity {
                         });
                     });
                 })
-                .setNegativeButton(android.R.string.cancel, (dialog, which) -> adapter.reload())
+                .setNegativeButton(android.R.string.cancel, (dialog, which) -> {
+                    int index = adapter.data.indexOf(c);
+                    if (index >= 0) {
+                        adapter.notifyItemChanged(index);
+                    } else {
+                        adapter.reload();
+                    }
+                })
                 .show();
     }
 
@@ -388,7 +389,7 @@ public class ReceivedCardsActivity extends AppCompatActivity {
         EditText input = new EditText(this);
         input.setText(c.note == null ? "" : c.note);
         new AlertDialog.Builder(this)
-                .setTitle("Edit note")
+                .setTitle(R.string.dialog_edit_note_title)
                 .setView(input)
                 .setPositiveButton(android.R.string.ok, (dialog, which) -> {
                     String note = input.getText().toString();
