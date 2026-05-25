@@ -1,0 +1,17 @@
+v5.5-YiTian Release
+- PIN hashing with PBKDF2-SHA256
+- Persistent 5-minute PIN lockout
+- Token counter on home screen
+- SQLCipher 4.5.4 database encryption
+- ProGuard hardening rules
+
+v5.6-YiTian Release
+- 20+ unit tests
+- AES-GCM encrypted backup (.ybak format)
+- File read completeness fix
+- ActivityResultLauncher for Android 12+
+- CountDownTimer race condition fix
+- DatabasePassphraseProvider thread safety
+- PIN validation flexibility
+- versionCode: 104
+- versionName: v5.6-YiTian
