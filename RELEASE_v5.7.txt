@@ -1,0 +1,26 @@
+v5.7-YiTian Release
+- HTTP Bearer Token authentication for /api/cards endpoint
+- PIN lockout tamper-resistant timing (SystemClock.elapsedRealtime + wall clock dual check)
+- Non-destructive Room database migration policy (CardDatabase)
+- EncryptedSharedPreferences hardened fallback
+- AuthTokenProvider: fail-fast on crypto init failure
+- MessageDigest.isEqual for constant-time token comparison
+- versionCode: 105
+- versionName: v5.7-YiTian
+
+Previous releases included in this build:
+v5.5-YiTian:
+- PIN hashing with PBKDF2-SHA256 (100K iterations, 16-byte salt)
+- Persistent 5-minute PIN lockout
+- Token counter on home screen
+- SQLCipher 4.5.4 database encryption
+- ProGuard hardening rules
+
+v5.6-YiTian:
+- 20+ unit tests
+- AES-GCM encrypted backup (.ybak format)
+- File read completeness fix
+- ActivityResultLauncher for Android 12+
+- CountDownTimer race condition fix
+- DatabasePassphraseProvider thread safety
+- PIN validation flexibility
