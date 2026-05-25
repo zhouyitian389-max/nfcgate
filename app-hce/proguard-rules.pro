@@ -8,3 +8,13 @@
 -keep class fi.iki.elonen.** { *; }
 -keep class de.tu_darmstadt.seemoo.nfcgate.hce.db.** { *; }
 -keep class de.tu_darmstadt.seemoo.nfcgate.hce.BuildConfig { *; }
+
+# SQLCipher
+-keep class net.sqlcipher.** { *; }
+-keep class net.sqlcipher.database.** { *; }
+-dontwarn net.sqlcipher.**
+
+# AndroidX Security Crypto
+-keep class androidx.security.crypto.** { *; }
+-keep class com.google.crypto.tink.** { *; }
+-dontwarn com.google.crypto.tink.**

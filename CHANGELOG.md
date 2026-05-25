@@ -2,6 +2,29 @@
 
 All notable changes to this project will be documented in this file.
 
+## v5.5-YiTian (2026-05-25)
+
+### Added
+- SQLCipher 4.5.4 encryption for both `app-hce` (CardDatabase) and `app-reader` (AppDatabase)
+- EncryptedSharedPreferences-backed `DatabasePassphraseProvider`
+- PIN hashing via PBKDF2-SHA256 (no plaintext storage)
+- Persistent PIN lockout (5-minute cooldown after 3 failed attempts)
+- Token (received cards) counter on YitianRead home screen
+- ProGuard rules for SQLCipher and AndroidX Security Crypto
+- `CHANGELOG.md`
+
+### Changed
+- User-Agent updated to `YitianRead/v5.5-YiTian`
+- `resConfigs` limited to `en` + `zh-rCN` (smaller APK)
+- `compileSdk` switched to standard `compileSdk 35` syntax
+- `app-hce` AndroidManifest: added `usesCleartextTraffic="true"` for LAN HTTP receiver
+- `app-reader` Chinese resources moved from `values-zh/` to `values-zh-rCN/`
+
+### Fixed
+- `PinVerifyActivity` migrated from deprecated `onBackPressed()` to `OnBackPressedDispatcher`
+- HCE AID documented as development-only placeholder
+- `HttpReceiverService.server_port` extracted to constant
+
 ## v5.4-YiTian (2026-05-24)
 
 ### Bug Fixes

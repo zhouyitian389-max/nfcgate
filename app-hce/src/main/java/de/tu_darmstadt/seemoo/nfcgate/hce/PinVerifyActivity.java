@@ -1,39 +1,71 @@
 package de.tu_darmstadt.seemoo.nfcgate.hce;
 
 import android.content.Intent;
+import android.content.SharedPreferences;
 import android.os.Bundle;
+import android.os.CountDownTimer;
 import android.widget.EditText;
 import android.widget.TextView;
 import android.widget.Toast;
 
+import androidx.activity.OnBackPressedCallback;
 import androidx.annotation.NonNull;
 import androidx.biometric.BiometricManager;
 import androidx.biometric.BiometricPrompt;
 import androidx.core.content.ContextCompat;
 import androidx.fragment.app.FragmentActivity;
-import androidx.preference.PreferenceManager;
+import androidx.security.crypto.EncryptedSharedPreferences;
+import androidx.security.crypto.MasterKey;
 
 import com.google.android.material.button.MaterialButton;
 
 import java.util.concurrent.Executor;
 
+import de.tu_darmstadt.seemoo.nfcgate.hce.security.PinHasher;
+
 public class PinVerifyActivity extends FragmentActivity {
     private static final int MAX_ATTEMPTS = 3;
+    private static final long LOCK_DURATION_MS = 5 * 60 * 1000L;
+    private static final String PREF_LOCK_UNTIL = "pin_lock_until";
 
     private int attemptsLeft = MAX_ATTEMPTS;
     private EditText etPinCode;
     private MaterialButton btnVerify;
     private TextView tvAttempts;
-    private String expectedPin;
+    private String storedPinHash;
+    private SharedPreferences encPrefs;
+    private CountDownTimer lockCountdown;
 
     @Override
     protected void onCreate(Bundle savedInstanceState) {
         super.onCreate(savedInstanceState);
         setContentView(R.layout.activity_pin_verify);
 
-        expectedPin = PreferenceManager.getDefaultSharedPreferences(this)
-                .getString(SplashActivity.PREF_PIN_CODE, "");
-        if (expectedPin == null || expectedPin.trim().isEmpty()) {
+        // Replace deprecated onBackPressed() with OnBackPressedDispatcher callback
+        getOnBackPressedDispatcher().addCallback(this, new OnBackPressedCallback(true) {
+            @Override
+            public void handleOnBackPressed() {
+                finishAffinity();
+            }
+        });
+
+        try {
+            MasterKey masterKey = new MasterKey.Builder(this)
+                    .setKeyScheme(MasterKey.KeyScheme.AES256_GCM)
+                    .build();
+            encPrefs = EncryptedSharedPreferences.create(
+                    this,
+                    SplashActivity.PREF_FILE,
+                    masterKey,
+                    EncryptedSharedPreferences.PrefKeyEncryptionScheme.AES256_SIV,
+                    EncryptedSharedPreferences.PrefValueEncryptionScheme.AES256_GCM);
+        } catch (Exception e) {
+            openMainAndFinish();
+            return;
+        }
+
+        storedPinHash = encPrefs.getString(SplashActivity.PREF_PIN_HASH, null);
+        if (storedPinHash == null || storedPinHash.isEmpty()) {
             openMainAndFinish();
             return;
         }
@@ -42,15 +74,46 @@ public class PinVerifyActivity extends FragmentActivity {
         btnVerify = findViewById(R.id.btn_verify_pin);
         tvAttempts = findViewById(R.id.tv_attempts_left);
 
-        updateAttemptsLabel();
         btnVerify.setOnClickListener(v -> verifyPin());
 
+        // Check for persistent lockout
+        long lockUntil = encPrefs.getLong(PREF_LOCK_UNTIL, 0L);
+        long now = System.currentTimeMillis();
+        if (lockUntil > now) {
+            applyLockout(lockUntil - now);
+            return;
+        }
+
+        updateAttemptsLabel();
+
         // Try biometric first if enabled
-        boolean biometricEnabled = PreferenceManager.getDefaultSharedPreferences(this)
+        boolean biometricEnabled = androidx.preference.PreferenceManager
+                .getDefaultSharedPreferences(this)
                 .getBoolean("pref_biometric_enabled", true);
         if (biometricEnabled) {
             tryBiometric();
         }
+    }
+
+    private void applyLockout(long remainingMs) {
+        etPinCode.setEnabled(false);
+        btnVerify.setEnabled(false);
+        lockCountdown = new CountDownTimer(remainingMs, 1000L) {
+            @Override
+            public void onTick(long millisUntilFinished) {
+                int seconds = (int) (millisUntilFinished / 1000);
+                tvAttempts.setText(getString(R.string.pin_locked_remaining, seconds));
+            }
+
+            @Override
+            public void onFinish() {
+                encPrefs.edit().remove(PREF_LOCK_UNTIL).apply();
+                etPinCode.setEnabled(true);
+                btnVerify.setEnabled(true);
+                attemptsLeft = MAX_ATTEMPTS;
+                updateAttemptsLabel();
+            }
+        }.start();
     }
 
     private void tryBiometric() {
@@ -102,7 +165,7 @@ public class PinVerifyActivity extends FragmentActivity {
             Toast.makeText(this, R.string.pin_invalid_format, Toast.LENGTH_SHORT).show();
             return;
         }
-        if (enteredPin.equals(expectedPin)) {
+        if (PinHasher.verify(enteredPin, storedPinHash)) {
             openMainAndFinish();
             return;
         }
@@ -115,6 +178,10 @@ public class PinVerifyActivity extends FragmentActivity {
             etPinCode.setEnabled(false);
             btnVerify.setEnabled(false);
             Toast.makeText(this, R.string.pin_verify_locked, Toast.LENGTH_LONG).show();
+            // Persist lockout timestamp
+            long lockUntil = System.currentTimeMillis() + LOCK_DURATION_MS;
+            encPrefs.edit().putLong(PREF_LOCK_UNTIL, lockUntil).apply();
+            applyLockout(LOCK_DURATION_MS);
         }
     }
 
@@ -128,7 +195,10 @@ public class PinVerifyActivity extends FragmentActivity {
     }
 
     @Override
-    public void onBackPressed() {
-        finishAffinity();
+    protected void onDestroy() {
+        super.onDestroy();
+        if (lockCountdown != null) {
+            lockCountdown.cancel();
+        }
     }
 }

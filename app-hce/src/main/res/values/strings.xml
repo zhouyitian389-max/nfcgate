@@ -56,6 +56,7 @@
     <string name="pin_invalid_format">PIN must be 4-6 digits</string>
     <string name="pin_verify_failed">Incorrect PIN</string>
     <string name="pin_verify_locked">Too many failed attempts</string>
+    <string name="pin_locked_remaining">Locked, retry in %1$d seconds</string>
     <string name="biometric_subtitle">Verify your identity</string>
 
     <string name="card_holder">YITIAN</string>

@@ -1,4 +1,6 @@
 <?xml version="1.0" encoding="utf-8"?>
+<!-- WARNING: F0010203040506 is a development/proprietary AID.
+     Replace with a registered AID before any production deployment. -->
 <host-apdu-service xmlns:android="http://schemas.android.com/apk/res/android"
     android:description="@string/hce_service_description"
     android:requireDeviceUnlock="false">

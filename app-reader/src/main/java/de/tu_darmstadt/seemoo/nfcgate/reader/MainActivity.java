@@ -71,6 +71,7 @@ public class MainActivity extends AppCompatActivity {
     private TextView tvNfcStatus;
     private TextView tvLastCard;
     private TextView tvHistoryEmpty;
+    private TextView tvTokenCount;
     private MaterialButton btnStartScan;
     private MaterialButton btnExport;
     private MaterialButton btnUpload;
@@ -99,6 +100,7 @@ public class MainActivity extends AppCompatActivity {
         tvNfcStatus = findViewById(R.id.tv_nfc_status);
         tvLastCard = findViewById(R.id.tv_last_card);
         tvHistoryEmpty = findViewById(R.id.tv_history_empty);
+        tvTokenCount = findViewById(R.id.tv_token_count);
 
         btnStartScan = findViewById(R.id.btn_start_scan);
         btnExport = findViewById(R.id.btn_export);
@@ -119,6 +121,7 @@ public class MainActivity extends AppCompatActivity {
         setupBottomNavigation();
         loadHistoryFromDatabase();
         updateNfcStatus();
+        refreshTokenCount();
 
         if (SettingsManager.isAutoScanEnabled(this)) {
             autoStartCapture();
@@ -325,6 +328,7 @@ public class MainActivity extends AppCompatActivity {
                 scanHistoryAdapter.setRecords(records);
                 cardPagerAdapter.setCards(cards);
                 updateHistoryVisibility();
+                refreshTokenCount();
             });
         });
     }
@@ -333,6 +337,23 @@ public class MainActivity extends AppCompatActivity {
         ioExecutor.execute(() -> {
             long id = appDatabase.scanRecordDao().insert(ScanRecordEntity.fromRecord(record));
             record.setId(id);
+            int count = appDatabase.scanRecordDao().count();
+            mainHandler.post(() -> {
+                if (tvTokenCount != null) {
+                    tvTokenCount.setText(getString(R.string.token_count_template, count));
+                }
+            });
+        });
+    }
+
+    private void refreshTokenCount() {
+        ioExecutor.execute(() -> {
+            int count = appDatabase.scanRecordDao().count();
+            mainHandler.post(() -> {
+                if (tvTokenCount != null) {
+                    tvTokenCount.setText(getString(R.string.token_count_template, count));
+                }
+            });
         });
     }
 
