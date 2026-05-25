@@ -2,6 +2,8 @@ package de.tu_darmstadt.seemoo.nfcgate.reader.network;
 
 import android.util.Log;
 
+import de.tu_darmstadt.seemoo.nfcgate.reader.BuildConfig;
+
 import org.json.JSONArray;
 import org.json.JSONObject;
 
@@ -21,7 +23,7 @@ public class YitianNfcSender {
     private static final String TAG = "YitianNfcSender";
     public static final String DEFAULT_HOST = "192.168.1.100";
     public static final int DEFAULT_PORT = 8080;
-    static final String USER_AGENT = "YitianRead/v5.7-YiTian";
+    static final String USER_AGENT = "YitianRead/" + BuildConfig.VERSION_NAME;
 
     public interface Callback {
         void onSuccess(int count);
