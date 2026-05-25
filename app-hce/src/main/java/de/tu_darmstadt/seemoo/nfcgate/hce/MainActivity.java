@@ -134,7 +134,7 @@ public class MainActivity extends AppCompatActivity {
     }
 
     private int getConfiguredPort() {
-        String rawPort = PreferenceManager.getDefaultSharedPreferences(this).getString("server_port", "8080");
+        String rawPort = PreferenceManager.getDefaultSharedPreferences(this).getString(HttpReceiverService.PREF_SERVER_PORT, "8080");
         int resolvedPort;
         try {
             resolvedPort = Integer.parseInt(rawPort);

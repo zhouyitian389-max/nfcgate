@@ -338,19 +338,22 @@ public class MainActivity extends AppCompatActivity {
     }
 
     private void persistRecord(ScanRecord record) {
+        if (record == null || ioExecutor == null || appDatabase == null) {
+            return;
+        }
         ioExecutor.execute(() -> {
             long id = appDatabase.scanRecordDao().insert(ScanRecordEntity.fromRecord(record));
             record.setId(id);
-            int count = appDatabase.scanRecordDao().count();
-            mainHandler.post(() -> {
-                if (tvTokenCount != null) {
-                    tvTokenCount.setText(getString(R.string.token_count_template, count));
-                }
-            });
+            if (mainHandler != null) {
+                mainHandler.post(this::refreshTokenCount);
+            }
         });
     }
 
     private void refreshTokenCount() {
+        if (ioExecutor == null || appDatabase == null || mainHandler == null || tvTokenCount == null) {
+            return;
+        }
         ioExecutor.execute(() -> {
             int count = appDatabase.scanRecordDao().count();
             mainHandler.post(() -> {

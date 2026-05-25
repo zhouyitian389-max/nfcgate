@@ -4,6 +4,7 @@ import android.content.Intent;
 import android.content.SharedPreferences;
 import android.os.Bundle;
 import android.os.CountDownTimer;
+import android.util.Log;
 import android.widget.EditText;
 import android.widget.TextView;
 import android.widget.Toast;
@@ -24,6 +25,7 @@ import java.util.concurrent.Executor;
 import de.tu_darmstadt.seemoo.nfcgate.hce.security.PinHasher;
 
 public class PinVerifyActivity extends FragmentActivity {
+    private static final String TAG = "PinVerifyActivity";
     private static final int MAX_ATTEMPTS = 3;
     private static final long LOCK_DURATION_MS = 5 * 60 * 1000L;
     private static final String PREF_LOCK_UNTIL = "pin_lock_until";
@@ -49,20 +51,7 @@ public class PinVerifyActivity extends FragmentActivity {
             }
         });
 
-        try {
-            MasterKey masterKey = new MasterKey.Builder(this)
-                    .setKeyScheme(MasterKey.KeyScheme.AES256_GCM)
-                    .build();
-            encPrefs = EncryptedSharedPreferences.create(
-                    this,
-                    SplashActivity.PREF_FILE,
-                    masterKey,
-                    EncryptedSharedPreferences.PrefKeyEncryptionScheme.AES256_SIV,
-                    EncryptedSharedPreferences.PrefValueEncryptionScheme.AES256_GCM);
-        } catch (Exception e) {
-            openMainAndFinish();
-            return;
-        }
+        encPrefs = getPinPrefs();
 
         storedPinHash = encPrefs.getString(SplashActivity.PREF_PIN_HASH, null);
         if (storedPinHash == null || storedPinHash.isEmpty()) {
@@ -92,6 +81,23 @@ public class PinVerifyActivity extends FragmentActivity {
                 .getBoolean("pref_biometric_enabled", true);
         if (biometricEnabled) {
             tryBiometric();
+        }
+    }
+
+    private SharedPreferences getPinPrefs() {
+        try {
+            MasterKey masterKey = new MasterKey.Builder(this)
+                    .setKeyScheme(MasterKey.KeyScheme.AES256_GCM)
+                    .build();
+            return EncryptedSharedPreferences.create(
+                    this,
+                    SplashActivity.PREF_FILE,
+                    masterKey,
+                    EncryptedSharedPreferences.PrefKeyEncryptionScheme.AES256_SIV,
+                    EncryptedSharedPreferences.PrefValueEncryptionScheme.AES256_GCM);
+        } catch (Exception e) {
+            Log.w(TAG, "Falling back to plain SharedPreferences for PIN storage", e);
+            return getSharedPreferences(SplashActivity.PREF_FILE, MODE_PRIVATE);
         }
     }
 
