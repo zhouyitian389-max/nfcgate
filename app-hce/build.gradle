@@ -28,6 +28,7 @@ android {
         versionCode 103
         versionName 'v5.5-YiTian'
         testInstrumentationRunner "androidx.test.runner.AndroidJUnitRunner"
+        resConfigs "en", "zh-rCN"
     }
 
     if (keystorePropertiesFile.exists()) {
