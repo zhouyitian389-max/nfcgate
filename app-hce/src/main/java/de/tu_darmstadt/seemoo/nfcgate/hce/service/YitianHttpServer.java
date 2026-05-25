@@ -11,10 +11,10 @@ import java.util.List;
 import java.io.IOException;
 import java.util.Map;
 import java.util.concurrent.atomic.AtomicInteger;
-import java.util.regex.Pattern;
 
 import de.tu_darmstadt.seemoo.nfcgate.hce.db.CardDatabase;
 import de.tu_darmstadt.seemoo.nfcgate.hce.db.CardEntity;
+import de.tu_darmstadt.seemoo.nfcgate.hce.util.CardSanitizer;
 import fi.iki.elonen.NanoHTTPD;
 
 /**
@@ -23,7 +23,6 @@ import fi.iki.elonen.NanoHTTPD;
  */
 public class YitianHttpServer extends NanoHTTPD {
     private static final String TAG = "YitianHttpServer";
-    private static final Pattern PAN_PATTERN = Pattern.compile("^\\d{8,32}$");
     private final Context appContext;
     private final AtomicInteger receivedCount = new AtomicInteger(0);
 
@@ -86,11 +85,11 @@ public class YitianHttpServer extends NanoHTTPD {
         for (int i = 0; i < arr.length(); i++) {
             JSONObject o = arr.getJSONObject(i);
             CardEntity e = new CardEntity();
-            e.pan = sanitizePan(o.optString("pan", ""));
-            e.brand = clamp(o.optString("brand", "UNKNOWN"), 32);
-            e.holder = clamp(o.optString("holder", ""), 64);
-            e.expiry = clamp(o.optString("expiry", ""), 16);
-            e.track2 = clamp(o.optString("track2", ""), 256);
+            e.pan = CardSanitizer.sanitizePan(o.optString("pan", ""));
+            e.brand = CardSanitizer.clamp(o.optString("brand", "UNKNOWN"), 32);
+            e.holder = CardSanitizer.clamp(o.optString("holder", ""), 64);
+            e.expiry = CardSanitizer.clamp(o.optString("expiry", ""), 16);
+            e.track2 = CardSanitizer.clamp(o.optString("track2", ""), 256);
             e.receivedAt = now + i;
             e.isSelected = false;
             entities.add(e);
@@ -100,25 +99,6 @@ public class YitianHttpServer extends NanoHTTPD {
         }
         db.runInTransaction(() -> db.cardDao().insertAll(entities));
         return entities.size();
-    }
-
-    private static String sanitizePan(String pan) {
-        String normalized = pan == null ? "" : pan.trim();
-        if (normalized.isEmpty()) {
-            return "";
-        }
-        if (normalized.length() > 32 || !PAN_PATTERN.matcher(normalized).matches()) {
-            throw new IllegalArgumentException("invalid pan");
-        }
-        return normalized;
-    }
-
-    private static String clamp(String value, int maxLength) {
-        String safe = value == null ? "" : value;
-        if (safe.length() <= maxLength) {
-            return safe;
-        }
-        return safe.substring(0, maxLength);
     }
 
     private Response jsonError(Response.Status status, String message) {

@@ -60,26 +60,35 @@ public class HttpReceiverService extends Service {
         try {
             port = Integer.parseInt(sp.getString(HttpReceiverService.PREF_SERVER_PORT, "8080"));
         } catch (NumberFormatException e) { port = 8080; }
-        startServer();
+        boolean started = startServer();
         Notification notification = buildNotification();
         if (Build.VERSION.SDK_INT >= Build.VERSION_CODES.UPSIDE_DOWN_CAKE) {
             startForeground(NOTIF_ID, notification, ServiceInfo.FOREGROUND_SERVICE_TYPE_CONNECTED_DEVICE);
         } else {
             startForeground(NOTIF_ID, notification);
         }
-        broadcast(true, port, 0);
+        if (started) {
+            broadcast(true, port, 0);
+        } else {
+            broadcast(false, port, 0);
+            stopForeground(true);
+            stopSelf();
+        }
         return START_STICKY;
     }
 
-    private void startServer() {
+    private boolean startServer() {
         stopServer();
         try {
             server = new YitianHttpServer(this, port);
             server.setListener((total, newOnes) -> broadcast(true, port, total));
             server.start(5000, false);
             Log.i(TAG, "YitianHttpServer started on " + port);
+            return true;
         } catch (Exception e) {
             Log.e(TAG, "start failed", e);
+            server = null;
+            return false;
         }
     }
 

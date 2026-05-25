@@ -21,6 +21,7 @@ public class YitianNfcSender {
     private static final String TAG = "YitianNfcSender";
     public static final String DEFAULT_HOST = "192.168.1.100";
     public static final int DEFAULT_PORT = 8080;
+    static final String USER_AGENT = "YitianRead/v5.6-YiTian";
 
     public interface Callback {
         void onSuccess(int count);
@@ -108,7 +109,7 @@ public class YitianNfcSender {
             conn = (HttpURLConnection) url.openConnection();
             conn.setRequestMethod("POST");
             conn.setRequestProperty("Content-Type", "application/json; charset=utf-8");
-            conn.setRequestProperty("User-Agent", "YitianRead/v5.5-YiTian");
+            conn.setRequestProperty("User-Agent", USER_AGENT);
             conn.setDoOutput(true);
             conn.setConnectTimeout(5000);
             conn.setReadTimeout(10000);
@@ -147,6 +148,12 @@ public class YitianNfcSender {
 
     static URL buildUploadUrl(String host, int port) throws IOException {
         String normalizedHost = host == null ? "" : host.trim();
+        if (normalizedHost.isEmpty()) {
+            throw new IllegalArgumentException("host must not be empty");
+        }
+        if (port <= 0 || port > 65535) {
+            throw new IllegalArgumentException("port must be in range 1-65535, got: " + port);
+        }
         String baseUrl;
         if (normalizedHost.startsWith("http://") || normalizedHost.startsWith("https://")) {
             baseUrl = normalizedHost;

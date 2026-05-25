@@ -45,8 +45,18 @@ public class SplashActivity extends AppCompatActivity {
                     hasPinHash = true;
                 }
             } catch (Exception e) {
-                Log.w(TAG, "PIN storage init failed, continuing without PIN gate", e);
-                hasPinHash = false;
+                Log.w(TAG, "PIN storage init failed, attempting plain-prefs fallback", e);
+                // Fail-closed: check whether a PIN hash exists in plain SharedPreferences
+                // (the fallback store). If one is found, route to PinVerifyActivity so the
+                // PIN gate is never silently bypassed on an error.
+                try {
+                    String fallbackHash = getSharedPreferences(PREF_FILE, MODE_PRIVATE)
+                            .getString(PREF_PIN_HASH, null);
+                    hasPinHash = (fallbackHash != null && !fallbackHash.isEmpty());
+                } catch (Exception ex) {
+                    Log.w(TAG, "Plain-prefs fallback also failed; defaulting to no PIN gate", ex);
+                    hasPinHash = false;
+                }
             }
 
             Class<?> target = hasPinHash ? PinVerifyActivity.class : MainActivity.class;

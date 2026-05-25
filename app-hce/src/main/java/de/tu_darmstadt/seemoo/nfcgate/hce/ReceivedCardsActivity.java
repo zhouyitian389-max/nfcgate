@@ -1,20 +1,30 @@
 package de.tu_darmstadt.seemoo.nfcgate.hce;
 
 import android.content.Intent;
+import android.net.Uri;
 import android.os.Bundle;
 import android.os.Handler;
 import android.os.Looper;
 import android.view.LayoutInflater;
+import android.view.Menu;
+import android.view.MenuItem;
 import android.view.View;
 import android.view.ViewGroup;
+import android.widget.EditText;
+import android.widget.LinearLayout;
 import android.widget.TextView;
 import android.widget.Toast;
 
 import androidx.annotation.NonNull;
+import androidx.appcompat.app.AlertDialog;
 import androidx.appcompat.app.AppCompatActivity;
+import androidx.core.content.FileProvider;
 import androidx.recyclerview.widget.LinearLayoutManager;
 import androidx.recyclerview.widget.RecyclerView;
 
+import java.io.File;
+import java.io.FileNotFoundException;
+import java.io.InputStream;
 import java.util.ArrayList;
 import java.util.List;
 import java.util.concurrent.ExecutorService;
@@ -24,8 +34,11 @@ import de.tu_darmstadt.seemoo.nfcgate.hce.db.CardDao;
 import de.tu_darmstadt.seemoo.nfcgate.hce.db.CardDatabase;
 import de.tu_darmstadt.seemoo.nfcgate.hce.db.CardEntity;
 import de.tu_darmstadt.seemoo.nfcgate.hce.service.YitianHostApduService;
+import de.tu_darmstadt.seemoo.nfcgate.hce.util.CardBackupHelper;
 
 public class ReceivedCardsActivity extends AppCompatActivity {
+    private static final int REQUEST_RESTORE_FILE = 1002;
+
     private RecyclerView rv;
     private TextView tvEmpty;
     private CardDao dao;
@@ -48,6 +61,24 @@ public class ReceivedCardsActivity extends AppCompatActivity {
     }
 
     @Override
+    public boolean onCreateOptionsMenu(Menu menu) {
+        getMenuInflater().inflate(R.menu.menu_received_cards, menu);
+        return true;
+    }
+
+    @Override
+    public boolean onOptionsItemSelected(@NonNull MenuItem item) {
+        if (item.getItemId() == R.id.action_encrypted_backup) {
+            showEncryptedBackupDialog();
+            return true;
+        } else if (item.getItemId() == R.id.action_restore_backup) {
+            launchRestoreFilePicker();
+            return true;
+        }
+        return super.onOptionsItemSelected(item);
+    }
+
+    @Override
     protected void onResume() {
         super.onResume();
         adapter.reload();
@@ -57,6 +88,142 @@ public class ReceivedCardsActivity extends AppCompatActivity {
     protected void onDestroy() {
         super.onDestroy();
         dbExecutor.shutdownNow();
+    }
+
+    private void showEncryptedBackupDialog() {
+        LinearLayout layout = new LinearLayout(this);
+        layout.setOrientation(LinearLayout.VERTICAL);
+        int padding = (int) (16 * getResources().getDisplayMetrics().density);
+        layout.setPadding(padding, padding, padding, padding);
+
+        EditText etPassword = new EditText(this);
+        etPassword.setHint(getString(R.string.backup_password_prompt));
+        etPassword.setInputType(android.text.InputType.TYPE_CLASS_TEXT
+                | android.text.InputType.TYPE_TEXT_VARIATION_PASSWORD);
+        layout.addView(etPassword);
+
+        EditText etConfirm = new EditText(this);
+        etConfirm.setHint(getString(R.string.backup_password_confirm));
+        etConfirm.setInputType(android.text.InputType.TYPE_CLASS_TEXT
+                | android.text.InputType.TYPE_TEXT_VARIATION_PASSWORD);
+        layout.addView(etConfirm);
+
+        new AlertDialog.Builder(this)
+                .setTitle(R.string.menu_encrypted_backup)
+                .setView(layout)
+                .setPositiveButton(android.R.string.ok, (dialog, which) -> {
+                    String pw1 = etPassword.getText().toString();
+                    String pw2 = etConfirm.getText().toString();
+                    if (pw1.isEmpty() || !pw1.equals(pw2)) {
+                        Toast.makeText(this, R.string.backup_password_mismatch,
+                                Toast.LENGTH_SHORT).show();
+                        return;
+                    }
+                    exportEncryptedBackup(pw1);
+                })
+                .setNegativeButton(android.R.string.cancel, null)
+                .show();
+    }
+
+    private void exportEncryptedBackup(String password) {
+        dbExecutor.execute(() -> {
+            try {
+                File ybakFile = CardBackupHelper.exportToEncryptedBackup(
+                        this, CardDatabase.getInstance(this), password);
+                Uri uri = FileProvider.getUriForFile(this,
+                        getPackageName() + ".provider", ybakFile);
+                mainHandler.post(() -> {
+                    Intent intent = new Intent(Intent.ACTION_SEND);
+                    intent.setType("application/octet-stream");
+                    intent.putExtra(Intent.EXTRA_STREAM, uri);
+                    intent.addFlags(Intent.FLAG_GRANT_READ_URI_PERMISSION);
+                    startActivity(Intent.createChooser(intent,
+                            getString(R.string.menu_encrypted_backup)));
+                    Toast.makeText(this, R.string.backup_success, Toast.LENGTH_SHORT).show();
+                });
+            } catch (Exception e) {
+                mainHandler.post(() -> Toast.makeText(this,
+                        getString(R.string.backup_failed, e.getMessage()),
+                        Toast.LENGTH_LONG).show());
+            }
+        });
+    }
+
+    private void launchRestoreFilePicker() {
+        Intent intent = new Intent(Intent.ACTION_OPEN_DOCUMENT);
+        intent.addCategory(Intent.CATEGORY_OPENABLE);
+        intent.setType("*/*");
+        startActivityForResult(
+                Intent.createChooser(intent, getString(R.string.restore_chooser_title)),
+                REQUEST_RESTORE_FILE);
+    }
+
+    @Override
+    protected void onActivityResult(int requestCode, int resultCode, Intent data) {
+        super.onActivityResult(requestCode, resultCode, data);
+        if (requestCode == REQUEST_RESTORE_FILE && resultCode == RESULT_OK
+                && data != null && data.getData() != null) {
+            showRestorePasswordDialog(data.getData());
+        }
+    }
+
+    private void showRestorePasswordDialog(Uri ybakUri) {
+        LinearLayout layout = new LinearLayout(this);
+        layout.setOrientation(LinearLayout.VERTICAL);
+        int padding = (int) (16 * getResources().getDisplayMetrics().density);
+        layout.setPadding(padding, padding, padding, padding);
+
+        EditText etPassword = new EditText(this);
+        etPassword.setHint(getString(R.string.restore_password_prompt));
+        etPassword.setInputType(android.text.InputType.TYPE_CLASS_TEXT
+                | android.text.InputType.TYPE_TEXT_VARIATION_PASSWORD);
+        layout.addView(etPassword);
+
+        new AlertDialog.Builder(this)
+                .setTitle(R.string.menu_restore_backup)
+                .setView(layout)
+                .setPositiveButton(android.R.string.ok, (dialog, which) -> {
+                    String pw = etPassword.getText().toString();
+                    if (pw.isEmpty()) {
+                        Toast.makeText(this, R.string.backup_password_prompt,
+                                Toast.LENGTH_SHORT).show();
+                        return;
+                    }
+                    performRestore(ybakUri, pw);
+                })
+                .setNegativeButton(android.R.string.cancel, null)
+                .show();
+    }
+
+    private void performRestore(Uri ybakUri, String password) {
+        dbExecutor.execute(() -> {
+            try {
+                // Copy URI content to a temp file so CardBackupHelper can read it
+                File tempFile = File.createTempFile("restore", ".ybak", getCacheDir());
+                try (InputStream is = getContentResolver().openInputStream(ybakUri)) {
+                    if (is == null) throw new FileNotFoundException("Cannot open backup URI");
+                    byte[] buf = new byte[8192];
+                    int n;
+                    try (java.io.FileOutputStream fos = new java.io.FileOutputStream(tempFile)) {
+                        while ((n = is.read(buf)) != -1) fos.write(buf, 0, n);
+                    }
+                }
+                int count = CardBackupHelper.restoreFromBackup(
+                        CardDatabase.getInstance(this), tempFile, password);
+                //noinspection ResultOfMethodCallIgnored
+                tempFile.delete();
+                mainHandler.post(() -> {
+                    Toast.makeText(this,
+                            getString(R.string.restore_success, count),
+                            Toast.LENGTH_SHORT).show();
+                    adapter.reload();
+                });
+            } catch (Exception e) {
+                mainHandler.post(() -> Toast.makeText(this,
+                        getString(R.string.restore_failed, e.getMessage()),
+                        Toast.LENGTH_LONG).show());
+            }
+        });
     }
 
     class Adapter extends RecyclerView.Adapter<Adapter.VH> {

@@ -38,6 +38,7 @@ public final class PinHasher {
 
     /**
      * Verify a plaintext PIN against a stored {@code "saltBase64:hashBase64"} value.
+     * Returns {@code false} for any null input, malformed stored value, or wrong PIN.
      */
     public static boolean verify(String pin, String stored) {
         if (pin == null || stored == null || !stored.contains(":")) return false;
@@ -48,7 +49,7 @@ public final class PinHasher {
             byte[] expected = Base64.decode(parts[1], Base64.NO_WRAP);
             byte[] actual = pbkdf2(pin.toCharArray(), salt);
             return constantTimeEquals(expected, actual);
-        } catch (IllegalArgumentException e) {
+        } catch (Exception e) {
             return false;
         }
     }

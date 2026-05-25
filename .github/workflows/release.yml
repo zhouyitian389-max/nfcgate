@@ -46,6 +46,12 @@ jobs:
         uses: gradle/actions/setup-gradle@v3
         continue-on-error: true
 
+      - name: Run Unit Tests
+        run: |
+          chmod +x ./gradlew || true
+          ./gradlew :app-reader:testDebugUnitTest :app-hce:testDebugUnitTest \
+            --no-daemon --stacktrace
+
       - name: Build release APKs
         id: build
         run: |
