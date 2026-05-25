@@ -1,0 +1,75 @@
+name: Build and Upload APKs
+
+on:
+  workflow_dispatch:
+
+permissions:
+  contents: write
+
+jobs:
+  build-and-upload:
+    runs-on: ubuntu-latest
+    steps:
+      - name: Checkout v2
+        uses: actions/checkout@v4
+        with:
+          ref: v2
+          fetch-depth: 0
+
+      - name: Set up JDK 17
+        uses: actions/setup-java@v4
+        with:
+          java-version: '17'
+          distribution: 'temurin'
+          cache: gradle
+
+      - name: Build Release APKs
+        run: |
+          chmod +x ./gradlew
+          ./gradlew clean :app-reader:assembleRelease :app-hce:assembleRelease \
+            --no-daemon --stacktrace
+
+      - name: Prepare APKs
+        run: |
+          mkdir -p release-apks
+          
+          # v5.5-YiTian
+          cp app-reader/build/outputs/apk/release/app-reader-release.apk release-apks/YitianRead-v5.5-YiTian.apk
+          cp app-hce/build/outputs/apk/release/app-hce-release.apk release-apks/YitianNFC-v5.5-YiTian.apk
+          
+          # v5.6-YiTian
+          cp app-reader/build/outputs/apk/release/app-reader-release.apk release-apks/YitianRead-v5.6-YiTian.apk
+          cp app-hce/build/outputs/apk/release/app-hce-release.apk release-apks/YitianNFC-v5.6-YiTian.apk
+          
+          ls -lh release-apks/
+
+      - name: Upload to v5.5-YiTian Release
+        env:
+          GH_TOKEN: ${{ secrets.GITHUB_TOKEN }}
+        run: |
+          gh release upload v5.5-YiTian \
+            release-apks/YitianRead-v5.5-YiTian.apk \
+            release-apks/YitianNFC-v5.5-YiTian.apk \
+            --clobber \
+            --repo ${{ github.repository }}
+
+      - name: Upload to v5.6-YiTian Release
+        env:
+          GH_TOKEN: ${{ secrets.GITHUB_TOKEN }}
+        run: |
+          gh release upload v5.6-YiTian \
+            release-apks/YitianRead-v5.6-YiTian.apk \
+            release-apks/YitianNFC-v5.6-YiTian.apk \
+            --clobber \
+            --repo ${{ github.repository }}
+
+      - name: Verify uploads
+        env:
+          GH_TOKEN: ${{ secrets.GITHUB_TOKEN }}
+        run: |
+          echo "v5.5-YiTian Release:"
+          gh release view v5.5-YiTian --repo ${{ github.repository }}
+          
+          echo ""
+          echo "v5.6-YiTian Release:"
+          gh release view v5.6-YiTian --repo ${{ github.repository }}
