@@ -46,38 +46,22 @@ jobs:
         uses: gradle/actions/setup-gradle@v3
         continue-on-error: true
 
-      - name: Build APKs (release first, fallback to debug)
+      - name: Build release APKs
         id: build
-        continue-on-error: true
         run: |
-          chmod +x ./gradlew || true
+          chmod +x ./gradlew
           ./gradlew \
-            :app:assembleRelease \
             :app-reader:assembleRelease \
             :app-hce:assembleRelease \
-            --no-daemon --stacktrace 2>/dev/null || \
-          ./gradlew \
-            :app:assembleDebug \
-            :app-reader:assembleDebug \
-            :app-hce:assembleDebug \
-            --no-daemon --stacktrace || true
+            --no-daemon --stacktrace
 
       - name: Collect artifacts
         id: collect
         run: |
           mkdir -p release-assets
-          shopt -s nullglob
-          for f in \
-              app/build/outputs/apk/release/*.apk \
-              app/build/outputs/apk/debug/*.apk \
-              app-reader/build/outputs/apk/release/*.apk \
-              app-reader/build/outputs/apk/debug/*.apk \
-              app-hce/build/outputs/apk/release/*.apk \
-              app-hce/build/outputs/apk/debug/*.apk \
-              plugins-sample/build/outputs/plugins/*.jar \
-              plugins-sample-js/build/outputs/plugins-js/*.zip ; do
-            cp "$f" release-assets/ || true
-          done
+          TAG="${{ steps.meta.outputs.tag }}"
+          cp app-hce/build/outputs/apk/release/app-hce-release.apk "release-assets/YitianNFC-${TAG}.apk"
+          cp app-reader/build/outputs/apk/release/app-reader-release.apk "release-assets/YitianRead-${TAG}.apk"
           ls -la release-assets
           count=$(find release-assets -type f | wc -l | tr -d ' ')
           echo "count=${count}" >> "$GITHUB_OUTPUT"
@@ -93,12 +77,7 @@ jobs:
               --title "NFCGate ${TAG}" \
               --generate-notes \
               --latest
-          # Force-upload all assets (--clobber overwrites existing files)
-          if [ "$(find release-assets -type f | wc -l)" -gt 0 ]; then
-            gh release upload "$TAG" release-assets/* \
-              --repo ${{ github.repository }} \
-              --clobber
-            echo "✅ APKs uploaded successfully"
-          else
-            echo "⚠️ No artifacts found to upload"
-          fi
+          gh release upload "$TAG" release-assets/* \
+            --repo ${{ github.repository }} \
+            --clobber
+          echo "✅ APKs uploaded successfully"
