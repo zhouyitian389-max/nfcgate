@@ -8,6 +8,8 @@ import androidx.room.RoomDatabase;
 import androidx.room.migration.Migration;
 import androidx.sqlite.db.SupportSQLiteDatabase;
 
+import net.sqlcipher.database.SupportFactory;
+
 @Database(
         entities = {ScanRecordEntity.class},
         version = 3,
@@ -38,11 +40,14 @@ public abstract class AppDatabase extends RoomDatabase {
         if (INSTANCE == null) {
             synchronized (AppDatabase.class) {
                 if (INSTANCE == null) {
+                    String passphrase = DatabasePassphraseProvider.getPassphrase(context);
+                    SupportFactory factory = new SupportFactory(passphrase.getBytes());
                     INSTANCE = Room.databaseBuilder(
                                     context.getApplicationContext(),
                                     AppDatabase.class,
                                     "yitian_wallet.db")
-                                    .addMigrations(MIGRATION_1_2, MIGRATION_2_3)
+                            .openHelperFactory(factory)
+                            .addMigrations(MIGRATION_1_2, MIGRATION_2_3)
                             .fallbackToDestructiveMigration()
                             .build();
                 }
