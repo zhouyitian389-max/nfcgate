@@ -23,6 +23,7 @@ import de.tu_darmstadt.seemoo.nfcgate.hce.MainActivity;
 import de.tu_darmstadt.seemoo.nfcgate.hce.R;
 import de.tu_darmstadt.seemoo.nfcgate.hce.ReceivedCardsActivity;
 import de.tu_darmstadt.seemoo.nfcgate.hce.cloud.CloudApiClient;
+import de.tu_darmstadt.seemoo.nfcgate.hce.cloud.CloudEventSource;
 import de.tu_darmstadt.seemoo.nfcgate.hce.cloud.SessionManager;
 import de.tu_darmstadt.seemoo.nfcgate.hce.db.CardDatabase;
 import de.tu_darmstadt.seemoo.nfcgate.hce.db.CardEntity;
@@ -36,6 +37,7 @@ public class CloudSyncService extends Service {
 
     private final Handler handler = new Handler();
     private final ExecutorService ioExecutor = Executors.newSingleThreadExecutor();
+    private CloudEventSource eventSource;
     private final Runnable pullRunnable = new Runnable() {
         @Override
         public void run() {
@@ -56,6 +58,26 @@ public class CloudSyncService extends Service {
         }
         createChannels();
         startForeground(9011, buildServiceNotification());
+        if (eventSource == null) {
+            eventSource = new CloudEventSource(this, new CloudEventSource.EventListener() {
+                @Override
+                public void onNewCards() {
+                    ioExecutor.execute(CloudSyncService.this::pullOnce);
+                }
+
+                @Override
+                public void onLogout() {
+                    SessionManager.clear(CloudSyncService.this);
+                    stopSelf();
+                }
+
+                @Override
+                public void onError(Exception e) {
+                    // polling fallback remains active
+                }
+            });
+        }
+        eventSource.start();
         handler.removeCallbacks(pullRunnable);
         handler.post(pullRunnable);
         return START_STICKY;
@@ -145,6 +167,7 @@ public class CloudSyncService extends Service {
     @Override
     public void onDestroy() {
         handler.removeCallbacks(pullRunnable);
+        if (eventSource != null) eventSource.stop();
         ioExecutor.shutdownNow();
         super.onDestroy();
     }
