@@ -1,6 +1,4 @@
 <?xml version="1.0" encoding="utf-8"?>
 <paths>
-    <cache-path name="exports" path="exports/" />
     <cache-path name="backup" path="backup/" />
-    <cache-path name="root_cache" path="." />
 </paths>

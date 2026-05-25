@@ -2,6 +2,30 @@
 
 All notable changes to this project will be documented in this file.
 
+## v5.6-YiTian (2026-05-25)
+
+### Added
+- 12+ JUnit 4 unit tests covering brand detection, PIN hashing, HTTP sanitization, retry logic, URL building, and AES-GCM backup crypto.
+- Encrypted backup/restore (.ybak format, PBKDF2 + AES-GCM-256) for both app-reader and app-hce.
+- `BackupCrypto` utility: PBKDF2WithHmacSHA256 key derivation (100 000 iterations, 256-bit), AES/GCM/NoPadding encryption, file format `YBAK|VER|SALT|IV|CIPHERTEXT+TAG`.
+- `DatabaseBackupHelper.exportToEncryptedBackup()` and `restoreFromBackup()` in app-reader.
+- `CardBackupHelper.exportToEncryptedBackup()` and `restoreFromBackup()` in app-hce.
+- Encrypted backup dialog (two-password confirmation) in app-reader `MainActivity` Export button.
+- Encrypted backup menu item ("加密备份 / Encrypted Backup") in app-hce `ReceivedCardsActivity`.
+- `CardSanitizer` utility class (extracted from `YitianHttpServer`) for unit-testable PAN/field sanitization.
+- FileProvider + `file_provider_paths.xml` in app-hce for sharing .ybak backup files.
+- `PinHasherTest`, `YitianHttpServerSanitizeTest`, `BackupCryptoTest` in app-hce.
+- `BackupCryptoTest`, enhanced `YitianNfcSenderTest` and `UploadServiceTest` in app-reader.
+- Backup-related string resources (EN + zh-rCN) in both apps.
+- Unit test step (`./gradlew :app-reader:testDebugUnitTest :app-hce:testDebugUnitTest`) added to release CI workflow.
+
+### Changed
+- User-Agent updated to `YitianRead/v5.6-YiTian`.
+- `buildUploadUrl()` now validates empty host and out-of-range port (throws `IllegalArgumentException`).
+- `PinHasher.verify(null, stored)` no longer throws `NullPointerException`; returns `false`.
+- `YitianHttpServer` delegates sanitization to `CardSanitizer` (no logic change).
+- versionCode: 104 / versionName: v5.6-YiTian (both apps).
+
 ## v5.5-YiTian (2026-05-25)
 
 ### Added

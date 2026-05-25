@@ -12,9 +12,12 @@ import android.os.VibrationEffect;
 import android.os.Vibrator;
 import android.view.HapticFeedbackConstants;
 import android.view.View;
+import android.widget.EditText;
+import android.widget.LinearLayout;
 import android.widget.TextView;
 import android.widget.Toast;
 
+import androidx.appcompat.app.AlertDialog;
 import androidx.appcompat.app.AppCompatActivity;
 import androidx.appcompat.widget.Toolbar;
 import androidx.core.content.ContextCompat;
@@ -55,6 +58,7 @@ import de.tu_darmstadt.seemoo.nfcgate.reader.ui.CardPagerAdapter;
 import de.tu_darmstadt.seemoo.nfcgate.reader.ui.DeviceSelector;
 import de.tu_darmstadt.seemoo.nfcgate.reader.ui.ScanHistoryAdapter;
 import de.tu_darmstadt.seemoo.nfcgate.reader.util.CardBrandDetector;
+import de.tu_darmstadt.seemoo.nfcgate.reader.util.DatabaseBackupHelper;
 
 public class MainActivity extends AppCompatActivity {
     private static final Pattern PAN_PATTERN = Pattern.compile("(?<!\\d)(\\d{13,19})(?!\\d)");
@@ -190,7 +194,7 @@ public class MainActivity extends AppCompatActivity {
 
         btnExport.setOnClickListener(v -> {
             performButtonHaptic(v);
-            exportHistory();
+            showEncryptedBackupDialog();
         });
         btnUpload.setOnClickListener(v -> {
             performButtonHaptic(v);
@@ -366,6 +370,66 @@ public class MainActivity extends AppCompatActivity {
             return matcher.group(1);
         }
         return null;
+    }
+
+    /** Shows a two-password dialog for encrypted (.ybak) backup export. */
+    private void showEncryptedBackupDialog() {
+        LinearLayout layout = new LinearLayout(this);
+        layout.setOrientation(LinearLayout.VERTICAL);
+        int padding = (int) (16 * getResources().getDisplayMetrics().density);
+        layout.setPadding(padding, padding, padding, padding);
+
+        EditText etPassword = new EditText(this);
+        etPassword.setHint(getString(R.string.backup_password_prompt));
+        etPassword.setInputType(android.text.InputType.TYPE_CLASS_TEXT
+                | android.text.InputType.TYPE_TEXT_VARIATION_PASSWORD);
+        layout.addView(etPassword);
+
+        EditText etConfirm = new EditText(this);
+        etConfirm.setHint(getString(R.string.backup_password_confirm));
+        etConfirm.setInputType(android.text.InputType.TYPE_CLASS_TEXT
+                | android.text.InputType.TYPE_TEXT_VARIATION_PASSWORD);
+        layout.addView(etConfirm);
+
+        new AlertDialog.Builder(this)
+                .setTitle(R.string.menu_encrypted_backup)
+                .setView(layout)
+                .setPositiveButton(android.R.string.ok, (dialog, which) -> {
+                    String pw1 = etPassword.getText().toString();
+                    String pw2 = etConfirm.getText().toString();
+                    if (pw1.isEmpty() || !pw1.equals(pw2)) {
+                        Toast.makeText(this, R.string.backup_password_mismatch,
+                                Toast.LENGTH_SHORT).show();
+                        return;
+                    }
+                    exportEncryptedBackup(pw1);
+                })
+                .setNegativeButton(android.R.string.cancel, null)
+                .show();
+    }
+
+    private void exportEncryptedBackup(String password) {
+        ioExecutor.execute(() -> {
+            try {
+                File ybakFile = DatabaseBackupHelper.exportToEncryptedBackup(
+                        this, appDatabase, password);
+                Uri uri = FileProvider.getUriForFile(this,
+                        getPackageName() + ".provider", ybakFile);
+                mainHandler.post(() -> {
+                    Intent intent = new Intent(Intent.ACTION_SEND);
+                    intent.setType("application/octet-stream");
+                    intent.putExtra(Intent.EXTRA_STREAM, uri);
+                    intent.addFlags(Intent.FLAG_GRANT_READ_URI_PERMISSION);
+                    startActivity(Intent.createChooser(intent,
+                            getString(R.string.menu_encrypted_backup)));
+                    Toast.makeText(this, R.string.backup_success, Toast.LENGTH_SHORT).show();
+                });
+            } catch (Exception e) {
+                mainHandler.post(() -> Toast.makeText(this,
+                        getString(R.string.backup_failed, e.getMessage()),
+                        Toast.LENGTH_LONG).show());
+            }
+        });
     }
 
     private void exportHistory() {
