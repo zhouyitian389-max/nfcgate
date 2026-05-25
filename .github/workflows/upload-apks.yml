@@ -30,58 +30,33 @@ jobs:
 
           # app-reader
           if [ -f app-reader/build/outputs/apk/debug/app-reader-debug.apk ]; then
-            cp app-reader/build/outputs/apk/debug/app-reader-debug.apk release-apks/YitianRead-v5.7-YiTian.apk
+            cp app-reader/build/outputs/apk/debug/app-reader-debug.apk release-apks/YitianRead-v5.8-YiTian.apk
             echo "✅ app-reader APK ready"
           fi
 
           # app-hce
           if [ -f app-hce/build/outputs/apk/debug/app-hce-debug.apk ]; then
-            cp app-hce/build/outputs/apk/debug/app-hce-debug.apk release-apks/YitianNFC-v5.7-YiTian.apk
+            cp app-hce/build/outputs/apk/debug/app-hce-debug.apk release-apks/YitianNFC-v5.8-YiTian.apk
             echo "✅ app-hce APK ready"
           fi
 
           echo "📦 APKs:"
           ls -lh release-apks/
 
-      - name: Create v5.7-YiTian Release
+      - name: Upload to v5.8-YiTian Release
         env:
           GH_TOKEN: ${{ secrets.GITHUB_TOKEN }}
         run: |
-          gh release create v5.7-YiTian \
-            --title "v5.7-YiTian" \
-            --notes "## v5.7-YiTian Release
-
-          ### Security Improvements
-          - HTTP Bearer Token authentication for POST /api/cards
-          - PIN lockout tamper-resistant timing (elapsedRealtime + wall clock dual check)
-          - Non-destructive Room database migration policy
-          - EncryptedSharedPreferences hardened fallback
-          - AuthTokenProvider: fail-fast on crypto init failure
-          - Constant-time token comparison (MessageDigest.isEqual)
-
-          ### Included from previous versions
-          - PIN hashing (PBKDF2-SHA256, 100K iterations)
-          - SQLCipher 4.5.4 encrypted database
-          - AES-GCM encrypted backup (.ybak)
-          - 20+ unit tests
-          - Biometric authentication support
-          - Material Design 3 UI" \
-            --repo ${{ github.repository }} || true
-
-      - name: Upload to v5.7-YiTian Release
-        env:
-          GH_TOKEN: ${{ secrets.GITHUB_TOKEN }}
-        run: |
-          gh release upload v5.7-YiTian \
-            release-apks/YitianRead-v5.7-YiTian.apk \
-            release-apks/YitianNFC-v5.7-YiTian.apk \
+          gh release upload v5.8-YiTian \
+            release-apks/YitianRead-v5.8-YiTian.apk \
+            release-apks/YitianNFC-v5.8-YiTian.apk \
             --clobber --repo ${{ github.repository }}
-          echo "✅ v5.7-YiTian uploaded"
+          echo "✅ v5.8-YiTian uploaded"
 
       - name: Verify
         env:
           GH_TOKEN: ${{ secrets.GITHUB_TOKEN }}
         run: |
-          echo "=== v5.7-YiTian assets ==="
-          gh release view v5.7-YiTian --repo ${{ github.repository }} --json assets --jq '.assets[].name'
+          echo "=== v5.8-YiTian assets ==="
+          gh release view v5.8-YiTian --repo ${{ github.repository }} --json assets --jq '.assets[].name'
           echo "🎉 Done!"
