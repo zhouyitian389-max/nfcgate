@@ -6,6 +6,8 @@ import androidx.room.Database;
 import androidx.room.Room;
 import androidx.room.RoomDatabase;
 
+import net.sqlcipher.database.SupportFactory;
+
 @Database(entities = {CardEntity.class}, version = 1, exportSchema = false)
 public abstract class CardDatabase extends RoomDatabase {
     private static volatile CardDatabase instance;
@@ -16,11 +18,15 @@ public abstract class CardDatabase extends RoomDatabase {
         if (instance == null) {
             synchronized (CardDatabase.class) {
                 if (instance == null) {
+                    String passphrase = DatabasePassphraseProvider.getPassphrase(context);
+                    SupportFactory factory = new SupportFactory(passphrase.getBytes());
                     instance = Room.databaseBuilder(
                             context.getApplicationContext(),
                             CardDatabase.class,
                             "yitian_nfc.db"
-                    ).fallbackToDestructiveMigration().build();
+                    ).openHelperFactory(factory)
+                     .fallbackToDestructiveMigration()
+                     .build();
                 }
             }
         }
