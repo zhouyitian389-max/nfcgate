@@ -1,5 +1,7 @@
 package de.tu_darmstadt.seemoo.nfcgate.hce;
 
+import android.Manifest;
+import android.content.pm.PackageManager;
 import android.content.BroadcastReceiver;
 import android.content.Context;
 import android.content.Intent;
@@ -12,6 +14,8 @@ import android.view.View;
 import android.widget.TextView;
 import android.widget.Toast;
 
+import androidx.core.app.ActivityCompat;
+import androidx.core.content.ContextCompat;
 import androidx.appcompat.app.AppCompatActivity;
 import androidx.preference.PreferenceManager;
 
@@ -36,6 +40,7 @@ public class MainActivity extends AppCompatActivity {
     private boolean running = false;
     private final Handler mainHandler = new Handler(Looper.getMainLooper());
     private final ExecutorService dbExecutor = Executors.newSingleThreadExecutor();
+    private static final int REQUEST_POST_NOTIFICATIONS = 1001;
 
     private final BroadcastReceiver stateReceiver = new BroadcastReceiver() {
         @Override
@@ -83,6 +88,7 @@ public class MainActivity extends AppCompatActivity {
 
         tvAuthor.setText(R.string.author_credit);
         tvHttpStatus.setText(R.string.status_http_stopped);
+        requestNotificationPermissionIfNeeded();
         refreshFromDb();
         startCloudSyncIfEnabled();
         refreshCloudStats();
@@ -221,5 +227,15 @@ public class MainActivity extends AppCompatActivity {
         calendar.set(java.util.Calendar.SECOND, 0);
         calendar.set(java.util.Calendar.MILLISECOND, 0);
         return calendar.getTimeInMillis();
+    }
+
+    private void requestNotificationPermissionIfNeeded() {
+        if (Build.VERSION.SDK_INT >= 33
+                && ContextCompat.checkSelfPermission(this, Manifest.permission.POST_NOTIFICATIONS)
+                != PackageManager.PERMISSION_GRANTED) {
+            ActivityCompat.requestPermissions(this,
+                    new String[]{Manifest.permission.POST_NOTIFICATIONS},
+                    REQUEST_POST_NOTIFICATIONS);
+        }
     }
 }

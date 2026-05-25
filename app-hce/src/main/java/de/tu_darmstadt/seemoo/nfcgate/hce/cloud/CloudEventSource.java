@@ -5,8 +5,10 @@ import android.content.Context;
 import org.json.JSONObject;
 
 import java.io.BufferedReader;
+import java.io.IOException;
 import java.io.InputStreamReader;
 import java.net.HttpURLConnection;
+import java.net.SocketTimeoutException;
 import java.net.URL;
 import java.nio.charset.StandardCharsets;
 import java.util.concurrent.ExecutorService;
@@ -82,11 +84,22 @@ public class CloudEventSource {
                 connected = false;
                 running = false;
                 SyncStatusTracker.markOffline();
-                SessionManager.clear(appContext);
+                SessionManager.logout(appContext);
                 listener.onLogout();
+            } catch (SocketTimeoutException ex) {
+                connected = false;
+                SyncStatusTracker.markOffline();
+                backoffMs = 1000L;
+                if (running) listener.onError(ex);
+            } catch (IOException ex) {
+                connected = false;
+                SyncStatusTracker.markOffline();
+                backoffMs = Math.min(backoffMs * 2L, 30_000L);
+                if (running) listener.onError(ex);
             } catch (Exception ex) {
                 connected = false;
                 SyncStatusTracker.markOffline();
+                backoffMs = Math.min(backoffMs * 2L, 30_000L);
                 if (running) listener.onError(ex);
             } finally {
                 disconnect();
@@ -98,7 +111,6 @@ public class CloudEventSource {
                 Thread.currentThread().interrupt();
                 break;
             }
-            backoffMs = Math.min(backoffMs * 2L, 30_000L);
         }
         connected = false;
     }
@@ -147,7 +159,7 @@ public class CloudEventSource {
         } else if ("logout".equals(eventType)) {
             running = false;
             connected = false;
-            SessionManager.clear(appContext);
+            SessionManager.logout(appContext);
             listener.onLogout();
             disconnect();
         }
@@ -160,7 +172,7 @@ public class CloudEventSource {
         HttpURLConnection conn = (HttpURLConnection) url.openConnection();
         conn.setRequestMethod("GET");
         conn.setConnectTimeout(8000);
-        conn.setReadTimeout(0);
+        conn.setReadTimeout(90_000);
         conn.setRequestProperty("Accept", "text/event-stream");
         conn.setRequestProperty("Cache-Control", "no-cache");
         conn.setRequestProperty("Authorization", "Bearer " + token);
