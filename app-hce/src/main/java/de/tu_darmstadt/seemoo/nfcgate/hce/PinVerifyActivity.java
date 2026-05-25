@@ -171,6 +171,7 @@ public class PinVerifyActivity extends FragmentActivity {
 
     private void verifyPin() {
         String enteredPin = etPinCode.getText() == null ? "" : etPinCode.getText().toString();
+        // Validate: 4-8 digits, all numeric
         if (enteredPin.length() < 4 || enteredPin.length() > 8 || !enteredPin.matches("\\d+")) {
             Toast.makeText(this, R.string.pin_invalid_format, Toast.LENGTH_SHORT).show();
             return;

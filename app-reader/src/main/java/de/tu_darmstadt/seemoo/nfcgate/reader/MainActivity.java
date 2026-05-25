@@ -101,6 +101,14 @@ public class MainActivity extends AppCompatActivity {
         super.onCreate(savedInstanceState);
         setContentView(R.layout.activity_main);
 
+        filePickerLauncher = registerForActivityResult(
+                new ActivityResultContracts.GetContent(),
+                uri -> {
+                    if (uri != null) {
+                        showRestorePasswordDialog(uri);
+                    }
+                });
+
         Toolbar toolbar = findViewById(R.id.toolbar);
         setSupportActionBar(toolbar);
 
@@ -126,14 +134,6 @@ public class MainActivity extends AppCompatActivity {
         setupCardPager();
 
         bottomNav = findViewById(R.id.bottom_nav);
-
-        filePickerLauncher = registerForActivityResult(
-                new ActivityResultContracts.GetContent(),
-                uri -> {
-                    if (uri != null) {
-                        showRestorePasswordDialog(uri);
-                    }
-                });
 
         setupButtons();
         setupBottomNavigation();
