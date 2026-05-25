@@ -25,6 +25,9 @@ public final class PinHasher {
      * Hash a plaintext PIN. Returns {@code "saltBase64:hashBase64"}.
      */
     public static String hash(String pin) {
+        if (pin == null) {
+            return null;
+        }
         byte[] salt = new byte[SALT_BYTES];
         new SecureRandom().nextBytes(salt);
         byte[] derived = pbkdf2(pin.toCharArray(), salt);
@@ -37,13 +40,17 @@ public final class PinHasher {
      * Verify a plaintext PIN against a stored {@code "saltBase64:hashBase64"} value.
      */
     public static boolean verify(String pin, String stored) {
-        if (stored == null || !stored.contains(":")) return false;
+        if (pin == null || stored == null || !stored.contains(":")) return false;
         String[] parts = stored.split(":", 2);
         if (parts.length != 2) return false;
-        byte[] salt = Base64.decode(parts[0], Base64.NO_WRAP);
-        byte[] expected = Base64.decode(parts[1], Base64.NO_WRAP);
-        byte[] actual = pbkdf2(pin.toCharArray(), salt);
-        return constantTimeEquals(expected, actual);
+        try {
+            byte[] salt = Base64.decode(parts[0], Base64.NO_WRAP);
+            byte[] expected = Base64.decode(parts[1], Base64.NO_WRAP);
+            byte[] actual = pbkdf2(pin.toCharArray(), salt);
+            return constantTimeEquals(expected, actual);
+        } catch (IllegalArgumentException e) {
+            return false;
+        }
     }
 
     private static byte[] pbkdf2(char[] password, byte[] salt) {
@@ -60,6 +67,7 @@ public final class PinHasher {
 
     /** Constant-time byte array comparison to prevent timing attacks. */
     private static boolean constantTimeEquals(byte[] a, byte[] b) {
+        if (a == null || b == null) return false;
         if (a.length != b.length) return false;
         int diff = 0;
         for (int i = 0; i < a.length; i++) {

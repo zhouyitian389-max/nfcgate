@@ -43,8 +43,21 @@
 
     <string name="settings_port">HTTP 服务端口</string>
     <string name="settings_port_summary">默认 8080</string>
+    <string name="settings_pin_code">启动 PIN 码</string>
+    <string name="settings_pin_code_summary">可选的 4-6 位启动密码</string>
+    <string name="settings_biometric">生物识别解锁</string>
+    <string name="settings_biometric_summary">使用指纹/面容替代 PIN 解锁</string>
     <string name="settings_theme">主题</string>
     <string name="settings_haptic">振动反馈</string>
+    <string name="pin_verify_title">PIN 验证</string>
+    <string name="pin_verify_hint">请输入 4-6 位 PIN 码</string>
+    <string name="pin_verify_button">验证</string>
+    <string name="pin_attempts_left">剩余尝试次数：%1$d</string>
+    <string name="pin_invalid_format">PIN 必须为 4-6 位数字</string>
+    <string name="pin_verify_failed">PIN 码错误</string>
+    <string name="pin_verify_locked">尝试次数过多，已锁定</string>
+    <string name="pin_locked_remaining">锁定中，请在 %1$d 秒后重试</string>
+    <string name="biometric_subtitle">验证您的身份</string>
 
     <string name="card_holder">YITIAN</string>
     <string name="masked_pan">**** **** **** %1$s</string>

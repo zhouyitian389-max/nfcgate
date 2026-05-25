@@ -5,9 +5,7 @@ plugins {
 android {
     namespace 'de.tu_darmstadt.seemoo.nfcgate.feature.analysis'
 
-    compileSdk {
-        version = release(35)
-    }
+    compileSdk 35
 
     defaultConfig {
         minSdkVersion 21

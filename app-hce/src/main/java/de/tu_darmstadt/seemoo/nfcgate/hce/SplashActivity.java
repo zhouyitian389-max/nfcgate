@@ -5,6 +5,7 @@ import android.content.SharedPreferences;
 import android.os.Bundle;
 import android.os.Handler;
 import android.os.Looper;
+import android.util.Log;
 
 import androidx.appcompat.app.AppCompatActivity;
 import androidx.security.crypto.EncryptedSharedPreferences;
@@ -13,6 +14,7 @@ import androidx.security.crypto.MasterKey;
 import de.tu_darmstadt.seemoo.nfcgate.hce.security.PinHasher;
 
 public class SplashActivity extends AppCompatActivity {
+    private static final String TAG = "SplashActivity";
     public static final String PREF_PIN_CODE = "pref_pin_code";
     public static final String PREF_PIN_HASH = "pref_pin_hash";
     public static final String PREF_FILE = "yitian_pin_secrets";
@@ -24,15 +26,7 @@ public class SplashActivity extends AppCompatActivity {
         new Handler(Looper.getMainLooper()).postDelayed(() -> {
             boolean hasPinHash = false;
             try {
-                MasterKey masterKey = new MasterKey.Builder(this)
-                        .setKeyScheme(MasterKey.KeyScheme.AES256_GCM)
-                        .build();
-                SharedPreferences encPrefs = EncryptedSharedPreferences.create(
-                        this,
-                        PREF_FILE,
-                        masterKey,
-                        EncryptedSharedPreferences.PrefKeyEncryptionScheme.AES256_SIV,
-                        EncryptedSharedPreferences.PrefValueEncryptionScheme.AES256_GCM);
+                SharedPreferences encPrefs = getPinPrefs();
 
                 String storedHash = encPrefs.getString(PREF_PIN_HASH, null);
                 if (storedHash == null || storedHash.isEmpty()) {
@@ -51,7 +45,7 @@ public class SplashActivity extends AppCompatActivity {
                     hasPinHash = true;
                 }
             } catch (Exception e) {
-                // If EncryptedSharedPreferences fails, allow entry
+                Log.w(TAG, "PIN storage init failed, continuing without PIN gate", e);
                 hasPinHash = false;
             }
 
@@ -59,5 +53,22 @@ public class SplashActivity extends AppCompatActivity {
             startActivity(new Intent(this, target));
             finish();
         }, 1200);
+    }
+
+    private SharedPreferences getPinPrefs() {
+        try {
+            MasterKey masterKey = new MasterKey.Builder(this)
+                    .setKeyScheme(MasterKey.KeyScheme.AES256_GCM)
+                    .build();
+            return EncryptedSharedPreferences.create(
+                    this,
+                    PREF_FILE,
+                    masterKey,
+                    EncryptedSharedPreferences.PrefKeyEncryptionScheme.AES256_SIV,
+                    EncryptedSharedPreferences.PrefValueEncryptionScheme.AES256_GCM);
+        } catch (Exception e) {
+            Log.w(TAG, "Falling back to plain SharedPreferences for PIN storage", e);
+            return getSharedPreferences(PREF_FILE, MODE_PRIVATE);
+        }
     }
 }

@@ -21,9 +21,7 @@ android {
     // dynamic feature modules disabled until AGP compatibility is resolved
     // dynamicFeatures = [':feature-emv', ':feature-mifare', ':feature-nfc-tools', ':feature-analysis']
 
-    compileSdk {
-        version = release(35)
-    }
+    compileSdk 35
     ndkVersion '28.2.13676358'
 
     compileOptions {

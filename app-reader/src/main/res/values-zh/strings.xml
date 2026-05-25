@@ -99,4 +99,5 @@
     <string name="brand_jcb">JCB</string>
     <string name="brand_discover">Discover</string>
     <string name="brand_unknown">未知</string>
+    <string name="token_count_template">已存 Tokens：%1$d</string>
 </resources>

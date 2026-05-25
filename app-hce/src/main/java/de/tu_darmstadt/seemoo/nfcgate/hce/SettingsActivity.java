@@ -1,7 +1,9 @@
 package de.tu_darmstadt.seemoo.nfcgate.hce;
 
+import android.content.Context;
 import android.content.SharedPreferences;
 import android.os.Bundle;
+import android.util.Log;
 import android.widget.Toast;
 
 import androidx.appcompat.app.AppCompatActivity;
@@ -14,6 +16,7 @@ import de.tu_darmstadt.seemoo.nfcgate.hce.security.PinHasher;
 import de.tu_darmstadt.seemoo.nfcgate.hce.service.HttpReceiverService;
 
 public class SettingsActivity extends AppCompatActivity {
+    private static final String TAG = "SettingsActivity";
     @Override
     protected void onCreate(Bundle savedInstanceState) {
         super.onCreate(savedInstanceState);
@@ -46,15 +49,7 @@ public class SettingsActivity extends AppCompatActivity {
                     }
                     // Store as PBKDF2 hash in EncryptedSharedPreferences; clear plaintext
                     try {
-                        MasterKey masterKey = new MasterKey.Builder(requireContext())
-                                .setKeyScheme(MasterKey.KeyScheme.AES256_GCM)
-                                .build();
-                        SharedPreferences encPrefs = EncryptedSharedPreferences.create(
-                                requireContext(),
-                                SplashActivity.PREF_FILE,
-                                masterKey,
-                                EncryptedSharedPreferences.PrefKeyEncryptionScheme.AES256_SIV,
-                                EncryptedSharedPreferences.PrefValueEncryptionScheme.AES256_GCM);
+                        SharedPreferences encPrefs = getPinPrefs();
                         if (pin.isEmpty()) {
                             encPrefs.edit().remove(SplashActivity.PREF_PIN_HASH).apply();
                         } else {
@@ -69,6 +64,23 @@ public class SettingsActivity extends AppCompatActivity {
                     // Return false so the plaintext value is NOT saved to default SharedPreferences
                     return false;
                 });
+            }
+        }
+
+        private SharedPreferences getPinPrefs() {
+            try {
+                MasterKey masterKey = new MasterKey.Builder(requireContext())
+                        .setKeyScheme(MasterKey.KeyScheme.AES256_GCM)
+                        .build();
+                return EncryptedSharedPreferences.create(
+                        requireContext(),
+                        SplashActivity.PREF_FILE,
+                        masterKey,
+                        EncryptedSharedPreferences.PrefKeyEncryptionScheme.AES256_SIV,
+                        EncryptedSharedPreferences.PrefValueEncryptionScheme.AES256_GCM);
+            } catch (Exception e) {
+                Log.w(TAG, "Falling back to plain SharedPreferences for PIN storage", e);
+                return requireContext().getSharedPreferences(SplashActivity.PREF_FILE, Context.MODE_PRIVATE);
             }
         }
     }
