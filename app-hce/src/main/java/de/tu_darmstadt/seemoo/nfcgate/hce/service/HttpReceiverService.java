@@ -28,6 +28,7 @@ public class HttpReceiverService extends Service {
     public static final String EXTRA_RUNNING = "running";
     public static final String EXTRA_PORT = "port";
     public static final String EXTRA_COUNT = "count";
+    public static final String PREF_SERVER_PORT = "server_port";
 
     private YitianHttpServer server;
     private int port = 8080;
@@ -57,7 +58,7 @@ public class HttpReceiverService extends Service {
         }
         SharedPreferences sp = PreferenceManager.getDefaultSharedPreferences(this);
         try {
-            port = Integer.parseInt(sp.getString("server_port", "8080"));
+            port = Integer.parseInt(sp.getString(HttpReceiverService.PREF_SERVER_PORT, "8080"));
         } catch (NumberFormatException e) { port = 8080; }
         startServer();
         Notification notification = buildNotification();

@@ -80,6 +80,9 @@ public final class UploadScheduler {
         @NonNull
         @Override
         public Result doWork() {
+            // SQLCipher is initialised through AppDatabase.getInstance(), which calls
+            // DatabasePassphraseProvider. That provider uses EncryptedSharedPreferences /
+            // MasterKey — both are safe to use inside a Worker process without an Activity.
             Context ctx = getApplicationContext();
             try {
                 AppDatabase db = AppDatabase.getInstance(ctx);

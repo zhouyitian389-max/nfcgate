@@ -25,6 +25,9 @@ public abstract class CardDatabase extends RoomDatabase {
                             CardDatabase.class,
                             "yitian_nfc.db"
                     ).openHelperFactory(factory)
+                     // NOTE: fallbackToDestructiveMigration is acceptable for v1 (no prior schema).
+                     // Future schema changes MUST include explicit Migration objects to avoid
+                     // losing encrypted card data on upgrade.
                      .fallbackToDestructiveMigration()
                      .build();
                 }

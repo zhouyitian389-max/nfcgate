@@ -23,3 +23,13 @@
 -keep class de.tu_darmstadt.seemoo.nfcgate.reader.model.** { *; }
 -keep class de.tu_darmstadt.seemoo.nfcgate.reader.util.CardBrandDetector { *; }
 -keep class de.tu_darmstadt.seemoo.nfcgate.reader.BuildConfig { *; }
+
+# SQLCipher
+-keep class net.sqlcipher.** { *; }
+-keep class net.sqlcipher.database.** { *; }
+-dontwarn net.sqlcipher.**
+
+# AndroidX Security Crypto
+-keep class androidx.security.crypto.** { *; }
+-keep class com.google.crypto.tink.** { *; }
+-dontwarn com.google.crypto.tink.**

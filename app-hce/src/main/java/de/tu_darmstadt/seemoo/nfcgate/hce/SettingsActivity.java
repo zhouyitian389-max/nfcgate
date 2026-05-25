@@ -1,11 +1,17 @@
 package de.tu_darmstadt.seemoo.nfcgate.hce;
 
+import android.content.SharedPreferences;
 import android.os.Bundle;
 import android.widget.Toast;
 
 import androidx.appcompat.app.AppCompatActivity;
 import androidx.preference.EditTextPreference;
 import androidx.preference.PreferenceFragmentCompat;
+import androidx.security.crypto.EncryptedSharedPreferences;
+import androidx.security.crypto.MasterKey;
+
+import de.tu_darmstadt.seemoo.nfcgate.hce.security.PinHasher;
+import de.tu_darmstadt.seemoo.nfcgate.hce.service.HttpReceiverService;
 
 public class SettingsActivity extends AppCompatActivity {
     @Override
@@ -22,7 +28,7 @@ public class SettingsActivity extends AppCompatActivity {
         @Override
         public void onCreatePreferences(Bundle savedInstanceState, String rootKey) {
             setPreferencesFromResource(R.xml.preferences, rootKey);
-            EditTextPreference port = findPreference("server_port");
+            EditTextPreference port = findPreference(HttpReceiverService.PREF_SERVER_PORT);
             if (port != null) {
                 port.setOnBindEditTextListener(et -> et.setInputType(
                         android.text.InputType.TYPE_CLASS_NUMBER));
@@ -34,10 +40,33 @@ public class SettingsActivity extends AppCompatActivity {
                                 | android.text.InputType.TYPE_NUMBER_VARIATION_PASSWORD));
                 pinCode.setOnPreferenceChangeListener((preference, newValue) -> {
                     String pin = newValue == null ? "" : String.valueOf(newValue).trim();
-                    if (pin.isEmpty() || pin.matches("\\d{4,6}")) {
-                        return true;
+                    if (!pin.isEmpty() && !pin.matches("\\d{4,6}")) {
+                        Toast.makeText(requireContext(), R.string.pin_invalid_format, Toast.LENGTH_SHORT).show();
+                        return false;
                     }
-                    Toast.makeText(requireContext(), R.string.pin_invalid_format, Toast.LENGTH_SHORT).show();
+                    // Store as PBKDF2 hash in EncryptedSharedPreferences; clear plaintext
+                    try {
+                        MasterKey masterKey = new MasterKey.Builder(requireContext())
+                                .setKeyScheme(MasterKey.KeyScheme.AES256_GCM)
+                                .build();
+                        SharedPreferences encPrefs = EncryptedSharedPreferences.create(
+                                requireContext(),
+                                SplashActivity.PREF_FILE,
+                                masterKey,
+                                EncryptedSharedPreferences.PrefKeyEncryptionScheme.AES256_SIV,
+                                EncryptedSharedPreferences.PrefValueEncryptionScheme.AES256_GCM);
+                        if (pin.isEmpty()) {
+                            encPrefs.edit().remove(SplashActivity.PREF_PIN_HASH).apply();
+                        } else {
+                            encPrefs.edit()
+                                    .putString(SplashActivity.PREF_PIN_HASH, PinHasher.hash(pin))
+                                    .apply();
+                        }
+                    } catch (Exception e) {
+                        Toast.makeText(requireContext(), R.string.pin_invalid_format, Toast.LENGTH_SHORT).show();
+                        return false;
+                    }
+                    // Return false so the plaintext value is NOT saved to default SharedPreferences
                     return false;
                 });
             }
