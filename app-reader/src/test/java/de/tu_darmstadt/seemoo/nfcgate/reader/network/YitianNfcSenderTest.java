@@ -1,5 +1,7 @@
 package de.tu_darmstadt.seemoo.nfcgate.reader.network;
 
+import de.tu_darmstadt.seemoo.nfcgate.reader.BuildConfig;
+
 import org.junit.Test;
 
 import java.net.MalformedURLException;
@@ -88,7 +90,7 @@ public class YitianNfcSenderTest {
         // Assert against the production USER_AGENT constant, not a hard-coded duplicate.
         assertTrue("User-Agent must start with 'YitianRead/'",
                 YitianNfcSender.USER_AGENT.startsWith("YitianRead/"));
-        assertTrue("User-Agent must contain the current version string 'v5.6-YiTian'",
-                YitianNfcSender.USER_AGENT.contains("v5.6-YiTian"));
+        assertTrue("User-Agent must contain the current version string '" + BuildConfig.VERSION_NAME + "'",
+                YitianNfcSender.USER_AGENT.contains(BuildConfig.VERSION_NAME));
     }
 }

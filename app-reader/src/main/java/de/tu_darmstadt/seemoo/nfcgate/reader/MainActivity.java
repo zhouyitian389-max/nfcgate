@@ -51,12 +51,10 @@ import java.util.concurrent.Executors;
 import java.util.regex.Matcher;
 import java.util.regex.Pattern;
 
-import de.tu_darmstadt.seemoo.nfcgate.reader.cloud.CloudApiClient;
-import de.tu_darmstadt.seemoo.nfcgate.reader.cloud.SessionManager;
-import de.tu_darmstadt.seemoo.nfcgate.reader.cloud.SyncStatusTracker;
+import de.tu_darmstadt.seemoo.nfcgate.reader.auth.CloudSessionManager;
 import de.tu_darmstadt.seemoo.nfcgate.reader.db.AppDatabase;
 import de.tu_darmstadt.seemoo.nfcgate.reader.db.ScanRecordEntity;
-import de.tu_darmstadt.seemoo.nfcgate.reader.network.OfflineQueueWorker;
+import de.tu_darmstadt.seemoo.nfcgate.reader.network.UploadScheduler;
 import de.tu_darmstadt.seemoo.nfcgate.reader.model.ScanRecord;
 import de.tu_darmstadt.seemoo.nfcgate.reader.network.UploadService;
 import de.tu_darmstadt.seemoo.nfcgate.reader.nfc.NFCDevice;
@@ -144,12 +142,7 @@ public class MainActivity extends AppCompatActivity {
         loadHistoryFromDatabase();
         updateNfcStatus();
         refreshTokenCount();
-        OfflineQueueWorker.schedule(this);
-        btnSettings.setOnLongClickListener(v -> {
-            startActivity(new Intent(this, DeviceListActivity.class));
-            return true;
-        });
-        tvTokenCount.setOnClickListener(v -> startActivity(new Intent(this, OperationLogActivity.class)));
+        UploadScheduler.schedulePeriodic(this);
 
         if (SettingsManager.isAutoScanEnabled(this)) {
             autoStartCapture();
@@ -368,6 +361,9 @@ public class MainActivity extends AppCompatActivity {
         ioExecutor.execute(() -> {
             long id = appDatabase.scanRecordDao().insert(ScanRecordEntity.fromRecord(record));
             record.setId(id);
+            if (SettingsManager.isCloudUploadMode(this) && CloudSessionManager.hasToken(this)) {
+                UploadService.uploadPending(this, appDatabase, ioExecutor, mainHandler);
+            }
             if (mainHandler != null) {
                 mainHandler.post(this::refreshTokenCount);
             }
@@ -380,22 +376,9 @@ public class MainActivity extends AppCompatActivity {
         }
         ioExecutor.execute(() -> {
             int count = appDatabase.scanRecordDao().count();
-            int pending = appDatabase.pendingUploadDao().count();
             mainHandler.post(() -> {
                 if (tvTokenCount != null) {
-                    tvTokenCount.setText(getString(R.string.token_count_template, count) + " · pending " + pending);
-                }
-                if (btnUpload != null && pending > 0) {
-                    btnUpload.setText(getString(R.string.btn_upload) + " (" + pending + ")");
-                } else if (btnUpload != null) {
-                    btnUpload.setText(R.string.btn_upload);
-                }
-                if (tvNfcStatus != null) {
-                    SyncStatusTracker.State state = SyncStatusTracker.getState();
-                    int res = state == SyncStatusTracker.State.CONNECTED
-                            ? R.string.sync_status_connected
-                            : (state == SyncStatusTracker.State.SYNCING ? R.string.sync_status_syncing : R.string.sync_status_offline);
-                    tvNfcStatus.setText(getString(res));
+                    tvTokenCount.setText(getString(R.string.token_count_template, count));
                 }
             });
         });
@@ -634,22 +617,10 @@ public class MainActivity extends AppCompatActivity {
     @Override
     protected void onResume() {
         super.onResume();
-        if (!SessionManager.isLoggedIn(this)) {
-            startActivity(new Intent(this, LoginActivity.class));
-            finish();
-            return;
-        }
-        ioExecutor.execute(() -> {
-            try {
-                new CloudApiClient(this).refreshIfNeeded();
-            } catch (Exception ignored) {
-            }
-        });
         if (autoScrollRunnable != null) {
             mainHandler.removeCallbacks(autoScrollRunnable);
             mainHandler.postDelayed(autoScrollRunnable, 3000L);
         }
-        refreshTokenCount();
     }
 
     @Override

@@ -1,6 +1,7 @@
 package de.tu_darmstadt.seemoo.nfcgate.hce;
 
 import android.content.Context;
+import android.content.Intent;
 import android.content.SharedPreferences;
 import android.os.Bundle;
 import android.util.Log;
@@ -8,12 +9,13 @@ import android.widget.Toast;
 
 import androidx.appcompat.app.AppCompatActivity;
 import androidx.preference.EditTextPreference;
-import androidx.preference.ListPreference;
 import androidx.preference.Preference;
 import androidx.preference.PreferenceFragmentCompat;
 import androidx.security.crypto.EncryptedSharedPreferences;
 import androidx.security.crypto.MasterKey;
 
+import de.tu_darmstadt.seemoo.nfcgate.hce.auth.CloudSessionManager;
+import de.tu_darmstadt.seemoo.nfcgate.hce.network.CloudApiClient;
 import de.tu_darmstadt.seemoo.nfcgate.hce.security.PinHasher;
 import de.tu_darmstadt.seemoo.nfcgate.hce.service.HttpReceiverService;
 
@@ -21,7 +23,6 @@ public class SettingsActivity extends AppCompatActivity {
     private static final String TAG = "SettingsActivity";
     @Override
     protected void onCreate(Bundle savedInstanceState) {
-        SettingsManager.applySavedTheme(this);
         super.onCreate(savedInstanceState);
         setContentView(R.layout.activity_settings);
         setTitle(R.string.title_settings);
@@ -39,10 +40,9 @@ public class SettingsActivity extends AppCompatActivity {
                 port.setOnBindEditTextListener(et -> et.setInputType(
                         android.text.InputType.TYPE_CLASS_NUMBER));
             }
-            EditTextPreference cloud = findPreference(SettingsManager.KEY_CLOUD_BASE);
-            if (cloud != null) {
-                cloud.setOnBindEditTextListener(et -> et.setSingleLine(true));
-                cloud.setSummaryProvider(EditTextPreference.SimpleSummaryProvider.getInstance());
+            EditTextPreference apiServer = findPreference(CloudApiClient.KEY_API_SERVER_URL);
+            if (apiServer != null) {
+                apiServer.setOnBindEditTextListener(et -> et.setSingleLine(true));
             }
             EditTextPreference pinCode = findPreference(SplashActivity.PREF_PIN_CODE);
             if (pinCode != null) {
@@ -73,49 +73,17 @@ public class SettingsActivity extends AppCompatActivity {
                     return false;
                 });
             }
-            ListPreference theme = findPreference(SettingsManager.KEY_THEME);
-            if (theme != null) {
-                theme.setSummaryProvider(ListPreference.SimpleSummaryProvider.getInstance());
-                theme.setOnPreferenceChangeListener((preference, newValue) -> {
-                    preference.getSharedPreferences().edit().putString(SettingsManager.KEY_THEME, String.valueOf(newValue)).apply();
-                    requireActivity().recreate();
+
+            Preference logout = findPreference("logout");
+            if (logout != null) {
+                logout.setOnPreferenceClickListener(preference -> {
+                    CloudSessionManager.clear(requireContext());
+                    Intent intent = new Intent(requireContext(), LoginActivity.class);
+                    intent.addFlags(Intent.FLAG_ACTIVITY_NEW_TASK | Intent.FLAG_ACTIVITY_CLEAR_TASK);
+                    startActivity(intent);
                     return true;
                 });
             }
-            ListPreference language = findPreference(SettingsManager.KEY_LANGUAGE);
-            if (language != null) {
-                language.setSummaryProvider(ListPreference.SimpleSummaryProvider.getInstance());
-                language.setOnPreferenceChangeListener((preference, newValue) -> {
-                    preference.getSharedPreferences().edit().putString(SettingsManager.KEY_LANGUAGE, String.valueOf(newValue)).apply();
-                    requireActivity().recreate();
-                    return true;
-                });
-            }
-            Preference admin = new Preference(requireContext());
-            admin.setKey("admin_entry");
-            admin.setTitle("Admin");
-            admin.setSummary("Total synced cards, account ID, server status");
-            admin.setVisible(false);
-            admin.setOnPreferenceClickListener(preference -> {
-                Toast.makeText(requireContext(), "Admin: " + de.tu_darmstadt.seemoo.nfcgate.hce.cloud.SessionManager.getToken(requireContext()), Toast.LENGTH_SHORT).show();
-                return true;
-            });
-            getPreferenceScreen().addPreference(admin);
-            Preference versionPref = new Preference(requireContext());
-            versionPref.setTitle("Version");
-            versionPref.setSummary(BuildConfig.VERSION_NAME);
-            versionPref.setOnPreferenceClickListener(new Preference.OnPreferenceClickListener() {
-                int taps = 0;
-                @Override
-                public boolean onPreferenceClick(Preference preference) {
-                    taps++;
-                    if (taps >= 7) {
-                        admin.setVisible(true);
-                    }
-                    return true;
-                }
-            });
-            getPreferenceScreen().addPreference(versionPref);
         }
 
         private SharedPreferences getPinPrefs() {

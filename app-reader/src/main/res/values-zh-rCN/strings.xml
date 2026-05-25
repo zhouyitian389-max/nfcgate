@@ -34,6 +34,7 @@
     <string name="toast_scan_timeout">扫描超时</string>
     <string name="toast_sent_to_yitian_nfc">已发送 %1$d 张卡到 YitianNFC</string>
     <string name="toast_send_failed">发送失败：%1$s</string>
+    <string name="toast_login_required">请先登录</string>
     <string name="export_chooser">导出扫描历史</string>
 
     <string name="dialog_yitian_nfc_title">发送到 YitianNFC</string>
@@ -68,56 +69,50 @@
     <string name="settings_category_scan">扫描</string>
     <string name="settings_category_appearance">外观</string>
     <string name="settings_category_legacy">旧版（中继）</string>
+    <string name="settings_category_account">账户</string>
 
     <!-- 设置项 -->
     <string name="settings_server_url">服务器地址</string>
-    <string name="settings_cloud_base">云端 API 地址</string>
+    <string name="settings_api_server">API 服务器</string>
+    <string name="settings_upload_mode">上传模式</string>
     <string name="settings_yitian_nfc_host">YitianNFC 主机</string>
     <string name="settings_yitian_nfc_host_summary">YitianNFC 接收端的 IP 地址</string>
     <string name="settings_yitian_nfc_port">YitianNFC 端口</string>
     <string name="settings_yitian_nfc_port_summary">YitianNFC 接收端的 TCP 端口（默认 8080）</string>
     <string name="settings_auto_scan">进入主页自动扫描</string>
     <string name="settings_scan_timeout">扫描超时</string>
-    <string name="settings_auto_sync">自动同步</string>
     <string name="settings_timeout_summary">%1$d 秒</string>
     <string name="settings_theme">主题</string>
-    <string name="settings_language">语言</string>
     <string name="settings_haptic_feedback">振动反馈</string>
+    <string name="settings_logout">退出登录</string>
+
+    <string-array name="settings_upload_mode_entries">
+        <item>云端</item>
+        <item>局域网</item>
+    </string-array>
+    <string-array name="settings_upload_mode_values">
+        <item>cloud</item>
+        <item>local</item>
+    </string-array>
+
+    <string name="login_title">YitianRead</string>
+    <string name="login_subtitle">输入共享密码连接</string>
+    <string name="login_password_hint">密码（4-32位）</string>
+    <string name="login_button">登录 / 连接</string>
+    <string name="login_password_invalid">密码必须为 4-32 位</string>
+    <string name="login_failed">登录失败：%1$s</string>
+    <string name="login_failed_generic">无法登录</string>
 
     <string-array name="settings_theme_entries">
         <item>暗色</item>
         <item>浅色</item>
         <item>跟随系统</item>
-        <item>动态（Material You）</item>
     </string-array>
     <string-array name="settings_theme_values">
         <item>dark</item>
         <item>light</item>
         <item>system</item>
-        <item>dynamic</item>
     </string-array>
-    <string-array name="settings_language_entries">
-        <item>跟随系统</item>
-        <item>简体中文</item>
-        <item>English</item>
-    </string-array>
-    <string-array name="settings_language_values">
-        <item>system</item>
-        <item>zh-CN</item>
-        <item>en</item>
-    </string-array>
-
-    <string name="title_login">登录</string>
-    <string name="hint_password">密码</string>
-    <string name="btn_login">登录</string>
-    <string name="login_required">请先登录</string>
-    <string name="too_many_attempts">尝试次数过多，请等待 %1$d 秒</string>
-    <string name="sync_status_connected">已连接</string>
-    <string name="sync_status_syncing">同步中</string>
-    <string name="sync_status_offline">离线</string>
-    <string name="dashboard_total_cards">卡片总数：%1$d</string>
-    <string name="dashboard_today_cards">今日新增：%1$d</string>
-    <string name="dashboard_last_sync">上次同步：%1$s</string>
 
     <string name="brand_unionpay">银联</string>
     <string name="brand_mastercard">万事达</string>

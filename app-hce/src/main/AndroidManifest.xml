@@ -40,6 +40,10 @@
         <activity android:name=".OperationLogActivity" android:exported="false" />
 
         <activity
+            android:name=".LoginActivity"
+            android:exported="false" />
+
+        <activity
             android:name=".PinVerifyActivity"
             android:exported="false" />
 

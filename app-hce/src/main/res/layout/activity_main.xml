@@ -101,6 +101,14 @@
             android:layout_marginBottom="12dp" />
 
         <com.google.android.material.button.MaterialButton
+            android:id="@+id/btn_sync_cloud"
+            style="@style/ButtonStyle.OutlineGold"
+            android:layout_width="match_parent"
+            android:layout_height="wrap_content"
+            android:text="@string/btn_sync_cloud"
+            android:layout_marginBottom="12dp" />
+
+        <com.google.android.material.button.MaterialButton
             android:id="@+id/btn_settings"
             style="@style/ButtonStyle.OutlineGold"
             android:layout_width="match_parent"

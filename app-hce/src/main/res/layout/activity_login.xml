@@ -10,20 +10,30 @@
     <TextView
         android:layout_width="wrap_content"
         android:layout_height="wrap_content"
-        android:text="@string/title_login"
+        android:text="@string/login_title"
         android:textColor="@color/gold"
+        android:textSize="28sp"
         android:textStyle="bold"
-        android:textSize="26sp" />
+        android:layout_marginBottom="8dp" />
+
+    <TextView
+        android:layout_width="wrap_content"
+        android:layout_height="wrap_content"
+        android:text="@string/login_subtitle"
+        android:textColor="@color/secondary_text"
+        android:layout_marginBottom="20dp" />
 
     <EditText
         android:id="@+id/et_password"
         android:layout_width="match_parent"
         android:layout_height="wrap_content"
-        android:layout_marginTop="20dp"
-        android:hint="@string/hint_password"
+        android:hint="@string/login_password_hint"
         android:inputType="textPassword"
+        android:maxLength="32"
         android:textColor="@color/white"
-        android:textColorHint="@color/secondary_text" />
+        android:textColorHint="@color/secondary_text"
+        android:importantForAutofill="no"
+        android:autofillHints="" />
 
     <com.google.android.material.button.MaterialButton
         android:id="@+id/btn_login"
@@ -31,12 +41,6 @@
         android:layout_width="match_parent"
         android:layout_height="wrap_content"
         android:layout_marginTop="16dp"
-        android:text="@string/btn_login" />
+        android:text="@string/login_button" />
 
-    <TextView
-        android:id="@+id/tv_cooldown"
-        android:layout_width="match_parent"
-        android:layout_height="wrap_content"
-        android:layout_marginTop="12dp"
-        android:textColor="@color/secondary_text" />
 </LinearLayout>
