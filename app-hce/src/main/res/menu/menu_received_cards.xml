@@ -4,4 +4,8 @@
         android:id="@+id/action_encrypted_backup"
         android:title="@string/menu_encrypted_backup"
         android:showAsAction="never" />
+    <item
+        android:id="@+id/action_restore_backup"
+        android:title="@string/menu_restore_backup"
+        android:showAsAction="never" />
 </menu>

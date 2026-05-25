@@ -112,4 +112,6 @@
     <string name="restore_failed">Restore failed: %1$s</string>
     <string name="restore_chooser_title">Select backup file (.ybak)</string>
     <string name="menu_encrypted_backup">Encrypted Backup</string>
+    <string name="menu_restore_backup">Restore Backup</string>
+    <string name="dialog_backup_or_restore_title">Backup / Restore</string>
 </resources>

@@ -10,21 +10,25 @@ All notable changes to this project will be documented in this file.
 - `BackupCrypto` utility: PBKDF2WithHmacSHA256 key derivation (100 000 iterations, 256-bit), AES/GCM/NoPadding encryption, file format `YBAK|VER|SALT|IV|CIPHERTEXT+TAG`.
 - `DatabaseBackupHelper.exportToEncryptedBackup()` and `restoreFromBackup()` in app-reader.
 - `CardBackupHelper.exportToEncryptedBackup()` and `restoreFromBackup()` in app-hce.
-- Encrypted backup dialog (two-password confirmation) in app-reader `MainActivity` Export button.
-- Encrypted backup menu item ("加密备份 / Encrypted Backup") in app-hce `ReceivedCardsActivity`.
+- **Restore UI** (Export button in app-reader shows Export/Restore choice dialog; "Restore Backup" menu item in app-hce `ReceivedCardsActivity`) — file picker → password dialog → `restoreFromBackup()`.
 - `CardSanitizer` utility class (extracted from `YitianHttpServer`) for unit-testable PAN/field sanitization.
 - FileProvider + `file_provider_paths.xml` in app-hce for sharing .ybak backup files.
 - `PinHasherTest`, `YitianHttpServerSanitizeTest`, `BackupCryptoTest` in app-hce.
 - `BackupCryptoTest`, enhanced `YitianNfcSenderTest` and `UploadServiceTest` in app-reader.
 - Backup-related string resources (EN + zh-rCN) in both apps.
-- Unit test step (`./gradlew :app-reader:testDebugUnitTest :app-hce:testDebugUnitTest`) added to release CI workflow.
+- Unit test step (without `|| true`) added to release CI workflow — test failures now block the release build.
 
 ### Changed
-- User-Agent updated to `YitianRead/v5.6-YiTian`.
+- User-Agent extracted to `YitianNfcSender.USER_AGENT` constant and updated to `YitianRead/v5.6-YiTian`; `YitianNfcSenderTest` now asserts against the constant.
 - `buildUploadUrl()` now validates empty host and out-of-range port (throws `IllegalArgumentException`).
 - `PinHasher.verify(null, stored)` no longer throws `NullPointerException`; returns `false`.
 - `YitianHttpServer` delegates sanitization to `CardSanitizer` (no logic change).
 - versionCode: 104 / versionName: v5.6-YiTian (both apps).
+
+### Fixed
+- **PIN fail-open** (`SplashActivity`): storage exception no longer silently bypasses the PIN gate; the fallback plain-SharedPreferences store is checked before allowing entry without a PIN.
+- **HttpReceiverService** broadcast accuracy: `startServer()` now returns `boolean`; on start failure the service broadcasts `running=false` and stops itself instead of falsely advertising `running=true`.
+- **release.yml** unit-test step: removed `|| true` so test failures block the release build.
 
 ## v5.5-YiTian (2026-05-25)
 
