@@ -108,7 +108,7 @@ public class YitianNfcSender {
             conn = (HttpURLConnection) url.openConnection();
             conn.setRequestMethod("POST");
             conn.setRequestProperty("Content-Type", "application/json; charset=utf-8");
-            conn.setRequestProperty("User-Agent", "YitianRead/v5.4-YiTian");
+            conn.setRequestProperty("User-Agent", "YitianRead/v5.5-YiTian");
             conn.setDoOutput(true);
             conn.setConnectTimeout(5000);
             conn.setReadTimeout(10000);
