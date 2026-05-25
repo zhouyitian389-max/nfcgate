@@ -11,6 +11,7 @@ import androidx.appcompat.app.AppCompatActivity;
 import androidx.security.crypto.EncryptedSharedPreferences;
 import androidx.security.crypto.MasterKey;
 
+import de.tu_darmstadt.seemoo.nfcgate.hce.auth.CloudSessionManager;
 import de.tu_darmstadt.seemoo.nfcgate.hce.security.PinHasher;
 
 public class SplashActivity extends AppCompatActivity {
@@ -59,7 +60,12 @@ public class SplashActivity extends AppCompatActivity {
                 }
             }
 
-            Class<?> target = hasPinHash ? PinVerifyActivity.class : MainActivity.class;
+            Class<?> target;
+            if (!CloudSessionManager.hasToken(this)) {
+                target = LoginActivity.class;
+            } else {
+                target = hasPinHash ? PinVerifyActivity.class : MainActivity.class;
+            }
             startActivity(new Intent(this, target));
             finish();
         }, 1200);

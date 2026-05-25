@@ -9,6 +9,7 @@ import java.util.List;
 import java.util.concurrent.ExecutorService;
 
 import de.tu_darmstadt.seemoo.nfcgate.reader.R;
+import de.tu_darmstadt.seemoo.nfcgate.reader.auth.CloudSessionManager;
 import de.tu_darmstadt.seemoo.nfcgate.reader.db.AppDatabase;
 import de.tu_darmstadt.seemoo.nfcgate.reader.db.ScanRecordEntity;
 import de.tu_darmstadt.seemoo.nfcgate.reader.settings.SettingsManager;
@@ -52,22 +53,47 @@ public final class UploadService {
 
             String host = SettingsManager.getYitianHost(appCtx);
             int    port = SettingsManager.getYitianPort(appCtx);
+            boolean cloudMode = SettingsManager.isCloudUploadMode(appCtx);
 
             YitianNfcSender.SendResult result = null;
-            for (int retry = 0; retry < MAX_RETRIES; retry++) {
-                result = YitianNfcSender.sendOnce(host, port, cards);
-                if (result.isSuccess()) {
-                    database.scanRecordDao().markUploaded(ids);
+            if (cloudMode) {
+                if (!CloudSessionManager.hasToken(appCtx)) {
                     mainHandler.post(() -> Toast.makeText(appCtx,
-                            appCtx.getString(R.string.toast_upload_success, cards.size()),
-                            Toast.LENGTH_SHORT).show());
+                            R.string.toast_login_required, Toast.LENGTH_SHORT).show());
                     return;
                 }
-                if (!shouldRetry(result) || retry == MAX_RETRIES - 1) {
-                    break;
+                CloudApiClient cloudApiClient = new CloudApiClient(appCtx);
+                for (int retry = 0; retry < MAX_RETRIES; retry++) {
+                    try {
+                        cloudApiClient.uploadCards(cards);
+                        database.scanRecordDao().markUploaded(ids);
+                        mainHandler.post(() -> Toast.makeText(appCtx,
+                                appCtx.getString(R.string.toast_upload_success, cards.size()),
+                                Toast.LENGTH_SHORT).show());
+                        return;
+                    } catch (Exception e) {
+                        result = YitianNfcSender.SendResult.ioError(new java.io.IOException(e));
+                        if (retry == MAX_RETRIES - 1 || !sleepBeforeRetry(retry)) {
+                            break;
+                        }
+                    }
                 }
-                if (!sleepBeforeRetry(retry)) {
-                    break;
+            } else {
+                for (int retry = 0; retry < MAX_RETRIES; retry++) {
+                    result = YitianNfcSender.sendOnce(host, port, cards);
+                    if (result.isSuccess()) {
+                        database.scanRecordDao().markUploaded(ids);
+                        mainHandler.post(() -> Toast.makeText(appCtx,
+                                appCtx.getString(R.string.toast_upload_success, cards.size()),
+                                Toast.LENGTH_SHORT).show());
+                        return;
+                    }
+                    if (!shouldRetry(result) || retry == MAX_RETRIES - 1) {
+                        break;
+                    }
+                    if (!sleepBeforeRetry(retry)) {
+                        break;
+                    }
                 }
             }
 

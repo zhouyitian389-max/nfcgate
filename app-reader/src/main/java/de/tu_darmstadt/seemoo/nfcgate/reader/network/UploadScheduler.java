@@ -17,6 +17,7 @@ import java.util.ArrayList;
 import java.util.List;
 import java.util.concurrent.TimeUnit;
 
+import de.tu_darmstadt.seemoo.nfcgate.reader.auth.CloudSessionManager;
 import de.tu_darmstadt.seemoo.nfcgate.reader.db.AppDatabase;
 import de.tu_darmstadt.seemoo.nfcgate.reader.db.ScanRecordEntity;
 import de.tu_darmstadt.seemoo.nfcgate.reader.settings.SettingsManager;
@@ -93,6 +94,7 @@ public final class UploadScheduler {
 
                 String host = SettingsManager.getYitianHost(ctx);
                 int port = SettingsManager.getYitianPort(ctx);
+                boolean cloudMode = SettingsManager.isCloudUploadMode(ctx);
 
                 List<YitianNfcSender.CardData> cards = new ArrayList<>(pending.size());
                 List<Long> ids = new ArrayList<>(pending.size());
@@ -104,15 +106,28 @@ public final class UploadScheduler {
                     ids.add(rec.id);
                 }
 
-                YitianNfcSender.SendResult result = YitianNfcSender.sendOnce(host, port, cards);
-                if (result.isSuccess()) {
-                    db.scanRecordDao().markUploaded(ids);
-                    return Result.success();
-                }
+                if (cloudMode) {
+                    if (!CloudSessionManager.hasToken(ctx)) {
+                        return Result.failure();
+                    }
+                    try {
+                        new CloudApiClient(ctx).uploadCards(cards);
+                        db.scanRecordDao().markUploaded(ids);
+                        return Result.success();
+                    } catch (Exception e) {
+                        return Result.retry();
+                    }
+                } else {
+                    YitianNfcSender.SendResult result = YitianNfcSender.sendOnce(host, port, cards);
+                    if (result.isSuccess()) {
+                        db.scanRecordDao().markUploaded(ids);
+                        return Result.success();
+                    }
 
-                // Retry on server errors or IO exceptions
-                if (result.getResponseCode() >= 500 || result.getIoException() != null) {
-                    return Result.retry();
+                    // Retry on server errors or IO exceptions
+                    if (result.getResponseCode() >= 500 || result.getIoException() != null) {
+                        return Result.retry();
+                    }
                 }
                 return Result.failure();
             } catch (Exception e) {

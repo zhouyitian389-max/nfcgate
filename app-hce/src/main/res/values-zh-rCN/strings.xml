@@ -22,6 +22,7 @@
     <string name="btn_start">启动接收器</string>
     <string name="btn_stop">停止接收器</string>
     <string name="btn_received_cards">已接收卡片</string>
+    <string name="btn_sync_cloud">云端同步</string>
     <string name="btn_settings">设置</string>
     <string name="btn_about">关于</string>
 
@@ -34,6 +35,10 @@
     <string name="toast_card_selected">已选中 HCE 模拟卡片：%1$s</string>
     <string name="toast_card_deleted">卡片已删除</string>
     <string name="toast_no_cards">暂无接收到的卡片，请使用 YitianRead 发送。</string>
+    <string name="toast_login_required">请先登录</string>
+    <string name="toast_sync_success">已从云端同步 %1$d 张卡</string>
+    <string name="toast_sync_no_cards">云端暂无新卡片</string>
+    <string name="toast_sync_failed">云端同步失败：%1$s</string>
 
     <string name="about_title">关于 YitianNFC</string>
     <string name="about_version">版本：%1$s</string>
@@ -43,6 +48,7 @@
 
     <string name="settings_port">HTTP 服务端口</string>
     <string name="settings_port_summary">默认 8080</string>
+    <string name="settings_api_server">API 服务器</string>
     <string name="settings_pin_code">启动 PIN 码</string>
     <string name="settings_pin_code_summary">可选的 4-6 位启动密码</string>
     <string name="settings_biometric">生物识别解锁</string>
@@ -51,6 +57,7 @@
     <string name="settings_auth_token_summary">POST /api/cards 需要 Bearer Token</string>
     <string name="settings_theme">主题</string>
     <string name="settings_haptic">触觉反馈</string>
+    <string name="settings_logout">退出登录</string>
     <string name="pin_verify_title">PIN 验证</string>
     <string name="pin_verify_hint">请输入 4-6 位 PIN 码</string>
     <string name="pin_verify_button">验证</string>
@@ -60,6 +67,14 @@
     <string name="pin_verify_locked">尝试次数过多，已锁定</string>
     <string name="pin_locked_remaining">锁定中，请在 %1$d 秒后重试</string>
     <string name="biometric_subtitle">验证您的身份</string>
+
+    <string name="login_title">YitianNFC</string>
+    <string name="login_subtitle">输入共享密码连接</string>
+    <string name="login_password_hint">密码（4-32位）</string>
+    <string name="login_button">登录 / 连接</string>
+    <string name="login_password_invalid">密码必须为 4-32 位</string>
+    <string name="login_failed">登录失败：%1$s</string>
+    <string name="login_failed_generic">无法登录</string>
 
     <string name="card_holder">YITIAN</string>
     <string name="masked_pan">**** **** **** %1$s</string>

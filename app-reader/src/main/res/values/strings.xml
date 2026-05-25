@@ -34,6 +34,7 @@
     <string name="toast_scan_timeout">Scan timeout reached</string>
     <string name="toast_sent_to_yitian_nfc">Sent %1$d cards to YitianNFC</string>
     <string name="toast_send_failed">Send failed: %1$s</string>
+    <string name="toast_login_required">Please login first</string>
     <string name="export_chooser">Export Scan History</string>
 
     <string name="dialog_yitian_nfc_title">Send to YitianNFC</string>
@@ -68,9 +69,12 @@
     <string name="settings_category_scan">Scanning</string>
     <string name="settings_category_appearance">Appearance</string>
     <string name="settings_category_legacy">Legacy (Relay)</string>
+    <string name="settings_category_account">Account</string>
 
     <!-- Settings keys -->
     <string name="settings_server_url">Server URL</string>
+    <string name="settings_api_server">API Server</string>
+    <string name="settings_upload_mode">Upload mode</string>
     <string name="settings_yitian_nfc_host">YitianNFC Host</string>
     <string name="settings_yitian_nfc_host_summary">IP address of the YitianNFC receiver</string>
     <string name="settings_yitian_nfc_port">YitianNFC Port</string>
@@ -80,6 +84,24 @@
     <string name="settings_timeout_summary">%1$d seconds</string>
     <string name="settings_theme">Theme</string>
     <string name="settings_haptic_feedback">Haptic feedback</string>
+    <string name="settings_logout">Logout</string>
+
+    <string-array name="settings_upload_mode_entries">
+        <item>Cloud</item>
+        <item>Local LAN</item>
+    </string-array>
+    <string-array name="settings_upload_mode_values">
+        <item>cloud</item>
+        <item>local</item>
+    </string-array>
+
+    <string name="login_title">YitianRead</string>
+    <string name="login_subtitle">Enter shared password to connect</string>
+    <string name="login_password_hint">Password (4-32 chars)</string>
+    <string name="login_button">Login / Connect</string>
+    <string name="login_password_invalid">Password must be 4-32 characters</string>
+    <string name="login_failed">Login failed: %1$s</string>
+    <string name="login_failed_generic">Unable to login</string>
 
     <string-array name="settings_theme_entries">
         <item>Dark</item>
