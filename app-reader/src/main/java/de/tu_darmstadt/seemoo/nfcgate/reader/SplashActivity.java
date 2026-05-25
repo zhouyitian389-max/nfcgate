@@ -10,6 +10,7 @@ import android.widget.ImageView;
 
 import androidx.appcompat.app.AppCompatActivity;
 
+import de.tu_darmstadt.seemoo.nfcgate.reader.auth.CloudSessionManager;
 import de.tu_darmstadt.seemoo.nfcgate.reader.settings.SettingsManager;
 
 public class SplashActivity extends AppCompatActivity {
@@ -33,7 +34,8 @@ public class SplashActivity extends AppCompatActivity {
         animatorSet.start();
 
         new Handler(Looper.getMainLooper()).postDelayed(() -> {
-            startActivity(new Intent(this, MainActivity.class));
+            Class<?> target = CloudSessionManager.hasToken(this) ? MainActivity.class : LoginActivity.class;
+            startActivity(new Intent(this, target));
             overridePendingTransition(R.anim.fade_in, R.anim.fade_out);
             finish();
         }, 1800);

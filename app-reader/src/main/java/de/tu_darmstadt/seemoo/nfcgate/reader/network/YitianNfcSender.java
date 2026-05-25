@@ -21,7 +21,7 @@ public class YitianNfcSender {
     private static final String TAG = "YitianNfcSender";
     public static final String DEFAULT_HOST = "192.168.1.100";
     public static final int DEFAULT_PORT = 8080;
-    static final String USER_AGENT = "YitianRead/v5.6-YiTian";
+    static final String USER_AGENT = "YitianRead/v5.7-YiTian";
 
     public interface Callback {
         void onSuccess(int count);

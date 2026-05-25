@@ -10,6 +10,7 @@ import androidx.preference.Preference;
 import androidx.preference.PreferenceFragmentCompat;
 import androidx.preference.SeekBarPreference;
 
+import de.tu_darmstadt.seemoo.nfcgate.reader.auth.CloudSessionManager;
 import de.tu_darmstadt.seemoo.nfcgate.reader.settings.SettingsManager;
 
 public class SettingsActivity extends AppCompatActivity {
@@ -48,6 +49,12 @@ public class SettingsActivity extends AppCompatActivity {
                 server.setSummaryProvider(EditTextPreference.SimpleSummaryProvider.getInstance());
             }
 
+            EditTextPreference apiServer = findPreference(SettingsManager.KEY_API_SERVER_URL);
+            if (apiServer != null) {
+                apiServer.setOnBindEditTextListener(editText -> editText.setSingleLine(true));
+                apiServer.setSummaryProvider(EditTextPreference.SimpleSummaryProvider.getInstance());
+            }
+
             SeekBarPreference timeout = findPreference(SettingsManager.KEY_SCAN_TIMEOUT);
             if (timeout != null) {
                 timeout.setSummaryProvider((Preference.SummaryProvider<SeekBarPreference>) preference ->
@@ -62,6 +69,23 @@ public class SettingsActivity extends AppCompatActivity {
                             .putString(SettingsManager.KEY_THEME, String.valueOf(newValue)).apply();
                     SettingsManager.applySavedTheme(requireContext());
                     requireActivity().recreate();
+                    return true;
+                });
+            }
+
+            ListPreference uploadMode = findPreference(SettingsManager.KEY_UPLOAD_MODE);
+            if (uploadMode != null) {
+                uploadMode.setSummaryProvider(ListPreference.SimpleSummaryProvider.getInstance());
+            }
+
+            Preference logout = findPreference("logout");
+            if (logout != null) {
+                logout.setOnPreferenceClickListener(preference -> {
+                    CloudSessionManager.clear(requireContext());
+                    android.content.Intent intent = new android.content.Intent(requireContext(), LoginActivity.class);
+                    intent.addFlags(android.content.Intent.FLAG_ACTIVITY_NEW_TASK
+                            | android.content.Intent.FLAG_ACTIVITY_CLEAR_TASK);
+                    startActivity(intent);
                     return true;
                 });
             }

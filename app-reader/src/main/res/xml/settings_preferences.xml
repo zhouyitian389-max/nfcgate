@@ -5,6 +5,19 @@
     <!-- ── YitianNFC 连接设置 ─────────────────────────────────────────── -->
     <PreferenceCategory android:title="@string/settings_category_yitian">
 
+        <ListPreference
+            android:key="upload_mode"
+            android:title="@string/settings_upload_mode"
+            android:entries="@array/settings_upload_mode_entries"
+            android:entryValues="@array/settings_upload_mode_values"
+            android:defaultValue="cloud" />
+
+        <EditTextPreference
+            android:key="api_server_url"
+            android:title="@string/settings_api_server"
+            android:defaultValue="https://api.yitian.shop"
+            app:useSimpleSummaryProvider="true" />
+
         <EditTextPreference
             android:key="yitian_host"
             android:title="@string/settings_yitian_nfc_host"
@@ -67,6 +80,12 @@
             android:defaultValue="https://relay.example.com/api/upload"
             app:useSimpleSummaryProvider="true" />
 
+    </PreferenceCategory>
+
+    <PreferenceCategory android:title="@string/settings_category_account">
+        <Preference
+            android:key="logout"
+            android:title="@string/settings_logout" />
     </PreferenceCategory>
 
 </PreferenceScreen>

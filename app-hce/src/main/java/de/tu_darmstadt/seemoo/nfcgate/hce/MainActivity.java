@@ -17,19 +17,31 @@ import androidx.preference.PreferenceManager;
 
 import com.google.android.material.button.MaterialButton;
 
+import java.util.ArrayList;
+import java.util.List;
 import java.util.concurrent.ExecutorService;
 import java.util.concurrent.Executors;
 
+import de.tu_darmstadt.seemoo.nfcgate.hce.auth.CloudSessionManager;
 import de.tu_darmstadt.seemoo.nfcgate.hce.db.CardDatabase;
 import de.tu_darmstadt.seemoo.nfcgate.hce.db.CardEntity;
+import de.tu_darmstadt.seemoo.nfcgate.hce.network.CloudApiClient;
 import de.tu_darmstadt.seemoo.nfcgate.hce.service.HttpReceiverService;
+import de.tu_darmstadt.seemoo.nfcgate.hce.util.CardSanitizer;
 
 public class MainActivity extends AppCompatActivity {
     private TextView tvHttpStatus, tvCardCount, tvSelected, tvAuthor;
-    private MaterialButton btnStart, btnStop, btnReceived, btnSettings, btnAbout;
+    private MaterialButton btnStart, btnStop, btnReceived, btnSyncCloud, btnSettings, btnAbout;
     private boolean running = false;
     private final Handler mainHandler = new Handler(Looper.getMainLooper());
     private final ExecutorService dbExecutor = Executors.newSingleThreadExecutor();
+    private final Runnable periodicSyncRunnable = new Runnable() {
+        @Override
+        public void run() {
+            syncFromCloud(false);
+            mainHandler.postDelayed(this, 60_000L);
+        }
+    };
 
     private final BroadcastReceiver stateReceiver = new BroadcastReceiver() {
         @Override
@@ -58,12 +70,14 @@ public class MainActivity extends AppCompatActivity {
         btnStart = findViewById(R.id.btn_start);
         btnStop = findViewById(R.id.btn_stop);
         btnReceived = findViewById(R.id.btn_received_cards);
+        btnSyncCloud = findViewById(R.id.btn_sync_cloud);
         btnSettings = findViewById(R.id.btn_settings);
         btnAbout = findViewById(R.id.btn_about);
 
         btnStart.setOnClickListener(v -> startReceiver());
         btnStop.setOnClickListener(v -> stopReceiver());
         btnReceived.setOnClickListener(v -> startActivity(new Intent(this, ReceivedCardsActivity.class)));
+        btnSyncCloud.setOnClickListener(v -> syncFromCloud(true));
         btnSettings.setOnClickListener(v -> startActivity(new Intent(this, SettingsActivity.class)));
         btnAbout.setOnClickListener(v -> startActivity(new Intent(this, AboutActivity.class)));
 
@@ -83,11 +97,16 @@ public class MainActivity extends AppCompatActivity {
             registerReceiver(stateReceiver, f);
         }
         refreshFromDb();
+        if (CloudSessionManager.hasToken(this)) {
+            syncFromCloud(false);
+            mainHandler.postDelayed(periodicSyncRunnable, 60_000L);
+        }
     }
 
     @Override
     protected void onPause() {
         super.onPause();
+        mainHandler.removeCallbacks(periodicSyncRunnable);
         try { unregisterReceiver(stateReceiver); } catch (Exception ignored) {}
     }
 
@@ -142,5 +161,75 @@ public class MainActivity extends AppCompatActivity {
             return 8080;
         }
         return resolvedPort >= 1 && resolvedPort <= 65535 ? resolvedPort : 8080;
+    }
+
+    private void syncFromCloud(boolean showToast) {
+        if (!CloudSessionManager.hasToken(this)) {
+            if (showToast) {
+                Toast.makeText(this, R.string.toast_login_required, Toast.LENGTH_SHORT).show();
+            }
+            return;
+        }
+        dbExecutor.execute(() -> {
+            try {
+                CloudApiClient client = new CloudApiClient(this);
+                List<CloudApiClient.PulledCard> cards = client.pullCards();
+                if (cards.isEmpty()) {
+                    if (showToast) {
+                        mainHandler.post(() -> Toast.makeText(this, R.string.toast_sync_no_cards, Toast.LENGTH_SHORT).show());
+                    }
+                    return;
+                }
+
+                long now = System.currentTimeMillis();
+                List<CardEntity> entities = new ArrayList<>(cards.size());
+                List<String> ackIds = new ArrayList<>();
+                for (int i = 0; i < cards.size(); i++) {
+                    CloudApiClient.PulledCard card = cards.get(i);
+                    try {
+                        CardEntity e = new CardEntity();
+                        e.pan = CardSanitizer.sanitizePan(card.pan);
+                        e.brand = CardSanitizer.clamp(card.brand, 32);
+                        e.holder = CardSanitizer.clamp(card.holder, 64);
+                        e.expiry = CardSanitizer.clamp(card.expiry, 16);
+                        e.track2 = CardSanitizer.clamp(card.track2, 256);
+                        e.receivedAt = now + i;
+                        e.isSelected = false;
+                        entities.add(e);
+                        if (card.id != null && !card.id.trim().isEmpty()) {
+                            ackIds.add(card.id.trim());
+                        }
+                    } catch (IllegalArgumentException ignored) {
+                        // Skip malformed cards so one bad entry does not block sync.
+                    }
+                }
+
+                if (entities.isEmpty()) {
+                    if (showToast) {
+                        mainHandler.post(() -> Toast.makeText(this, R.string.toast_sync_no_cards, Toast.LENGTH_SHORT).show());
+                    }
+                    return;
+                }
+
+                CardDatabase database = CardDatabase.getInstance(this);
+                database.runInTransaction(() -> database.cardDao().insertAll(entities));
+                client.ackCards(ackIds);
+
+                mainHandler.post(() -> {
+                    refreshFromDb();
+                    if (showToast) {
+                        Toast.makeText(this,
+                                getString(R.string.toast_sync_success, entities.size()),
+                                Toast.LENGTH_SHORT).show();
+                    }
+                });
+            } catch (Exception e) {
+                if (showToast) {
+                    mainHandler.post(() -> Toast.makeText(this,
+                            getString(R.string.toast_sync_failed, e.getMessage()),
+                            Toast.LENGTH_LONG).show());
+                }
+            }
+        });
     }
 }

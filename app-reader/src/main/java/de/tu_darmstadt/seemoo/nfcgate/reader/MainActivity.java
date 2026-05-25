@@ -51,8 +51,10 @@ import java.util.concurrent.Executors;
 import java.util.regex.Matcher;
 import java.util.regex.Pattern;
 
+import de.tu_darmstadt.seemoo.nfcgate.reader.auth.CloudSessionManager;
 import de.tu_darmstadt.seemoo.nfcgate.reader.db.AppDatabase;
 import de.tu_darmstadt.seemoo.nfcgate.reader.db.ScanRecordEntity;
+import de.tu_darmstadt.seemoo.nfcgate.reader.network.UploadScheduler;
 import de.tu_darmstadt.seemoo.nfcgate.reader.model.ScanRecord;
 import de.tu_darmstadt.seemoo.nfcgate.reader.network.UploadService;
 import de.tu_darmstadt.seemoo.nfcgate.reader.nfc.NFCDevice;
@@ -140,6 +142,7 @@ public class MainActivity extends AppCompatActivity {
         loadHistoryFromDatabase();
         updateNfcStatus();
         refreshTokenCount();
+        UploadScheduler.schedulePeriodic(this);
 
         if (SettingsManager.isAutoScanEnabled(this)) {
             autoStartCapture();
@@ -358,6 +361,9 @@ public class MainActivity extends AppCompatActivity {
         ioExecutor.execute(() -> {
             long id = appDatabase.scanRecordDao().insert(ScanRecordEntity.fromRecord(record));
             record.setId(id);
+            if (SettingsManager.isCloudUploadMode(this) && CloudSessionManager.hasToken(this)) {
+                UploadService.uploadPending(this, appDatabase, ioExecutor, mainHandler);
+            }
             if (mainHandler != null) {
                 mainHandler.post(this::refreshTokenCount);
             }
