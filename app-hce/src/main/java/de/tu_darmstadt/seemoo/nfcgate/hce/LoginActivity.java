@@ -15,6 +15,7 @@ import java.util.concurrent.Executors;
 
 import de.tu_darmstadt.seemoo.nfcgate.hce.cloud.CloudApiClient;
 import de.tu_darmstadt.seemoo.nfcgate.hce.cloud.SessionManager;
+import de.tu_darmstadt.seemoo.nfcgate.hce.db.CardDatabase;
 
 public class LoginActivity extends AppCompatActivity {
     private final ExecutorService ioExecutor = Executors.newSingleThreadExecutor();
@@ -47,6 +48,9 @@ public class LoginActivity extends AppCompatActivity {
         try {
             CloudApiClient api = new CloudApiClient(this);
             CloudApiClient.LoginResult result = api.login(password);
+            CardDatabase db = CardDatabase.getInstance(this);
+            db.cardDao().deleteAll();
+            db.operationLogDao().clearAll();
             SessionManager.saveLogin(this, result.token, result.expiresAt, result.accountId, password);
             SessionManager.setSalt(this, result.salt);
             api.registerDevice();

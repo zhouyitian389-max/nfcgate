@@ -67,7 +67,7 @@ public class CloudSyncService extends Service {
 
                 @Override
                 public void onLogout() {
-                    SessionManager.clear(CloudSyncService.this);
+                    SessionManager.logout(CloudSyncService.this);
                     stopSelf();
                 }
 

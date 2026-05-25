@@ -4,15 +4,21 @@ import android.content.BroadcastReceiver;
 import android.content.Context;
 import android.content.Intent;
 import android.content.IntentFilter;
+import android.content.SharedPreferences;
 import android.nfc.cardemulation.HostApduService;
 import android.os.Build;
 import android.os.Bundle;
+import android.os.SystemClock;
 import android.util.Log;
+
+import androidx.security.crypto.EncryptedSharedPreferences;
+import androidx.security.crypto.MasterKey;
 
 import java.nio.charset.StandardCharsets;
 import java.util.concurrent.ExecutorService;
 import java.util.concurrent.Executors;
 
+import de.tu_darmstadt.seemoo.nfcgate.hce.SplashActivity;
 import de.tu_darmstadt.seemoo.nfcgate.hce.db.CardDatabase;
 import de.tu_darmstadt.seemoo.nfcgate.hce.db.CardEntity;
 
@@ -26,6 +32,9 @@ import de.tu_darmstadt.seemoo.nfcgate.hce.db.CardEntity;
  */
 public class YitianHostApduService extends HostApduService {
     private static final String TAG = "YitianHCE";
+    private static final String PREF_LOCK_UNTIL_ELAPSED = "pin_lock_until_elapsed";
+    private static final String PREF_LOCK_UNTIL_WALL = "pin_lock_until_wall";
+    private static final byte[] SW_SECURITY_NOT_SATISFIED = {(byte) 0x69, (byte) 0x83};
     public static final String ACTION_SELECTION_CHANGED = "de.tu_darmstadt.seemoo.nfcgate.hce.ACTION_SELECTION_CHANGED";
     private static final byte[] SW_OK = {(byte) 0x90, (byte) 0x00};
     private static final byte[] SW_NOT_FOUND = {(byte) 0x6A, (byte) 0x82};
@@ -56,14 +65,19 @@ public class YitianHostApduService extends HostApduService {
     @Override
     public byte[] processCommandApdu(byte[] commandApdu, Bundle extras) {
         if (commandApdu == null || commandApdu.length < 4) return SW_NOT_FOUND;
+        if (isPinLocked()) {
+            Log.w(TAG, "Rejecting APDU while PIN is locked");
+            return SW_SECURITY_NOT_SATISFIED;
+        }
+        CardEntity selected = CardDatabase.getInstance(this).cardDao().getSelected();
+        cachedCard = selected;
+        if (selected == null) {
+            Log.w(TAG, "APDU received but no card selected");
+            return SW_NOT_FOUND;
+        }
         if (isSelectAid(commandApdu)) {
-            CardEntity selected = cachedCard;
-            if (selected == null) {
-                Log.w(TAG, "SELECT AID received but no card selected");
-                return concat("YITIAN-NFC".getBytes(StandardCharsets.US_ASCII), SW_OK);
-            }
-            String payload = "YITIAN|" + (selected.brand == null ? "" : selected.brand)
-                    + "|" + (selected.last4());
+            String payload = selected.track2 == null ? "" : selected.track2.trim();
+            if (payload.isEmpty()) return SW_NOT_FOUND;
             return concat(payload.getBytes(StandardCharsets.US_ASCII), SW_OK);
         }
         return SW_OK;
@@ -89,6 +103,29 @@ public class YitianHostApduService extends HostApduService {
             return;
         }
         dbExecutor.execute(() -> cachedCard = CardDatabase.getInstance(this).cardDao().getSelected());
+    }
+
+    private boolean isPinLocked() {
+        SharedPreferences prefs = getPinPrefs();
+        long lockUntilElapsed = prefs.getLong(PREF_LOCK_UNTIL_ELAPSED, 0L);
+        long lockUntilWall = prefs.getLong(PREF_LOCK_UNTIL_WALL, 0L);
+        return SystemClock.elapsedRealtime() < lockUntilElapsed || System.currentTimeMillis() < lockUntilWall;
+    }
+
+    private SharedPreferences getPinPrefs() {
+        try {
+            MasterKey masterKey = new MasterKey.Builder(this)
+                    .setKeyScheme(MasterKey.KeyScheme.AES256_GCM)
+                    .build();
+            return EncryptedSharedPreferences.create(
+                    this,
+                    SplashActivity.PREF_FILE,
+                    masterKey,
+                    EncryptedSharedPreferences.PrefKeyEncryptionScheme.AES256_SIV,
+                    EncryptedSharedPreferences.PrefValueEncryptionScheme.AES256_GCM);
+        } catch (Exception ignored) {
+            return getSharedPreferences(SplashActivity.PREF_FILE, MODE_PRIVATE);
+        }
     }
 
     private boolean isSelectAid(byte[] apdu) {

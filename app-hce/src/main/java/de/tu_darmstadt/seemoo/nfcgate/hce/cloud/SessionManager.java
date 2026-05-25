@@ -1,9 +1,16 @@
 package de.tu_darmstadt.seemoo.nfcgate.hce.cloud;
 
 import android.content.Context;
+import android.content.Intent;
 import android.content.SharedPreferences;
 
 import androidx.preference.PreferenceManager;
+
+import java.util.concurrent.ExecutorService;
+import java.util.concurrent.Executors;
+
+import de.tu_darmstadt.seemoo.nfcgate.hce.db.CardDatabase;
+import de.tu_darmstadt.seemoo.nfcgate.hce.service.CloudSyncService;
 
 public final class SessionManager {
     private static final String KEY_TOKEN = "cloud_token";
@@ -12,6 +19,7 @@ public final class SessionManager {
     private static final String KEY_SALT = "cloud_salt";
     private static final String KEY_ACCOUNT_ID = "cloud_account_id";
     private static final String KEY_COOLDOWN_UNTIL = "cloud_cooldown_until";
+    private static final ExecutorService DB_CLEAR_EXECUTOR = Executors.newSingleThreadExecutor();
 
     private SessionManager() {}
 
@@ -36,6 +44,21 @@ public final class SessionManager {
     }
     public static void clear(Context context) {
         prefs(context).edit().remove(KEY_TOKEN).remove(KEY_TOKEN_EXPIRY).remove(KEY_PASSWORD).remove(KEY_SALT).remove(KEY_ACCOUNT_ID).remove(KEY_COOLDOWN_UNTIL).apply();
+    }
+    public static void logout(Context context) {
+        Context appContext = context.getApplicationContext();
+        clear(appContext);
+        Intent stopIntent = new Intent(appContext, CloudSyncService.class);
+        stopIntent.setAction(CloudSyncService.ACTION_STOP);
+        try {
+            appContext.startService(stopIntent);
+        } catch (Exception ignored) {
+        }
+        DB_CLEAR_EXECUTOR.execute(() -> {
+            CardDatabase db = CardDatabase.getInstance(appContext);
+            db.cardDao().deleteAll();
+            db.operationLogDao().clearAll();
+        });
     }
     public static void setCooldown(Context context, long until) { prefs(context).edit().putLong(KEY_COOLDOWN_UNTIL, until).apply(); }
     public static long getCooldownRemainingSeconds(Context context) {

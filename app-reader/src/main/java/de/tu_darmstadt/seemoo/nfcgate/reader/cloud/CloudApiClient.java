@@ -21,6 +21,7 @@ import java.util.List;
 import de.tu_darmstadt.seemoo.nfcgate.reader.settings.SettingsManager;
 
 public class CloudApiClient {
+    private static final Object REFRESH_LOCK = new Object();
     public static class ApiException extends Exception {
         public final int code;
         public final long retryAfterSeconds;
@@ -99,13 +100,15 @@ public class CloudApiClient {
     }
 
     public void refreshIfNeeded() throws Exception {
-        if (!SessionManager.isLoggedIn(appContext)) return;
-        if (!SessionManager.isTokenExpiringSoon(appContext)) return;
-        JSONObject req = new JSONObject().put("token", SessionManager.getToken(appContext));
-        JSONObject json = request("POST", "/api/auth/refresh", req, SessionManager.getToken(appContext), false);
-        String token = json.optString("token", SessionManager.getToken(appContext));
-        long expiresIn = json.optLong("expires_in", 3600L);
-        SessionManager.updateToken(appContext, token, System.currentTimeMillis() + expiresIn * 1000L);
+        if (!SessionManager.isLoggedIn(appContext) || !SessionManager.isTokenExpiringSoon(appContext)) return;
+        synchronized (REFRESH_LOCK) {
+            if (!SessionManager.isLoggedIn(appContext) || !SessionManager.isTokenExpiringSoon(appContext)) return;
+            JSONObject req = new JSONObject().put("token", SessionManager.getToken(appContext));
+            JSONObject json = request("POST", "/api/auth/refresh", req, SessionManager.getToken(appContext), false);
+            String token = json.optString("token", SessionManager.getToken(appContext));
+            long expiresIn = json.optLong("expires_in", 3600L);
+            SessionManager.updateToken(appContext, token, System.currentTimeMillis() + expiresIn * 1000L);
+        }
     }
 
     public void registerDevice() throws Exception {
@@ -245,11 +248,7 @@ public class CloudApiClient {
             return;
         }
         if (SessionManager.isLoggedIn(appContext) && SessionManager.isTokenExpiringSoon(appContext)) {
-            JSONObject req = new JSONObject().put("token", SessionManager.getToken(appContext));
-            JSONObject json = request("POST", "/api/auth/refresh", req, SessionManager.getToken(appContext), false);
-            String token = json.optString("token", SessionManager.getToken(appContext));
-            long expiresIn = json.optLong("expires_in", 3600L);
-            SessionManager.updateToken(appContext, token, System.currentTimeMillis() + expiresIn * 1000L);
+            refreshIfNeeded();
         }
     }
 

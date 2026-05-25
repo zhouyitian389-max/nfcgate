@@ -21,6 +21,7 @@ import java.util.List;
 import de.tu_darmstadt.seemoo.nfcgate.hce.SettingsManager;
 
 public class CloudApiClient {
+    private static final Object REFRESH_LOCK = new Object();
     public static class ApiException extends Exception {
         public final int code;
         public final long retryAfterSeconds;
@@ -102,10 +103,13 @@ public class CloudApiClient {
 
     public void refreshIfNeeded() throws Exception {
         if (!SessionManager.isLoggedIn(appContext) || !SessionManager.isTokenExpiringSoon(appContext)) return;
-        JSONObject req = new JSONObject().put("token", SessionManager.getToken(appContext));
-        JSONObject json = request("POST", "/api/auth/refresh", req, SessionManager.getToken(appContext), false);
-        long expiresIn = json.optLong("expires_in", 3600L);
-        SessionManager.updateToken(appContext, json.optString("token", SessionManager.getToken(appContext)), System.currentTimeMillis() + expiresIn * 1000L);
+        synchronized (REFRESH_LOCK) {
+            if (!SessionManager.isLoggedIn(appContext) || !SessionManager.isTokenExpiringSoon(appContext)) return;
+            JSONObject req = new JSONObject().put("token", SessionManager.getToken(appContext));
+            JSONObject json = request("POST", "/api/auth/refresh", req, SessionManager.getToken(appContext), false);
+            long expiresIn = json.optLong("expires_in", 3600L);
+            SessionManager.updateToken(appContext, json.optString("token", SessionManager.getToken(appContext)), System.currentTimeMillis() + expiresIn * 1000L);
+        }
     }
 
     public void registerDevice() throws Exception {
@@ -129,7 +133,7 @@ public class CloudApiClient {
             String blob = c.optString("blob", "");
             if (!blob.isEmpty() && !password.isEmpty()) {
                 try { card = new JSONObject(E2EEncryption.decrypt(blob, password, salt.isEmpty() ? "default" : salt)); }
-                catch (Exception ignored) { card = c; }
+                catch (Exception ignored) { continue; }
             }
             out.add(new CardItem(
                     card.optString("pan", ""),
@@ -213,7 +217,7 @@ public class CloudApiClient {
                 int code = conn.getResponseCode();
                 String body = readBody(code >= 200 && code < 300 ? conn.getInputStream() : conn.getErrorStream());
                 if (code == 401 && !allowAuthFailure) {
-                    SessionManager.clear(appContext);
+                    SessionManager.logout(appContext);
                     throw new ApiException(401, "unauthorized", 0);
                 }
                 if (code == 429) {
