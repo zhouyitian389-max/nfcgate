@@ -92,11 +92,17 @@ public final class DatabaseBackupHelper {
      */
     public static int restoreFromBackup(AppDatabase database, File ybakFile,
                                         String password) throws Exception {
-        byte[] data;
+        byte[] data = new byte[(int) ybakFile.length()];
+        int offset = 0;
+        int remaining = data.length;
         try (FileInputStream fis = new FileInputStream(ybakFile)) {
-            data = new byte[(int) ybakFile.length()];
-            int read = fis.read(data);
-            if (read != data.length) {
+            while (remaining > 0) {
+                int read = fis.read(data, offset, remaining);
+                if (read < 0) break;
+                offset += read;
+                remaining -= read;
+            }
+            if (offset != data.length) {
                 throw new IllegalStateException("Incomplete read of backup file");
             }
         }

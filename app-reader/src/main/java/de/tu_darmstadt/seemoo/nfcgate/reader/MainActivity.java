@@ -17,6 +17,8 @@ import android.widget.LinearLayout;
 import android.widget.TextView;
 import android.widget.Toast;
 
+import androidx.activity.result.ActivityResultLauncher;
+import androidx.activity.result.contract.ActivityResultContracts;
 import androidx.appcompat.app.AlertDialog;
 import androidx.appcompat.app.AppCompatActivity;
 import androidx.appcompat.widget.Toolbar;
@@ -64,10 +66,11 @@ import de.tu_darmstadt.seemoo.nfcgate.reader.util.DatabaseBackupHelper;
 
 public class MainActivity extends AppCompatActivity {
     private static final Pattern PAN_PATTERN = Pattern.compile("(?<!\\d)(\\d{13,19})(?!\\d)");
-    private static final int REQUEST_RESTORE_FILE = 1001;
 
     private final Handler mainHandler = new Handler(Looper.getMainLooper());
     private final ExecutorService ioExecutor = Executors.newSingleThreadExecutor();
+
+    private ActivityResultLauncher<String> filePickerLauncher;
 
     private NFCManager nfcManager;
     private NFCDevice selectedDevice;
@@ -123,6 +126,14 @@ public class MainActivity extends AppCompatActivity {
         setupCardPager();
 
         bottomNav = findViewById(R.id.bottom_nav);
+
+        filePickerLauncher = registerForActivityResult(
+                new ActivityResultContracts.GetContent(),
+                uri -> {
+                    if (uri != null) {
+                        showRestorePasswordDialog(uri);
+                    }
+                });
 
         setupButtons();
         setupBottomNavigation();
@@ -458,21 +469,7 @@ public class MainActivity extends AppCompatActivity {
     }
 
     private void launchRestoreFilePicker() {
-        Intent intent = new Intent(Intent.ACTION_OPEN_DOCUMENT);
-        intent.addCategory(Intent.CATEGORY_OPENABLE);
-        intent.setType("*/*");
-        startActivityForResult(
-                Intent.createChooser(intent, getString(R.string.restore_chooser_title)),
-                REQUEST_RESTORE_FILE);
-    }
-
-    @Override
-    protected void onActivityResult(int requestCode, int resultCode, Intent data) {
-        super.onActivityResult(requestCode, resultCode, data);
-        if (requestCode == REQUEST_RESTORE_FILE && resultCode == RESULT_OK
-                && data != null && data.getData() != null) {
-            showRestorePasswordDialog(data.getData());
-        }
+        filePickerLauncher.launch("*/*");
     }
 
     private void showRestorePasswordDialog(Uri ybakUri) {
