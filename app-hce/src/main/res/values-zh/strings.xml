@@ -47,6 +47,8 @@
     <string name="settings_pin_code_summary">可选的 4-6 位启动密码</string>
     <string name="settings_biometric">生物识别解锁</string>
     <string name="settings_biometric_summary">使用指纹/面容替代 PIN 解锁</string>
+    <string name="settings_auth_token">HTTP Bearer Token 认证</string>
+    <string name="settings_auth_token_summary">POST /api/cards 需要 Bearer Token</string>
     <string name="settings_theme">主题</string>
     <string name="settings_haptic">振动反馈</string>
     <string name="pin_verify_title">PIN 验证</string>

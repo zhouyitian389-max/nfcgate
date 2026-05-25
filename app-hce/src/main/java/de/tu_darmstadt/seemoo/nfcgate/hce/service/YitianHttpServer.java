@@ -7,8 +7,10 @@ import org.json.JSONArray;
 import org.json.JSONObject;
 
 import java.util.ArrayList;
-import java.util.List;
 import java.io.IOException;
+import java.nio.charset.StandardCharsets;
+import java.security.MessageDigest;
+import java.util.List;
 import java.util.Map;
 import java.util.concurrent.atomic.AtomicInteger;
 
@@ -25,6 +27,8 @@ public class YitianHttpServer extends NanoHTTPD {
     private static final String TAG = "YitianHttpServer";
     private final Context appContext;
     private final AtomicInteger receivedCount = new AtomicInteger(0);
+    private final String authToken;
+    private final boolean authTokenEnabled;
 
     public interface ReceiveListener {
         void onCardsReceived(int total, int newOnes);
@@ -32,9 +36,11 @@ public class YitianHttpServer extends NanoHTTPD {
 
     private ReceiveListener listener;
 
-    public YitianHttpServer(Context context, int port) {
+    public YitianHttpServer(Context context, int port, String authToken, boolean authTokenEnabled) {
         super(port);
         this.appContext = context.getApplicationContext();
+        this.authToken = authToken;
+        this.authTokenEnabled = authTokenEnabled;
     }
 
     public void setListener(ReceiveListener l) {
@@ -52,6 +58,9 @@ public class YitianHttpServer extends NanoHTTPD {
 
         if (Method.POST.equals(method) && "/api/cards".equals(uri)) {
             try {
+                if (authTokenEnabled && !isAuthorized(session)) {
+                    return jsonError(Response.Status.UNAUTHORIZED, "unauthorized");
+                }
                 String contentType = session.getHeaders().get("content-type");
                 if (contentType == null || !contentType.toLowerCase().startsWith("application/json")) {
                     return jsonError(Response.Status.UNSUPPORTED_MEDIA_TYPE, "content-type must be application/json");
@@ -75,6 +84,28 @@ public class YitianHttpServer extends NanoHTTPD {
         }
 
         return jsonError(Response.Status.NOT_FOUND, "not found");
+    }
+
+    private boolean isAuthorized(IHTTPSession session) {
+        Map<String, String> headers = session.getHeaders();
+        String authorization = headers.get("authorization");
+        if (authorization == null) {
+            authorization = headers.get("Authorization");
+        }
+        return isBearerTokenValid(authorization, authToken);
+    }
+
+    static boolean isBearerTokenValid(String authorization, String authToken) {
+        if (authToken == null || authToken.isEmpty()) {
+            return false;
+        }
+        if (authorization == null || !authorization.startsWith("Bearer ")) {
+            return false;
+        }
+        String providedToken = authorization.substring("Bearer ".length()).trim();
+        return MessageDigest.isEqual(
+                authToken.getBytes(StandardCharsets.UTF_8),
+                providedToken.getBytes(StandardCharsets.UTF_8));
     }
 
     private int ingest(String body) throws Exception {

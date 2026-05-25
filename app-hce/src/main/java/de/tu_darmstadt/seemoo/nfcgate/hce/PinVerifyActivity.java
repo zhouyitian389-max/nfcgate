@@ -4,6 +4,7 @@ import android.content.Intent;
 import android.content.SharedPreferences;
 import android.os.Bundle;
 import android.os.CountDownTimer;
+import android.os.SystemClock;
 import android.util.Log;
 import android.widget.EditText;
 import android.widget.TextView;
@@ -28,7 +29,9 @@ public class PinVerifyActivity extends FragmentActivity {
     private static final String TAG = "PinVerifyActivity";
     private static final int MAX_ATTEMPTS = 3;
     private static final long LOCK_DURATION_MS = 5 * 60 * 1000L;
-    private static final String PREF_LOCK_UNTIL = "pin_lock_until";
+    private static final String PREF_LOCK_UNTIL_ELAPSED = "pin_lock_until_elapsed";
+    private static final String PREF_LOCK_UNTIL_WALL = "pin_lock_until_wall";
+    private static final String PREF_LOCK_UNTIL_LEGACY = "pin_lock_until";
 
     private int attemptsLeft = MAX_ATTEMPTS;
     private EditText etPinCode;
@@ -66,10 +69,20 @@ public class PinVerifyActivity extends FragmentActivity {
         btnVerify.setOnClickListener(v -> verifyPin());
 
         // Check for persistent lockout
-        long lockUntil = encPrefs.getLong(PREF_LOCK_UNTIL, 0L);
-        long now = System.currentTimeMillis();
-        if (lockUntil > now) {
-            applyLockout(lockUntil - now);
+        long lockUntilElapsed = encPrefs.getLong(PREF_LOCK_UNTIL_ELAPSED, 0L);
+        long lockUntilWall = encPrefs.getLong(PREF_LOCK_UNTIL_WALL, 0L);
+        long lockUntilLegacy = encPrefs.getLong(PREF_LOCK_UNTIL_LEGACY, 0L);
+        if (lockUntilElapsed == 0L && lockUntilWall == 0L && lockUntilLegacy > 0L) {
+            lockUntilElapsed = SystemClock.elapsedRealtime() + Math.max(0L, lockUntilLegacy - System.currentTimeMillis());
+            lockUntilWall = lockUntilLegacy;
+            encPrefs.edit()
+                    .putLong(PREF_LOCK_UNTIL_ELAPSED, lockUntilElapsed)
+                    .putLong(PREF_LOCK_UNTIL_WALL, lockUntilWall)
+                    .remove(PREF_LOCK_UNTIL_LEGACY)
+                    .apply();
+        }
+        if (isStillLocked(lockUntilElapsed, lockUntilWall)) {
+            applyLockout(lockUntilElapsed, lockUntilWall);
             return;
         }
 
@@ -101,7 +114,12 @@ public class PinVerifyActivity extends FragmentActivity {
         }
     }
 
-    private void applyLockout(long remainingMs) {
+    private void applyLockout(long lockUntilElapsed, long lockUntilWall) {
+        long remainingMs = calculateRemainingLockMs(lockUntilElapsed, lockUntilWall);
+        if (remainingMs <= 0L) {
+            clearLockout();
+            return;
+        }
         if (lockCountdown != null) {
             lockCountdown.cancel();
             lockCountdown = null;
@@ -117,13 +135,36 @@ public class PinVerifyActivity extends FragmentActivity {
 
             @Override
             public void onFinish() {
-                encPrefs.edit().remove(PREF_LOCK_UNTIL).apply();
-                etPinCode.setEnabled(true);
-                btnVerify.setEnabled(true);
-                attemptsLeft = MAX_ATTEMPTS;
-                updateAttemptsLabel();
+                if (isStillLocked(lockUntilElapsed, lockUntilWall)) {
+                    applyLockout(lockUntilElapsed, lockUntilWall);
+                    return;
+                }
+                clearLockout();
             }
         }.start();
+    }
+
+    private boolean isStillLocked(long lockUntilElapsed, long lockUntilWall) {
+        return SystemClock.elapsedRealtime() < lockUntilElapsed
+                || System.currentTimeMillis() < lockUntilWall;
+    }
+
+    private long calculateRemainingLockMs(long lockUntilElapsed, long lockUntilWall) {
+        long elapsedRemaining = lockUntilElapsed - SystemClock.elapsedRealtime();
+        long wallRemaining = lockUntilWall - System.currentTimeMillis();
+        return Math.max(0L, Math.max(elapsedRemaining, wallRemaining));
+    }
+
+    private void clearLockout() {
+        encPrefs.edit()
+                .remove(PREF_LOCK_UNTIL_ELAPSED)
+                .remove(PREF_LOCK_UNTIL_WALL)
+                .remove(PREF_LOCK_UNTIL_LEGACY)
+                .apply();
+        etPinCode.setEnabled(true);
+        btnVerify.setEnabled(true);
+        attemptsLeft = MAX_ATTEMPTS;
+        updateAttemptsLabel();
     }
 
     private void tryBiometric() {
@@ -190,9 +231,14 @@ public class PinVerifyActivity extends FragmentActivity {
             btnVerify.setEnabled(false);
             Toast.makeText(this, R.string.pin_verify_locked, Toast.LENGTH_LONG).show();
             // Persist lockout timestamp
-            long lockUntil = System.currentTimeMillis() + LOCK_DURATION_MS;
-            encPrefs.edit().putLong(PREF_LOCK_UNTIL, lockUntil).apply();
-            applyLockout(LOCK_DURATION_MS);
+            long lockUntilElapsed = SystemClock.elapsedRealtime() + LOCK_DURATION_MS;
+            long lockUntilWall = System.currentTimeMillis() + LOCK_DURATION_MS;
+            encPrefs.edit()
+                    .putLong(PREF_LOCK_UNTIL_ELAPSED, lockUntilElapsed)
+                    .putLong(PREF_LOCK_UNTIL_WALL, lockUntilWall)
+                    .remove(PREF_LOCK_UNTIL_LEGACY)
+                    .apply();
+            applyLockout(lockUntilElapsed, lockUntilWall);
         }
     }
 
