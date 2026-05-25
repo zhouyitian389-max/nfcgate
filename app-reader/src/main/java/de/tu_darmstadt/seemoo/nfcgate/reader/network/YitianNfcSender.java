@@ -21,6 +21,7 @@ public class YitianNfcSender {
     private static final String TAG = "YitianNfcSender";
     public static final String DEFAULT_HOST = "192.168.1.100";
     public static final int DEFAULT_PORT = 8080;
+    static final String USER_AGENT = "YitianRead/v5.6-YiTian";
 
     public interface Callback {
         void onSuccess(int count);
@@ -108,7 +109,7 @@ public class YitianNfcSender {
             conn = (HttpURLConnection) url.openConnection();
             conn.setRequestMethod("POST");
             conn.setRequestProperty("Content-Type", "application/json; charset=utf-8");
-            conn.setRequestProperty("User-Agent", "YitianRead/v5.6-YiTian");
+            conn.setRequestProperty("User-Agent", USER_AGENT);
             conn.setDoOutput(true);
             conn.setConnectTimeout(5000);
             conn.setReadTimeout(10000);

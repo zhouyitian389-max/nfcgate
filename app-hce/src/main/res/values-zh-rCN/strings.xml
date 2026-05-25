@@ -74,6 +74,7 @@
     <string name="restore_failed">恢复失败：%1$s</string>
     <string name="restore_chooser_title">选择备份文件（.ybak）</string>
     <string name="menu_encrypted_backup">加密备份</string>
+    <string name="menu_restore_backup">恢复备份</string>
 
     <string-array name="settings_theme_entries">
         <item>深色</item>

@@ -23,6 +23,8 @@ import androidx.recyclerview.widget.LinearLayoutManager;
 import androidx.recyclerview.widget.RecyclerView;
 
 import java.io.File;
+import java.io.FileNotFoundException;
+import java.io.InputStream;
 import java.util.ArrayList;
 import java.util.List;
 import java.util.concurrent.ExecutorService;
@@ -35,6 +37,8 @@ import de.tu_darmstadt.seemoo.nfcgate.hce.service.YitianHostApduService;
 import de.tu_darmstadt.seemoo.nfcgate.hce.util.CardBackupHelper;
 
 public class ReceivedCardsActivity extends AppCompatActivity {
+    private static final int REQUEST_RESTORE_FILE = 1002;
+
     private RecyclerView rv;
     private TextView tvEmpty;
     private CardDao dao;
@@ -66,6 +70,9 @@ public class ReceivedCardsActivity extends AppCompatActivity {
     public boolean onOptionsItemSelected(@NonNull MenuItem item) {
         if (item.getItemId() == R.id.action_encrypted_backup) {
             showEncryptedBackupDialog();
+            return true;
+        } else if (item.getItemId() == R.id.action_restore_backup) {
+            launchRestoreFilePicker();
             return true;
         }
         return super.onOptionsItemSelected(item);
@@ -137,6 +144,83 @@ public class ReceivedCardsActivity extends AppCompatActivity {
             } catch (Exception e) {
                 mainHandler.post(() -> Toast.makeText(this,
                         getString(R.string.backup_failed, e.getMessage()),
+                        Toast.LENGTH_LONG).show());
+            }
+        });
+    }
+
+    private void launchRestoreFilePicker() {
+        Intent intent = new Intent(Intent.ACTION_OPEN_DOCUMENT);
+        intent.addCategory(Intent.CATEGORY_OPENABLE);
+        intent.setType("*/*");
+        startActivityForResult(
+                Intent.createChooser(intent, getString(R.string.restore_chooser_title)),
+                REQUEST_RESTORE_FILE);
+    }
+
+    @Override
+    protected void onActivityResult(int requestCode, int resultCode, Intent data) {
+        super.onActivityResult(requestCode, resultCode, data);
+        if (requestCode == REQUEST_RESTORE_FILE && resultCode == RESULT_OK
+                && data != null && data.getData() != null) {
+            showRestorePasswordDialog(data.getData());
+        }
+    }
+
+    private void showRestorePasswordDialog(Uri ybakUri) {
+        LinearLayout layout = new LinearLayout(this);
+        layout.setOrientation(LinearLayout.VERTICAL);
+        int padding = (int) (16 * getResources().getDisplayMetrics().density);
+        layout.setPadding(padding, padding, padding, padding);
+
+        EditText etPassword = new EditText(this);
+        etPassword.setHint(getString(R.string.restore_password_prompt));
+        etPassword.setInputType(android.text.InputType.TYPE_CLASS_TEXT
+                | android.text.InputType.TYPE_TEXT_VARIATION_PASSWORD);
+        layout.addView(etPassword);
+
+        new AlertDialog.Builder(this)
+                .setTitle(R.string.menu_restore_backup)
+                .setView(layout)
+                .setPositiveButton(android.R.string.ok, (dialog, which) -> {
+                    String pw = etPassword.getText().toString();
+                    if (pw.isEmpty()) {
+                        Toast.makeText(this, R.string.backup_password_prompt,
+                                Toast.LENGTH_SHORT).show();
+                        return;
+                    }
+                    performRestore(ybakUri, pw);
+                })
+                .setNegativeButton(android.R.string.cancel, null)
+                .show();
+    }
+
+    private void performRestore(Uri ybakUri, String password) {
+        dbExecutor.execute(() -> {
+            try {
+                // Copy URI content to a temp file so CardBackupHelper can read it
+                File tempFile = File.createTempFile("restore", ".ybak", getCacheDir());
+                try (InputStream is = getContentResolver().openInputStream(ybakUri)) {
+                    if (is == null) throw new FileNotFoundException("Cannot open backup URI");
+                    byte[] buf = new byte[8192];
+                    int n;
+                    try (java.io.FileOutputStream fos = new java.io.FileOutputStream(tempFile)) {
+                        while ((n = is.read(buf)) != -1) fos.write(buf, 0, n);
+                    }
+                }
+                int count = CardBackupHelper.restoreFromBackup(
+                        CardDatabase.getInstance(this), tempFile, password);
+                //noinspection ResultOfMethodCallIgnored
+                tempFile.delete();
+                mainHandler.post(() -> {
+                    Toast.makeText(this,
+                            getString(R.string.restore_success, count),
+                            Toast.LENGTH_SHORT).show();
+                    adapter.reload();
+                });
+            } catch (Exception e) {
+                mainHandler.post(() -> Toast.makeText(this,
+                        getString(R.string.restore_failed, e.getMessage()),
                         Toast.LENGTH_LONG).show());
             }
         });

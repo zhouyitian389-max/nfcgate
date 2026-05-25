@@ -37,8 +37,10 @@ import com.google.android.material.tabs.TabLayoutMediator;
 
 import java.io.BufferedWriter;
 import java.io.File;
+import java.io.FileNotFoundException;
 import java.io.FileWriter;
 import java.io.IOException;
+import java.io.InputStream;
 import java.util.ArrayList;
 import java.util.Arrays;
 import java.util.List;
@@ -62,6 +64,7 @@ import de.tu_darmstadt.seemoo.nfcgate.reader.util.DatabaseBackupHelper;
 
 public class MainActivity extends AppCompatActivity {
     private static final Pattern PAN_PATTERN = Pattern.compile("(?<!\\d)(\\d{13,19})(?!\\d)");
+    private static final int REQUEST_RESTORE_FILE = 1001;
 
     private final Handler mainHandler = new Handler(Looper.getMainLooper());
     private final ExecutorService ioExecutor = Executors.newSingleThreadExecutor();
@@ -194,7 +197,7 @@ public class MainActivity extends AppCompatActivity {
 
         btnExport.setOnClickListener(v -> {
             performButtonHaptic(v);
-            showEncryptedBackupDialog();
+            showBackupOrRestoreDialog();
         });
         btnUpload.setOnClickListener(v -> {
             performButtonHaptic(v);
@@ -375,6 +378,25 @@ public class MainActivity extends AppCompatActivity {
         return null;
     }
 
+    /** Shows a choice dialog: Export encrypted backup or Restore from backup. */
+    private void showBackupOrRestoreDialog() {
+        String[] options = {
+            getString(R.string.menu_encrypted_backup),
+            getString(R.string.menu_restore_backup)
+        };
+        new AlertDialog.Builder(this)
+                .setTitle(R.string.dialog_backup_or_restore_title)
+                .setItems(options, (dialog, which) -> {
+                    if (which == 0) {
+                        showEncryptedBackupDialog();
+                    } else {
+                        launchRestoreFilePicker();
+                    }
+                })
+                .setNegativeButton(android.R.string.cancel, null)
+                .show();
+    }
+
     /** Shows a two-password dialog for encrypted (.ybak) backup export. */
     private void showEncryptedBackupDialog() {
         LinearLayout layout = new LinearLayout(this);
@@ -430,6 +452,82 @@ public class MainActivity extends AppCompatActivity {
             } catch (Exception e) {
                 mainHandler.post(() -> Toast.makeText(this,
                         getString(R.string.backup_failed, e.getMessage()),
+                        Toast.LENGTH_LONG).show());
+            }
+        });
+    }
+
+    private void launchRestoreFilePicker() {
+        Intent intent = new Intent(Intent.ACTION_OPEN_DOCUMENT);
+        intent.addCategory(Intent.CATEGORY_OPENABLE);
+        intent.setType("*/*");
+        startActivityForResult(
+                Intent.createChooser(intent, getString(R.string.restore_chooser_title)),
+                REQUEST_RESTORE_FILE);
+    }
+
+    @Override
+    protected void onActivityResult(int requestCode, int resultCode, Intent data) {
+        super.onActivityResult(requestCode, resultCode, data);
+        if (requestCode == REQUEST_RESTORE_FILE && resultCode == RESULT_OK
+                && data != null && data.getData() != null) {
+            showRestorePasswordDialog(data.getData());
+        }
+    }
+
+    private void showRestorePasswordDialog(Uri ybakUri) {
+        LinearLayout layout = new LinearLayout(this);
+        layout.setOrientation(LinearLayout.VERTICAL);
+        int padding = (int) (16 * getResources().getDisplayMetrics().density);
+        layout.setPadding(padding, padding, padding, padding);
+
+        EditText etPassword = new EditText(this);
+        etPassword.setHint(getString(R.string.restore_password_prompt));
+        etPassword.setInputType(android.text.InputType.TYPE_CLASS_TEXT
+                | android.text.InputType.TYPE_TEXT_VARIATION_PASSWORD);
+        layout.addView(etPassword);
+
+        new AlertDialog.Builder(this)
+                .setTitle(R.string.menu_restore_backup)
+                .setView(layout)
+                .setPositiveButton(android.R.string.ok, (dialog, which) -> {
+                    String pw = etPassword.getText().toString();
+                    if (pw.isEmpty()) {
+                        Toast.makeText(this, R.string.restore_password_prompt,
+                                Toast.LENGTH_SHORT).show();
+                        return;
+                    }
+                    performRestore(ybakUri, pw);
+                })
+                .setNegativeButton(android.R.string.cancel, null)
+                .show();
+    }
+
+    private void performRestore(Uri ybakUri, String password) {
+        ioExecutor.execute(() -> {
+            try {
+                File tempFile = File.createTempFile("restore", ".ybak", getCacheDir());
+                try (InputStream is = getContentResolver().openInputStream(ybakUri)) {
+                    if (is == null) throw new FileNotFoundException("Cannot open backup URI");
+                    byte[] buf = new byte[8192];
+                    int n;
+                    try (java.io.FileOutputStream fos = new java.io.FileOutputStream(tempFile)) {
+                        while ((n = is.read(buf)) != -1) fos.write(buf, 0, n);
+                    }
+                }
+                int count = DatabaseBackupHelper.restoreFromBackup(appDatabase, tempFile, password);
+                //noinspection ResultOfMethodCallIgnored
+                tempFile.delete();
+                mainHandler.post(() -> {
+                    Toast.makeText(this,
+                            getString(R.string.restore_success, count),
+                            Toast.LENGTH_SHORT).show();
+                    loadHistoryFromDatabase();
+                    refreshTokenCount();
+                });
+            } catch (Exception e) {
+                mainHandler.post(() -> Toast.makeText(this,
+                        getString(R.string.restore_failed, e.getMessage()),
                         Toast.LENGTH_LONG).show());
             }
         });

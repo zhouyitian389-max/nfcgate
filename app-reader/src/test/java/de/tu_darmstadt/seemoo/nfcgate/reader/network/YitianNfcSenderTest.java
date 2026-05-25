@@ -85,10 +85,10 @@ public class YitianNfcSenderTest {
 
     @Test
     public void userAgentContainsVersionString() {
-        // USER_AGENT is set in sendOnce(); verify the constant embedded in source
-        // by checking the field via the class. We assert the known string is present.
-        String userAgent = "YitianRead/v5.6-YiTian";
-        assertTrue("User-Agent should contain version string",
-                userAgent.contains("v5.6-YiTian"));
+        // Assert against the production USER_AGENT constant, not a hard-coded duplicate.
+        assertTrue("User-Agent must start with 'YitianRead/'",
+                YitianNfcSender.USER_AGENT.startsWith("YitianRead/"));
+        assertTrue("User-Agent must contain the current version string 'v5.6-YiTian'",
+                YitianNfcSender.USER_AGENT.contains("v5.6-YiTian"));
     }
 }
