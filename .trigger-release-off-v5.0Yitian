@@ -1,7 +1,0 @@
-Trigger release off-v5.0Yitian
-
-YitianSuite Offline Edition — 2-APP version
-- YitianRead (yitian.read): scanner + offline export + remote transfer to YitianNFC
-- YitianNFC (yitian.nfc): HTTP receiver (NanoHTTPD :8080) + HCE emulator (AID F0010203040506)
-- All v5.2-YiTian design elements preserved (black-gold luxury)
-- Author: YiTian
