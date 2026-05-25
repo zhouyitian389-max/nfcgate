@@ -1,6 +1,15 @@
 <?xml version="1.0" encoding="utf-8"?>
 <menu xmlns:android="http://schemas.android.com/apk/res/android">
     <item
+        android:id="@+id/action_search"
+        android:title="Search"
+        android:showAsAction="ifRoom|collapseActionView"
+        android:actionViewClass="androidx.appcompat.widget.SearchView" />
+    <item
+        android:id="@+id/action_clear_expired"
+        android:title="Clear expired"
+        android:showAsAction="never" />
+    <item
         android:id="@+id/action_encrypted_backup"
         android:title="@string/menu_encrypted_backup"
         android:showAsAction="never" />

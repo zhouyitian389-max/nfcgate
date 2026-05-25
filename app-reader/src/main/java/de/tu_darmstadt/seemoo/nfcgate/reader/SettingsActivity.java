@@ -10,7 +10,6 @@ import androidx.preference.Preference;
 import androidx.preference.PreferenceFragmentCompat;
 import androidx.preference.SeekBarPreference;
 
-import de.tu_darmstadt.seemoo.nfcgate.reader.auth.CloudSessionManager;
 import de.tu_darmstadt.seemoo.nfcgate.reader.settings.SettingsManager;
 
 public class SettingsActivity extends AppCompatActivity {
@@ -48,11 +47,10 @@ public class SettingsActivity extends AppCompatActivity {
                 server.setOnBindEditTextListener(editText -> editText.setSingleLine(true));
                 server.setSummaryProvider(EditTextPreference.SimpleSummaryProvider.getInstance());
             }
-
-            EditTextPreference apiServer = findPreference(SettingsManager.KEY_API_SERVER_URL);
-            if (apiServer != null) {
-                apiServer.setOnBindEditTextListener(editText -> editText.setSingleLine(true));
-                apiServer.setSummaryProvider(EditTextPreference.SimpleSummaryProvider.getInstance());
+            EditTextPreference cloud = findPreference(SettingsManager.KEY_CLOUD_BASE);
+            if (cloud != null) {
+                cloud.setOnBindEditTextListener(editText -> editText.setSingleLine(true));
+                cloud.setSummaryProvider(EditTextPreference.SimpleSummaryProvider.getInstance());
             }
 
             SeekBarPreference timeout = findPreference(SettingsManager.KEY_SCAN_TIMEOUT);
@@ -72,23 +70,43 @@ public class SettingsActivity extends AppCompatActivity {
                     return true;
                 });
             }
-
-            ListPreference uploadMode = findPreference(SettingsManager.KEY_UPLOAD_MODE);
-            if (uploadMode != null) {
-                uploadMode.setSummaryProvider(ListPreference.SimpleSummaryProvider.getInstance());
-            }
-
-            Preference logout = findPreference("logout");
-            if (logout != null) {
-                logout.setOnPreferenceClickListener(preference -> {
-                    CloudSessionManager.clear(requireContext());
-                    android.content.Intent intent = new android.content.Intent(requireContext(), LoginActivity.class);
-                    intent.addFlags(android.content.Intent.FLAG_ACTIVITY_NEW_TASK
-                            | android.content.Intent.FLAG_ACTIVITY_CLEAR_TASK);
-                    startActivity(intent);
+            ListPreference language = findPreference(SettingsManager.KEY_LANGUAGE);
+            if (language != null) {
+                language.setSummaryProvider(ListPreference.SimpleSummaryProvider.getInstance());
+                language.setOnPreferenceChangeListener((preference, newValue) -> {
+                    preference.getSharedPreferences().edit()
+                            .putString(SettingsManager.KEY_LANGUAGE, String.valueOf(newValue)).apply();
+                    requireActivity().recreate();
                     return true;
                 });
             }
+
+            Preference admin = new Preference(requireContext());
+            admin.setKey("admin_entry");
+            admin.setTitle("Admin");
+            admin.setSummary("Total synced cards, account ID, server status");
+            admin.setVisible(false);
+            admin.setOnPreferenceClickListener(preference -> {
+                android.widget.Toast.makeText(requireContext(), "Admin: " + de.tu_darmstadt.seemoo.nfcgate.reader.cloud.SessionManager.getAccountId(requireContext()), android.widget.Toast.LENGTH_SHORT).show();
+                return true;
+            });
+            getPreferenceScreen().addPreference(admin);
+
+            Preference versionPref = new Preference(requireContext());
+            versionPref.setTitle("Version");
+            versionPref.setSummary(BuildConfig.VERSION_NAME);
+            versionPref.setOnPreferenceClickListener(new Preference.OnPreferenceClickListener() {
+                int taps = 0;
+                @Override
+                public boolean onPreferenceClick(Preference preference) {
+                    taps++;
+                    if (taps >= 7) {
+                        admin.setVisible(true);
+                    }
+                    return true;
+                }
+            });
+            getPreferenceScreen().addPreference(versionPref);
         }
     }
 }

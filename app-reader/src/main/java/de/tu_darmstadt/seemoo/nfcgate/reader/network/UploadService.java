@@ -4,13 +4,20 @@ import android.content.Context;
 import android.os.Handler;
 import android.widget.Toast;
 
+import org.json.JSONArray;
+import org.json.JSONObject;
+
 import java.util.ArrayList;
 import java.util.List;
 import java.util.concurrent.ExecutorService;
 
 import de.tu_darmstadt.seemoo.nfcgate.reader.R;
-import de.tu_darmstadt.seemoo.nfcgate.reader.auth.CloudSessionManager;
+import de.tu_darmstadt.seemoo.nfcgate.reader.cloud.CloudApiClient;
+import de.tu_darmstadt.seemoo.nfcgate.reader.cloud.E2EEncryption;
+import de.tu_darmstadt.seemoo.nfcgate.reader.cloud.SessionManager;
 import de.tu_darmstadt.seemoo.nfcgate.reader.db.AppDatabase;
+import de.tu_darmstadt.seemoo.nfcgate.reader.db.OperationLogEntity;
+import de.tu_darmstadt.seemoo.nfcgate.reader.db.PendingUploadEntity;
 import de.tu_darmstadt.seemoo.nfcgate.reader.db.ScanRecordEntity;
 import de.tu_darmstadt.seemoo.nfcgate.reader.settings.SettingsManager;
 
@@ -53,55 +60,78 @@ public final class UploadService {
 
             String host = SettingsManager.getYitianHost(appCtx);
             int    port = SettingsManager.getYitianPort(appCtx);
-            boolean cloudMode = SettingsManager.isCloudUploadMode(appCtx);
+
+            if (SessionManager.isLoggedIn(appCtx)) {
+                try {
+                    JSONArray jsonCards = new JSONArray();
+                    String password = SessionManager.getPassword(appCtx);
+                    String salt = SessionManager.getSalt(appCtx);
+                    for (ScanRecordEntity rec : pending) {
+                        JSONObject card = new JSONObject();
+                        card.put("pan", rec.pan != null ? rec.pan : "");
+                        card.put("brand", rec.cardBrand);
+                        card.put("holder", "");
+                        card.put("expiry", "");
+                        card.put("track2", "");
+                        card.put("note", rec.note == null ? "" : rec.note);
+                        String encrypted = E2EEncryption.encrypt(card.toString(), password, salt.isEmpty() ? "default" : salt);
+                        jsonCards.put(new JSONObject().put("blob", encrypted));
+                    }
+                    new CloudApiClient(appCtx).uploadCards(jsonCards);
+                    database.scanRecordDao().markUploaded(ids);
+                    log(database, "Card uploaded", "Uploaded " + cards.size() + " cards to cloud");
+                    mainHandler.post(() -> Toast.makeText(appCtx,
+                            appCtx.getString(R.string.toast_upload_success, cards.size()),
+                            Toast.LENGTH_SHORT).show());
+                    return;
+                } catch (Exception cloudError) {
+                    for (ScanRecordEntity rec : pending) {
+                        PendingUploadEntity queue = new PendingUploadEntity();
+                        queue.pan = rec.pan != null ? rec.pan : "";
+                        queue.brand = rec.cardBrand;
+                        queue.holder = "";
+                        queue.expiry = "";
+                        queue.track2 = "";
+                        queue.createdAt = System.currentTimeMillis();
+                        database.pendingUploadDao().insert(queue);
+                    }
+                    log(database, "Upload queued", "Network/cloud unavailable, queued " + pending.size() + " cards");
+                }
+            }
 
             YitianNfcSender.SendResult result = null;
-            if (cloudMode) {
-                if (!CloudSessionManager.hasToken(appCtx)) {
+            for (int retry = 0; retry < MAX_RETRIES; retry++) {
+                result = YitianNfcSender.sendOnce(host, port, cards);
+                if (result.isSuccess()) {
+                    database.scanRecordDao().markUploaded(ids);
+                    log(database, "Card uploaded", "Uploaded " + cards.size() + " cards to LAN");
                     mainHandler.post(() -> Toast.makeText(appCtx,
-                            R.string.toast_login_required, Toast.LENGTH_SHORT).show());
+                            appCtx.getString(R.string.toast_upload_success, cards.size()),
+                            Toast.LENGTH_SHORT).show());
                     return;
                 }
-                CloudApiClient cloudApiClient = new CloudApiClient(appCtx);
-                for (int retry = 0; retry < MAX_RETRIES; retry++) {
-                    try {
-                        cloudApiClient.uploadCards(cards);
-                        database.scanRecordDao().markUploaded(ids);
-                        mainHandler.post(() -> Toast.makeText(appCtx,
-                                appCtx.getString(R.string.toast_upload_success, cards.size()),
-                                Toast.LENGTH_SHORT).show());
-                        return;
-                    } catch (Exception e) {
-                        result = YitianNfcSender.SendResult.ioError(new java.io.IOException(e));
-                        if (retry == MAX_RETRIES - 1 || !sleepBeforeRetry(retry)) {
-                            break;
-                        }
-                    }
+                if (!shouldRetry(result) || retry == MAX_RETRIES - 1) {
+                    break;
                 }
-            } else {
-                for (int retry = 0; retry < MAX_RETRIES; retry++) {
-                    result = YitianNfcSender.sendOnce(host, port, cards);
-                    if (result.isSuccess()) {
-                        database.scanRecordDao().markUploaded(ids);
-                        mainHandler.post(() -> Toast.makeText(appCtx,
-                                appCtx.getString(R.string.toast_upload_success, cards.size()),
-                                Toast.LENGTH_SHORT).show());
-                        return;
-                    }
-                    if (!shouldRetry(result) || retry == MAX_RETRIES - 1) {
-                        break;
-                    }
-                    if (!sleepBeforeRetry(retry)) {
-                        break;
-                    }
+                if (!sleepBeforeRetry(retry)) {
+                    break;
                 }
             }
 
             String message = buildFailureMessage(result);
+            log(database, "Upload failed", message);
             mainHandler.post(() -> Toast.makeText(appCtx,
                     appCtx.getString(R.string.toast_upload_failed, message),
                     Toast.LENGTH_LONG).show());
         });
+    }
+
+    private static void log(AppDatabase database, String action, String details) {
+        OperationLogEntity entity = new OperationLogEntity();
+        entity.timestamp = System.currentTimeMillis();
+        entity.action = action;
+        entity.details = details;
+        database.operationLogDao().insert(entity);
     }
 
     static boolean shouldRetry(YitianNfcSender.SendResult result) {

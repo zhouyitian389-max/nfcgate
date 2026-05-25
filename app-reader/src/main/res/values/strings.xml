@@ -34,7 +34,6 @@
     <string name="toast_scan_timeout">Scan timeout reached</string>
     <string name="toast_sent_to_yitian_nfc">Sent %1$d cards to YitianNFC</string>
     <string name="toast_send_failed">Send failed: %1$s</string>
-    <string name="toast_login_required">Please login first</string>
     <string name="export_chooser">Export Scan History</string>
 
     <string name="dialog_yitian_nfc_title">Send to YitianNFC</string>
@@ -73,46 +72,65 @@
 
     <!-- Settings keys -->
     <string name="settings_server_url">Server URL</string>
-    <string name="settings_api_server">API Server</string>
-    <string name="settings_upload_mode">Upload mode</string>
+    <string name="settings_upload_mode">Upload Mode</string>
+    <string name="settings_api_server">API Server URL</string>
+    <string name="settings_logout">Log Out</string>
+    <string name="settings_cloud_base">Cloud API base URL</string>
     <string name="settings_yitian_nfc_host">YitianNFC Host</string>
     <string name="settings_yitian_nfc_host_summary">IP address of the YitianNFC receiver</string>
     <string name="settings_yitian_nfc_port">YitianNFC Port</string>
     <string name="settings_yitian_nfc_port_summary">TCP port of the YitianNFC receiver (default 8080)</string>
     <string name="settings_auto_scan">Auto scan on home open</string>
     <string name="settings_scan_timeout">Scan timeout</string>
+    <string name="settings_auto_sync">Auto sync</string>
     <string name="settings_timeout_summary">%1$d seconds</string>
     <string name="settings_theme">Theme</string>
+    <string name="settings_language">Language</string>
     <string name="settings_haptic_feedback">Haptic feedback</string>
-    <string name="settings_logout">Logout</string>
 
     <string-array name="settings_upload_mode_entries">
         <item>Cloud</item>
-        <item>Local LAN</item>
+        <item>Local</item>
     </string-array>
     <string-array name="settings_upload_mode_values">
         <item>cloud</item>
         <item>local</item>
     </string-array>
 
-    <string name="login_title">YitianRead</string>
-    <string name="login_subtitle">Enter shared password to connect</string>
-    <string name="login_password_hint">Password (4-32 chars)</string>
-    <string name="login_button">Login / Connect</string>
-    <string name="login_password_invalid">Password must be 4-32 characters</string>
-    <string name="login_failed">Login failed: %1$s</string>
-    <string name="login_failed_generic">Unable to login</string>
-
     <string-array name="settings_theme_entries">
         <item>Dark</item>
         <item>Light</item>
         <item>Follow system</item>
+        <item>Dynamic (Material You)</item>
     </string-array>
     <string-array name="settings_theme_values">
         <item>dark</item>
         <item>light</item>
         <item>system</item>
+        <item>dynamic</item>
     </string-array>
+    <string-array name="settings_language_entries">
+        <item>Follow system</item>
+        <item>简体中文</item>
+        <item>English</item>
+    </string-array>
+    <string-array name="settings_language_values">
+        <item>system</item>
+        <item>zh-CN</item>
+        <item>en</item>
+    </string-array>
+
+    <string name="title_login">Login</string>
+    <string name="hint_password">Password</string>
+    <string name="btn_login">Login</string>
+    <string name="login_required">Please login first</string>
+    <string name="too_many_attempts">Too many attempts, please wait %1$d seconds</string>
+    <string name="sync_status_connected">Connected</string>
+    <string name="sync_status_syncing">Syncing</string>
+    <string name="sync_status_offline">Offline</string>
+    <string name="dashboard_total_cards">Total cards: %1$d</string>
+    <string name="dashboard_today_cards">Today new: %1$d</string>
+    <string name="dashboard_last_sync">Last sync: %1$s</string>
 
     <string name="brand_unionpay">UnionPay</string>
     <string name="brand_mastercard">Mastercard</string>
