@@ -1,6 +1,7 @@
 import './globals.css';
 import Link from 'next/link';
 import type { ReactNode } from 'react';
+import LogoutButton from '@/components/LogoutButton';
 
 export default function RootLayout({ children }: { children: ReactNode }) {
   return (
@@ -16,6 +17,9 @@ export default function RootLayout({ children }: { children: ReactNode }) {
               <Link href="/cards">Cards</Link>
               <Link href="/logs">Logs</Link>
             </nav>
+            <div className="pt-4">
+              <LogoutButton />
+            </div>
           </aside>
           <main className="flex-1 p-6">{children}</main>
         </div>

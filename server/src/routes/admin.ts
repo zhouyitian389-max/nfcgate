@@ -6,7 +6,18 @@ const router = Router();
 router.get('/users', async (_req, res) => {
   const users = await prisma.user.findMany({
     orderBy: { createdAt: 'desc' },
-    include: { account: { select: { id: true, name: true } } }
+    select: {
+      id: true,
+      email: true,
+      name: true,
+      role: true,
+      createdAt: true,
+      updatedAt: true,
+      loginAttempts: true,
+      lockedUntil: true,
+      mustChangePassword: true,
+      account: { select: { id: true, name: true } }
+    }
   });
   res.json({ data: users });
 });

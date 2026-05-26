@@ -1,54 +1,27 @@
 import type { NextFunction, Request, Response } from 'express';
-import jwt from 'jsonwebtoken';
 import prisma from '../db.js';
 import { isBlacklisted } from '../services/tokenBlacklist.js';
+import { touchSession } from '../services/authSessions.js';
+import { verifyAccessToken } from '../services/tokenService.js';
 
 export interface AuthUser {
   id: string;
   accountId: string;
   role: string;
   email: string;
+  sessionId: string;
+  deviceId?: string | null;
+  mustChangePassword?: boolean;
 }
 
 export interface AuthenticatedRequest extends Request {
   user?: AuthUser;
 }
 
-const DEFAULT_JWT_SECRET = 'dev-secret-change-me';
-const DEFAULT_JWT_REFRESH_SECRET = 'dev-refresh-secret-change-me';
-const MIN_SECRET_LENGTH = 32;
-
-function resolveSecret(envName: 'JWT_SECRET' | 'JWT_REFRESH_SECRET', fallback: string) {
-  const value = process.env[envName] || fallback;
-  if (process.env.NODE_ENV === 'production') {
-    if (!process.env[envName] || value === fallback || value.length < MIN_SECRET_LENGTH) {
-      throw new Error(`${envName} must be set to a random secret with at least ${MIN_SECRET_LENGTH} characters in production`);
-    }
-  }
-  return value;
-}
-
-const JWT_SECRET = resolveSecret('JWT_SECRET', DEFAULT_JWT_SECRET);
-const JWT_REFRESH_SECRET = resolveSecret('JWT_REFRESH_SECRET', DEFAULT_JWT_REFRESH_SECRET);
-
-export function createAccessToken(user: AuthUser): string {
-  const expiresIn = (process.env.JWT_EXPIRES_IN || '7d') as jwt.SignOptions['expiresIn'];
-  return jwt.sign(user, JWT_SECRET, { expiresIn });
-}
-
-export function createRefreshToken(user: AuthUser): string {
-  const expiresIn = (process.env.JWT_REFRESH_EXPIRES_IN || '30d') as jwt.SignOptions['expiresIn'];
-  return jwt.sign(user, JWT_REFRESH_SECRET, { expiresIn });
-}
-
-export function verifyRefreshToken(token: string): AuthUser {
-  return jwt.verify(token, JWT_REFRESH_SECRET) as AuthUser;
-}
-
 export async function authMiddleware(req: AuthenticatedRequest, res: Response, next: NextFunction) {
   const authHeader = req.headers.authorization;
   if (!authHeader || !authHeader.startsWith('Bearer ')) {
-    return res.status(401).json({ message: 'Missing Bearer token' });
+    return res.status(401).json({ message: 'Missing bearer token' });
   }
 
   const token = authHeader.slice('Bearer '.length);
@@ -57,17 +30,48 @@ export async function authMiddleware(req: AuthenticatedRequest, res: Response, n
   }
 
   try {
-    const payload = jwt.verify(token, JWT_SECRET) as AuthUser;
+    const payload = verifyAccessToken(token);
     const user = await prisma.user.findUnique({
-      where: { id: payload.id },
-      select: { id: true, accountId: true, role: true, email: true }
+      where: { id: payload.sub },
+      select: {
+        id: true,
+        accountId: true,
+        role: true,
+        email: true,
+        mustChangePassword: true,
+        passwordChangedAt: true
+      }
     });
 
     if (!user) {
       return res.status(401).json({ message: 'Invalid token user' });
     }
+    if ((user.passwordChangedAt?.getTime() ?? 0) > payload.pwd) {
+      return res.status(401).json({ message: 'Session expired after password change' });
+    }
 
-    req.user = user;
+    const session = await prisma.authSession.findFirst({
+      where: { sessionId: payload.sid, userId: user.id, revokedAt: null },
+      select: { sessionId: true, deviceId: true }
+    });
+    if (!session) {
+      return res.status(401).json({ message: 'Session has been revoked' });
+    }
+
+    req.user = {
+      id: user.id,
+      accountId: user.accountId,
+      role: user.role,
+      email: user.email,
+      sessionId: session.sessionId,
+      deviceId: session.deviceId,
+      mustChangePassword: user.mustChangePassword
+    };
+    void touchSession(session.sessionId, {
+      deviceId: session.deviceId,
+      ip: req.ip,
+      userAgent: req.headers['user-agent']
+    }).catch(() => undefined);
     return next();
   } catch {
     return res.status(401).json({ message: 'Invalid or expired token' });

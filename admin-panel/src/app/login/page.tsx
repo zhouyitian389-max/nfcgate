@@ -2,6 +2,7 @@
 
 import { FormEvent, useState } from 'react';
 import { useRouter } from 'next/navigation';
+import { setAuthToken } from '@/lib/api';
 
 const API_BASE = process.env.NEXT_PUBLIC_API_BASE || 'http://localhost:8080/api';
 
@@ -24,8 +25,7 @@ export default function LoginPage() {
       return;
     }
     const payload = await res.json();
-    localStorage.setItem('jwt', payload.accessToken || payload.token);
-    document.cookie = 'jwt=1; Path=/';
+    setAuthToken(payload.accessToken || payload.token);
     router.push('/');
   };
 

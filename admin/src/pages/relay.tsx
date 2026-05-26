@@ -35,7 +35,7 @@ export default function RelayPage() {
           {sessions.map((s) => (
             <tr key={s.sessionId} className="border-t">
               <td className="p-3 font-mono text-xs">{s.sessionId}</td>
-              <td className="p-3 font-mono text-xs">{s.token}</td>
+              <td className="p-3 font-mono text-xs">{s.tokenPreview || 'hidden'}</td>
               <td className="p-3">{s.apduCount}</td>
               <td className="p-3 text-xs">hce:{String(s.connected?.hce)} reader:{String(s.connected?.reader)} external:{String(s.connected?.external)}</td>
             </tr>

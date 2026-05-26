@@ -6,6 +6,7 @@ import org.json.JSONException;
 import org.json.JSONObject;
 
 import java.util.concurrent.TimeUnit;
+import java.util.concurrent.atomic.AtomicInteger;
 
 import okhttp3.OkHttpClient;
 import okhttp3.Request;
@@ -28,6 +29,8 @@ public class WebSocketRelayClient {
     private final Listener listener;
     private WebSocket webSocket;
     private int reconnectAttempt;
+    private final AtomicInteger nextCommandSeq = new AtomicInteger(1);
+    private final AtomicInteger pendingSeq = new AtomicInteger(0);
 
     public WebSocketRelayClient(String url, String jwt, String sessionId, Listener listener) {
         this.url = url;
@@ -59,9 +62,12 @@ public class WebSocketRelayClient {
             return false;
         }
         try {
+            int seq = nextCommandSeq.getAndIncrement();
+            pendingSeq.set(seq);
             JSONObject payload = new JSONObject()
                     .put("type", "apdu_command")
                     .put("sessionId", sessionId)
+                    .put("seq", seq)
                     .put("data", apduHex);
             return webSocket.send(payload.toString());
         } catch (JSONException e) {
@@ -109,7 +115,13 @@ public class WebSocketRelayClient {
             try {
                 JSONObject message = new JSONObject(text);
                 if ("apdu_response".equals(message.optString("type"))) {
+                    int seq = message.optInt("seq", 0);
+                    if (seq != 0 && seq != pendingSeq.get()) {
+                        Log.w(TAG, "Ignoring mismatched apdu_response seq=" + seq + " expected=" + pendingSeq.get());
+                        return;
+                    }
                     listener.onApduResponse(hexToBytes(message.optString("data")));
+                    pendingSeq.set(0);
                 }
             } catch (JSONException e) {
                 Log.w(TAG, "Invalid relay message: " + text, e);

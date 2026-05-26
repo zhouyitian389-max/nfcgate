@@ -30,7 +30,15 @@ router.get('/', async (req, res) => {
     orderBy: { createdAt: 'desc' },
     take: 200
   });
-  res.json({ data: logs });
+  res.json({
+    data: logs,
+    logs: logs.map((log) => ({
+      id: log.id,
+      timestamp: log.createdAt.getTime(),
+      action: `${log.mode} session`,
+      details: `session=${log.sessionId} apdu=${log.apduCount} duration=${log.duration}ms${log.closedReason ? ` reason=${log.closedReason}` : ''}`
+    }))
+  });
 });
 
 router.get('/:id', async (req, res) => {

@@ -69,22 +69,22 @@ public class RelayReaderService implements NfcAdapter.ReaderCallback, WebSocketR
     }
 
     @Override
-    public void onApduCommand(String sessionId, byte[] command) {
+    public void onApduCommand(String sessionId, byte[] command, int seq) {
         if (!active) {
             return;
         }
         IsoDep isoDep = activeIsoDep.get();
         if (isoDep == null || !isoDep.isConnected()) {
-            relayClient.sendApduResponse(sessionId, new byte[]{(byte) 0x6A, (byte) 0x82});
+            relayClient.sendApduResponse(sessionId, new byte[]{(byte) 0x6A, (byte) 0x82}, seq);
             return;
         }
 
         try {
             byte[] response = isoDep.transceive(command);
-            relayClient.sendApduResponse(sessionId, response);
+            relayClient.sendApduResponse(sessionId, response, seq);
         } catch (IOException e) {
             Log.e(TAG, "IsoDep transceive failed", e);
-            relayClient.sendApduResponse(sessionId, new byte[]{(byte) 0x6F, 0x00});
+            relayClient.sendApduResponse(sessionId, new byte[]{(byte) 0x6F, 0x00}, seq);
             closeIsoDep();
         }
     }
