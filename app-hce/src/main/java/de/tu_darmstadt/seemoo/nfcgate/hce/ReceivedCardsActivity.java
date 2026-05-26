@@ -31,6 +31,7 @@ import java.io.FileNotFoundException;
 import java.io.InputStream;
 import java.util.ArrayList;
 import java.util.List;
+import java.util.concurrent.atomic.AtomicBoolean;
 import java.util.concurrent.ExecutorService;
 import java.util.concurrent.Executors;
 
@@ -50,6 +51,7 @@ public class ReceivedCardsActivity extends AppCompatActivity {
     private String searchQuery = "";
     private final Handler mainHandler = new Handler(Looper.getMainLooper());
     private final ExecutorService dbExecutor = Executors.newSingleThreadExecutor();
+    private final AtomicBoolean isActive = new AtomicBoolean(true);
 
     @Override
     protected void onCreate(Bundle savedInstanceState) {
@@ -106,7 +108,7 @@ public class ReceivedCardsActivity extends AppCompatActivity {
         } else if (item.getItemId() == R.id.action_clear_expired) {
             dbExecutor.execute(() -> {
                 int deleted = dao.clearExpired();
-                mainHandler.post(() -> {
+                postToMainIfActive(() -> {
                     Toast.makeText(this, getString(R.string.cleared_expired_cards, deleted), Toast.LENGTH_SHORT).show();
                     adapter.reload();
                 });
@@ -152,8 +154,10 @@ public class ReceivedCardsActivity extends AppCompatActivity {
 
     @Override
     protected void onDestroy() {
-        super.onDestroy();
+        isActive.set(false);
+        mainHandler.removeCallbacksAndMessages(null);
         dbExecutor.shutdownNow();
+        super.onDestroy();
     }
 
     private void showEncryptedBackupDialog() {
@@ -198,7 +202,7 @@ public class ReceivedCardsActivity extends AppCompatActivity {
                         this, CardDatabase.getInstance(this), password);
                 Uri uri = FileProvider.getUriForFile(this,
                         getPackageName() + ".provider", ybakFile);
-                mainHandler.post(() -> {
+                postToMainIfActive(() -> {
                     Intent intent = new Intent(Intent.ACTION_SEND);
                     intent.setType("application/octet-stream");
                     intent.putExtra(Intent.EXTRA_STREAM, uri);
@@ -208,7 +212,7 @@ public class ReceivedCardsActivity extends AppCompatActivity {
                     Toast.makeText(this, R.string.backup_success, Toast.LENGTH_SHORT).show();
                 });
             } catch (Exception e) {
-                mainHandler.post(() -> Toast.makeText(this,
+                postToMainIfActive(() -> Toast.makeText(this,
                         getString(R.string.backup_failed, e.getMessage()),
                         Toast.LENGTH_LONG).show());
             }
@@ -249,9 +253,10 @@ public class ReceivedCardsActivity extends AppCompatActivity {
 
     private void performRestore(Uri ybakUri, String password) {
         dbExecutor.execute(() -> {
+            File tempFile = null;
             try {
                 // Copy URI content to a temp file so CardBackupHelper can read it
-                File tempFile = File.createTempFile("restore", ".ybak", getCacheDir());
+                tempFile = File.createTempFile("restore", ".ybak", getCacheDir());
                 try (InputStream is = getContentResolver().openInputStream(ybakUri)) {
                     if (is == null) throw new FileNotFoundException("Cannot open backup URI");
                     byte[] buf = new byte[8192];
@@ -262,18 +267,21 @@ public class ReceivedCardsActivity extends AppCompatActivity {
                 }
                 int count = CardBackupHelper.restoreFromBackup(
                         CardDatabase.getInstance(this), tempFile, password);
-                //noinspection ResultOfMethodCallIgnored
-                tempFile.delete();
-                mainHandler.post(() -> {
+                postToMainIfActive(() -> {
                     Toast.makeText(this,
                             getString(R.string.restore_success, count),
                             Toast.LENGTH_SHORT).show();
                     adapter.reload();
                 });
             } catch (Exception e) {
-                mainHandler.post(() -> Toast.makeText(this,
+                postToMainIfActive(() -> Toast.makeText(this,
                         getString(R.string.restore_failed, e.getMessage()),
                         Toast.LENGTH_LONG).show());
+            } finally {
+                if (tempFile != null && tempFile.exists()) {
+                    //noinspection ResultOfMethodCallIgnored
+                    tempFile.delete();
+                }
             }
         });
     }
@@ -283,8 +291,11 @@ public class ReceivedCardsActivity extends AppCompatActivity {
 
         void reload() {
             dbExecutor.execute(() -> {
+                if (!isActive.get()) {
+                    return;
+                }
                 List<CardEntity> newData = searchQuery.isEmpty() ? dao.getAll() : dao.search(searchQuery);
-                mainHandler.post(() -> {
+                postToMainIfActive(() -> {
                     data = newData;
                     notifyDataSetChanged();
                     boolean empty = data.isEmpty();
@@ -321,7 +332,7 @@ public class ReceivedCardsActivity extends AppCompatActivity {
                 dbExecutor.execute(() -> {
                     dao.clearSelection();
                     dao.select(c.id);
-                    mainHandler.post(() -> {
+                    postToMainIfActive(() -> {
                         sendSelectionChangedBroadcast();
                         reload();
                         Toast.makeText(ReceivedCardsActivity.this,
@@ -367,7 +378,7 @@ public class ReceivedCardsActivity extends AppCompatActivity {
                             } catch (Exception ignored) {
                             }
                         }
-                        mainHandler.post(() -> {
+                        postToMainIfActive(() -> {
                             sendSelectionChangedBroadcast();
                             adapter.reload();
                             Toast.makeText(this, R.string.toast_card_deleted, Toast.LENGTH_SHORT).show();
@@ -396,11 +407,23 @@ public class ReceivedCardsActivity extends AppCompatActivity {
                     dbExecutor.execute(() -> {
                         c.note = note;
                         dao.insert(c);
-                        mainHandler.post(adapter::reload);
+                        postToMainIfActive(adapter::reload);
                     });
                 })
                 .setNegativeButton(android.R.string.cancel, null)
                 .show();
+    }
+
+    private void postToMainIfActive(Runnable task) {
+        if (!isActive.get()) {
+            return;
+        }
+        mainHandler.post(() -> {
+            if (!isActive.get() || isFinishing() || isDestroyed()) {
+                return;
+            }
+            task.run();
+        });
     }
 
     private void bindExpiryBadge(Adapter.VH h, CardEntity c) {
