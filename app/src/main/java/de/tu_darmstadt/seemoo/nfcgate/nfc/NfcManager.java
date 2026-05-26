@@ -263,13 +263,12 @@ public class NfcManager implements NfcAdapter.ReaderCallback, NetworkManager.Cal
         }
         else if (mReaderMode) {
             // send data to tag and get reply
-            byte[] reply = mReader.transceive(data.getData());
-
-            // send reply
-            if (reply == null)
-                Log.w(TAG, "Empty TAG reply");
-            else
-                handleData(false, new NfcComm(true, false, reply));
+            NFCTagReader.TagReadResult result = mReader.transceiveWithResult(data.getData());
+            if (result instanceof NFCTagReader.TagReadResult.Success success) {
+                handleData(false, new NfcComm(true, false, success.data()));
+            } else if (result instanceof NFCTagReader.TagReadResult.Error error) {
+                Log.w(TAG, "TAG transceive error: " + error.message());
+            }
         }
         else {
             // send data to reader

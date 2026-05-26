@@ -1,13 +1,17 @@
 package de.tu_darmstadt.seemoo.nfcgate.reader.nfc.transport;
 
 import android.hardware.usb.UsbConstants;
+import android.hardware.usb.UsbDevice;
 import android.hardware.usb.UsbEndpoint;
+import android.hardware.usb.UsbInterface;
+import android.util.Log;
 
 import androidx.annotation.Nullable;
 
 import java.util.Locale;
 
 public class PN532Protocol {
+    private static final String TAG = "PN532Protocol";
     private static final byte PREAMBLE = 0x00;
     private static final byte START_CODE_1 = 0x00;
     private static final byte START_CODE_2 = (byte) 0xFF;
@@ -15,13 +19,42 @@ public class PN532Protocol {
     private static final byte HOST_TO_PN532 = (byte) 0xD4;
 
     private final USBConnection usb;
-    private final UsbEndpoint outEndpoint;
-    private final UsbEndpoint inEndpoint;
+    @Nullable
+    private UsbEndpoint outEndpoint;
+    @Nullable
+    private UsbEndpoint inEndpoint;
 
-    public PN532Protocol(USBConnection usb, @Nullable UsbEndpoint outEndpoint, @Nullable UsbEndpoint inEndpoint) {
+    public PN532Protocol(USBConnection usb) {
         this.usb = usb;
-        this.outEndpoint = outEndpoint;
-        this.inEndpoint = inEndpoint;
+    }
+
+    public boolean configureForDevice(UsbDevice device) {
+        outEndpoint = null;
+        inEndpoint = null;
+        for (int i = 0; i < device.getInterfaceCount(); i++) {
+            UsbInterface intf = device.getInterface(i);
+            UsbEndpoint outEp = null;
+            UsbEndpoint inEp = null;
+            for (int j = 0; j < intf.getEndpointCount(); j++) {
+                UsbEndpoint ep = intf.getEndpoint(j);
+                if (ep.getType() != UsbConstants.USB_ENDPOINT_XFER_BULK) {
+                    continue;
+                }
+                if (ep.getDirection() == UsbConstants.USB_DIR_OUT) {
+                    outEp = ep;
+                } else if (ep.getDirection() == UsbConstants.USB_DIR_IN) {
+                    inEp = ep;
+                }
+            }
+            if (outEp != null && inEp != null && usb.claimInterface(intf)) {
+                outEndpoint = outEp;
+                inEndpoint = inEp;
+                Log.d(TAG, "Using interface " + intf.getId() + " endpoints OUT=" + outEp.getAddress() + " IN=" + inEp.getAddress());
+                return true;
+            }
+        }
+        Log.w(TAG, "No suitable bulk endpoints found for PN532 device");
+        return false;
     }
 
     public String getVersion() {
@@ -54,11 +87,17 @@ public class PN532Protocol {
     }
 
     public byte[] sendCommand(byte[] cmd, int timeout) {
-        if (outEndpoint != null && outEndpoint.getDirection() == UsbConstants.USB_DIR_OUT) {
-            usb.bulkTransfer(outEndpoint, buildFrame(cmd), timeout);
+        UsbEndpoint outEp = outEndpoint;
+        UsbEndpoint inEp = inEndpoint;
+        if (outEp == null || inEp == null) {
+            Log.w(TAG, "Endpoints not configured before sendCommand");
+            return new byte[0];
         }
-        if (inEndpoint != null && inEndpoint.getDirection() == UsbConstants.USB_DIR_IN) {
-            return parseFrame(usb.bulkTransfer(inEndpoint, new byte[Math.max(inEndpoint.getMaxPacketSize(), 64)], timeout));
+        if (outEp.getDirection() == UsbConstants.USB_DIR_OUT) {
+            usb.bulkTransfer(outEp, buildFrame(cmd), timeout);
+        }
+        if (inEp.getDirection() == UsbConstants.USB_DIR_IN) {
+            return parseFrame(usb.bulkTransfer(inEp, new byte[Math.max(inEp.getMaxPacketSize(), 64)], timeout));
         }
         return new byte[0];
     }

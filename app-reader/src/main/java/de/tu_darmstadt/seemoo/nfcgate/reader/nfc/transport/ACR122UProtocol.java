@@ -1,21 +1,54 @@
 package de.tu_darmstadt.seemoo.nfcgate.reader.nfc.transport;
 
 import android.hardware.usb.UsbConstants;
+import android.hardware.usb.UsbDevice;
 import android.hardware.usb.UsbEndpoint;
+import android.hardware.usb.UsbInterface;
+import android.util.Log;
 
 import androidx.annotation.Nullable;
 
 import de.tu_darmstadt.seemoo.nfcgate.reader.nfc.transport.PN532Protocol.CardInfo;
 
 public class ACR122UProtocol {
+    private static final String TAG = "ACR122UProtocol";
     private final USBConnection usb;
-    private final UsbEndpoint outEndpoint;
-    private final UsbEndpoint inEndpoint;
+    @Nullable
+    private UsbEndpoint outEndpoint;
+    @Nullable
+    private UsbEndpoint inEndpoint;
 
-    public ACR122UProtocol(USBConnection usb, @Nullable UsbEndpoint outEndpoint, @Nullable UsbEndpoint inEndpoint) {
+    public ACR122UProtocol(USBConnection usb) {
         this.usb = usb;
-        this.outEndpoint = outEndpoint;
-        this.inEndpoint = inEndpoint;
+    }
+
+    public boolean configureForDevice(UsbDevice device) {
+        outEndpoint = null;
+        inEndpoint = null;
+        for (int i = 0; i < device.getInterfaceCount(); i++) {
+            UsbInterface intf = device.getInterface(i);
+            UsbEndpoint outEp = null;
+            UsbEndpoint inEp = null;
+            for (int j = 0; j < intf.getEndpointCount(); j++) {
+                UsbEndpoint ep = intf.getEndpoint(j);
+                if (ep.getType() != UsbConstants.USB_ENDPOINT_XFER_BULK) {
+                    continue;
+                }
+                if (ep.getDirection() == UsbConstants.USB_DIR_OUT) {
+                    outEp = ep;
+                } else if (ep.getDirection() == UsbConstants.USB_DIR_IN) {
+                    inEp = ep;
+                }
+            }
+            if (outEp != null && inEp != null && usb.claimInterface(intf)) {
+                outEndpoint = outEp;
+                inEndpoint = inEp;
+                Log.d(TAG, "Using interface " + intf.getId() + " endpoints OUT=" + outEp.getAddress() + " IN=" + inEp.getAddress());
+                return true;
+            }
+        }
+        Log.w(TAG, "No suitable bulk endpoints found for ACR122U device");
+        return false;
     }
 
     public byte[] transmitAPDU(byte[] apdu) {

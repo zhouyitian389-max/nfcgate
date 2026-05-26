@@ -60,6 +60,7 @@ import de.tu_darmstadt.seemoo.nfcgate.reader.network.OfflineQueueWorker;
 import de.tu_darmstadt.seemoo.nfcgate.reader.model.ScanRecord;
 import de.tu_darmstadt.seemoo.nfcgate.reader.network.UploadService;
 import de.tu_darmstadt.seemoo.nfcgate.reader.nfc.NFCDevice;
+import de.tu_darmstadt.seemoo.nfcgate.reader.nfc.NFCEvent;
 import de.tu_darmstadt.seemoo.nfcgate.reader.nfc.NFCManager;
 import de.tu_darmstadt.seemoo.nfcgate.reader.settings.SettingsManager;
 import de.tu_darmstadt.seemoo.nfcgate.reader.ui.CardPagerAdapter;
@@ -281,26 +282,32 @@ public class MainActivity extends AppCompatActivity {
         mainHandler.postDelayed(stopCaptureRunnable, timeoutSeconds * 1000L);
 
         nfcManager.startCapture(selectedDevice, event -> runOnUiThread(() -> {
-            String deviceName = selectedDevice.getName();
-            String source = selectedDevice.getSource().name();
-            String rawData = event != null ? event.toString() : "No data";
-            String pan = extractPan(rawData);
-            CardBrandDetector.CardBrand brand = CardBrandDetector.detect(pan);
+            if (event instanceof NFCEvent.CardDetected cardDetected) {
+                String deviceName = selectedDevice.getName();
+                String source = selectedDevice.getSource().name();
+                String rawData = cardDetected.toString();
+                String pan = extractPan(rawData);
+                CardBrandDetector.CardBrand brand = CardBrandDetector.detect(pan);
 
-            ScanRecord record = new ScanRecord(deviceName, source, rawData, pan, brand);
-            scanHistoryAdapter.addRecord(record);
-            persistRecord(record);
+                ScanRecord record = new ScanRecord(deviceName, source, rawData, pan, brand);
+                scanHistoryAdapter.addRecord(record);
+                persistRecord(record);
 
-            String last4 = pan != null && pan.length() >= 4 ? pan.substring(pan.length() - 4) : getString(R.string.unknown_pan);
-            addDetectedCardToPager(brand, last4);
+                String last4 = pan != null && pan.length() >= 4 ? pan.substring(pan.length() - 4) : getString(R.string.unknown_pan);
+                addDetectedCardToPager(brand, last4);
 
-            tvLastCard.setText(getString(R.string.last_card_template, getString(CardBrandDetector.getDisplayNameRes(brand))));
-            tvNfcStatus.setText(getString(R.string.nfc_status_ready));
-            updateHistoryVisibility();
-            animateScanSuccess();
-            performScanSuccessVibration();
+                tvLastCard.setText(getString(R.string.last_card_template, getString(CardBrandDetector.getDisplayNameRes(brand))));
+                tvNfcStatus.setText(getString(R.string.nfc_status_ready));
+                updateHistoryVisibility();
+                animateScanSuccess();
+                performScanSuccessVibration();
 
-            Toast.makeText(this, R.string.toast_scan_success, Toast.LENGTH_SHORT).show();
+                Toast.makeText(this, R.string.toast_scan_success, Toast.LENGTH_SHORT).show();
+            } else if (event instanceof NFCEvent.Error error) {
+                tvNfcStatus.setText(getString(R.string.nfc_status_ready));
+                String message = error.getMessage() != null ? error.getMessage() : getString(R.string.nfc_status_ready);
+                Toast.makeText(this, message, Toast.LENGTH_LONG).show();
+            }
         }));
     }
 
