@@ -46,10 +46,20 @@ interface RelaySession {
 
 const SESSION_TIMEOUT_MS = Number(process.env.RELAY_SESSION_TIMEOUT_MS || 20_000);
 const HEARTBEAT_MS = Number(process.env.RELAY_HEARTBEAT_MS || 10_000);
+const HEX_REGEX = /^[0-9A-Fa-f]+$/;
+const MAX_APDU_LEN = 2000;
 
 const sessions = new Map<string, RelaySession>();
 const sessionTokens = new Map<string, SessionTokenMeta>();
 const wsConnectionByIp = new Map<string, number>();
+
+function isValidApduHex(data: unknown): data is string {
+  return typeof data === 'string' &&
+    data.length > 0 &&
+    data.length <= MAX_APDU_LEN &&
+    data.length % 2 === 0 &&
+    HEX_REGEX.test(data);
+}
 
 export async function createSessionToken(accountId: string, cardId?: string, mode = 'NFC_RELAY') {
   const token = uuidv4();
@@ -338,6 +348,10 @@ export function initWebSocket(server: Server) {
           send(ws, { type: 'error', message: 'Only hce can send apdu_command' });
           return;
         }
+        if (!isValidApduHex(message.data)) {
+          send(ws, { type: 'error', message: 'Invalid APDU command format' });
+          return;
+        }
 
         const target = getReaderPeer(current);
         if (!target) {
@@ -353,6 +367,10 @@ export function initWebSocket(server: Server) {
       if (message.type === 'apdu_response') {
         if (role !== 'reader' && role !== 'external') {
           send(ws, { type: 'error', message: 'Only reader/external can send apdu_response' });
+          return;
+        }
+        if (!isValidApduHex(message.data)) {
+          send(ws, { type: 'error', message: 'Invalid APDU response format' });
           return;
         }
         if (!current.hce || current.hce.readyState !== current.hce.OPEN) {

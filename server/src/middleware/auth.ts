@@ -1,6 +1,7 @@
 import type { NextFunction, Request, Response } from 'express';
 import jwt from 'jsonwebtoken';
 import prisma from '../db.js';
+import { isBlacklisted } from '../services/tokenBlacklist.js';
 
 export interface AuthUser {
   id: string;
@@ -51,6 +52,10 @@ export async function authMiddleware(req: AuthenticatedRequest, res: Response, n
   }
 
   const token = authHeader.slice('Bearer '.length);
+  if (isBlacklisted(token)) {
+    return res.status(401).json({ message: 'Token has been revoked' });
+  }
+
   try {
     const payload = jwt.verify(token, JWT_SECRET) as AuthUser;
     const user = await prisma.user.findUnique({
