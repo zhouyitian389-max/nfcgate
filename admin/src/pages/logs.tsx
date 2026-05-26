@@ -37,7 +37,7 @@ export default function LogsPage() {
             <tr key={l.id} className="border-t">
               <td className="p-3"><span className="px-2 py-1 bg-blue-100 text-blue-800 rounded text-xs">{l.action}</span></td>
               <td className="p-3 text-sm">{l.account?.email}</td>
-              <td className="p-3 text-sm text-gray-600 max-w-xs truncate">{l.detail || '-'}</td>
+              <td className="p-3 text-sm text-gray-600 max-w-xs truncate">{l.details || '-'}</td>
               <td className="p-3 text-sm text-gray-500">{new Date(l.createdAt).toLocaleString()}</td>
             </tr>
           ))}
