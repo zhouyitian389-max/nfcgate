@@ -11,6 +11,7 @@ public final class SettingsManager {
     public static final String KEY_LANGUAGE = "language";
     public static final String KEY_AUTO_SYNC = "auto_sync";
     public static final String KEY_CLOUD_BASE = "cloud_api_base";
+    public static final String KEY_CLOUD_EMAIL = "cloud_email";
 
     private SettingsManager() {}
 
@@ -39,6 +40,10 @@ public final class SettingsManager {
 
     public static String getCloudBaseUrl(Context context) {
         return prefs(context).getString(KEY_CLOUD_BASE, "https://api.yitian.shop");
+    }
+
+    public static String getCloudEmail(Context context) {
+        return prefs(context).getString(KEY_CLOUD_EMAIL, "");
     }
 
     public static boolean isAutoSyncEnabled(Context context) {

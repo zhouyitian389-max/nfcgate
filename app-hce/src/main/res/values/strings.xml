@@ -50,6 +50,7 @@
 
     <string name="settings_port">HTTP server port</string>
     <string name="settings_cloud_base">Cloud API base URL</string>
+    <string name="settings_cloud_email">Cloud account email</string>
     <string name="settings_auto_sync">Auto sync</string>
     <string name="settings_api_server">API server</string>
     <string name="settings_language">Language</string>

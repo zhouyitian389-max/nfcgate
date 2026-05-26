@@ -93,12 +93,16 @@ public class CloudApiClient {
     }
 
     public LoginResult login(String password) throws Exception {
-        JSONObject req = new JSONObject().put("password", password);
+        String email = SettingsManager.getCloudEmail(appContext);
+        JSONObject req = new JSONObject()
+                .put("email", email)
+                .put("password", password);
         JSONObject json = request("POST", "/api/auth/login", req, null, true);
         String token = json.optString("token", "");
         String refreshToken = json.optString("refreshToken", "");
-        long expiresIn = json.optLong("expires_in", 3600L);
-        long expiresAt = System.currentTimeMillis() + expiresIn * 1000L;
+        long serverExpiresAt = json.optLong("expiresAt", 0L);
+        long expiresAt = serverExpiresAt > 0 ? serverExpiresAt
+                : System.currentTimeMillis() + json.optLong("expires_in", 3600L) * 1000L;
         String salt = json.optString("salt", "");
         return new LoginResult(token, refreshToken, expiresAt, json.optString("account_id", ""), salt);
     }
@@ -108,11 +112,13 @@ public class CloudApiClient {
         synchronized (REFRESH_LOCK) {
             if (!SessionManager.isLoggedIn(appContext) || !SessionManager.isTokenExpiringSoon(appContext)) return;
             JSONObject req = new JSONObject().put("refreshToken", SessionManager.getRefreshToken(appContext));
-            JSONObject json = request("POST", "/api/auth/refresh", req, SessionManager.getToken(appContext), false);
+            JSONObject json = request("POST", "/api/auth/refresh", req, null, false);
             String token = json.optString("token", SessionManager.getToken(appContext));
             String refreshToken = json.optString("refreshToken", SessionManager.getRefreshToken(appContext));
-            long expiresIn = json.optLong("expires_in", 3600L);
-            SessionManager.updateToken(appContext, token, refreshToken, System.currentTimeMillis() + expiresIn * 1000L);
+            long serverExpiresAt = json.optLong("expiresAt", 0L);
+            long expiresAt = serverExpiresAt > 0 ? serverExpiresAt
+                    : System.currentTimeMillis() + json.optLong("expires_in", 3600L) * 1000L;
+            SessionManager.updateToken(appContext, token, refreshToken, expiresAt);
         }
     }
 

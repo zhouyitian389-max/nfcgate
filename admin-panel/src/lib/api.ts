@@ -1,5 +1,6 @@
 import { tokenStorage } from './tokenStorage';
 import { requestTokenRefresh } from './tokenRefresh';
+import { logout } from './logoutHandler';
 
 export { tokenStorage };
 
@@ -56,7 +57,8 @@ export async function apiFetch(path: string, init: RequestInit = {}) {
         });
         if (retryRes.ok) return retryRes.json();
       }
-      tokenStorage.clearTokens();
+      await logout('session_expired');
+      return;
     }
     throw new Error(`API request failed: ${res.status}`);
   }

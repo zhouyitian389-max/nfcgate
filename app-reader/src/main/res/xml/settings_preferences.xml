@@ -25,6 +25,13 @@
             app:useSimpleSummaryProvider="true" />
 
         <EditTextPreference
+            android:key="cloud_email"
+            android:title="@string/settings_cloud_email"
+            android:defaultValue=""
+            android:inputType="textEmailAddress"
+            app:useSimpleSummaryProvider="true" />
+
+        <EditTextPreference
             android:key="yitian_host"
             android:title="@string/settings_yitian_nfc_host"
             android:summary="@string/settings_yitian_nfc_host_summary"
