@@ -11,6 +11,7 @@ import de.tu_darmstadt.seemoo.nfcgate.reader.nfc.NFCEvent;
 import de.tu_darmstadt.seemoo.nfcgate.reader.nfc.NFCHandler;
 import de.tu_darmstadt.seemoo.nfcgate.reader.nfc.NFCSource;
 import de.tu_darmstadt.seemoo.nfcgate.reader.nfc.emv.EMVReader;
+import de.tu_darmstadt.seemoo.nfcgate.reader.nfc.emv.MifareReader;
 
 /**
  * Built-in phone NFC handler. Uses NfcAdapter ReaderMode if a hosting Activity is provided.
@@ -87,15 +88,31 @@ public class PhoneNFCHandler implements NFCHandler {
             callback.onEvent(new NFCEvent.CardDetected(
                     type, tag.getId(), NFCSource.PHONE, System.currentTimeMillis(), emvCard));
         } catch (Exception e) {
-            Log.d(TAG, "EMV read failed, falling back to UID-only: " + e.getMessage());
-            String type = tag.getTechList().length > 0 ? tag.getTechList()[0] : "UNKNOWN";
-            // Strip android.nfc.tech. prefix for readability
-            int dot = type.lastIndexOf('.');
-            if (dot >= 0) type = type.substring(dot + 1);
+            Log.d(TAG, "EMV read failed, trying Mifare/NDEF fallback: " + e.getMessage());
+            String type = detectFallbackType(tag);
             callback.onEvent(new NFCEvent.CardDetected(
                     type, tag.getId(), NFCSource.PHONE, System.currentTimeMillis()));
         }
         transitionTo(ReaderState.READER_MODE_ENABLED);
+    }
+
+    private String detectFallbackType(Tag tag) {
+        try {
+            MifareReader.readMifareClassic(tag);
+            return "MifareClassic";
+        } catch (Exception ignored) { }
+        try {
+            MifareReader.readMifareUltralight(tag);
+            return "MifareUltralight";
+        } catch (Exception ignored) { }
+        try {
+            MifareReader.readNDEF(tag);
+            return "NDEF";
+        } catch (Exception ignored) { }
+        String type = tag.getTechList().length > 0 ? tag.getTechList()[0] : "UNKNOWN";
+        int dot = type.lastIndexOf('.');
+        if (dot >= 0) type = type.substring(dot + 1);
+        return type;
     }
 
     @Override
