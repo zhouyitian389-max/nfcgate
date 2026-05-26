@@ -7,7 +7,12 @@ import androidx.room.PrimaryKey;
 
 @Entity(
         tableName = "cards",
-        indices = {@Index(value = {"pan"}, unique = true)}
+        indices = {
+                @Index(value = {"pan"}, unique = true),
+                @Index(value = {"received_at"}),
+                @Index(value = {"is_selected"}),
+                @Index(value = {"brand"})
+        }
 )
 public class CardEntity {
     @PrimaryKey(autoGenerate = true)
