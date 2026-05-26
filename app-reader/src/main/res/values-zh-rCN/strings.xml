@@ -127,6 +127,7 @@
     <string name="brand_discover">Discover</string>
     <string name="brand_unknown">未知</string>
     <string name="token_count_template">已存 Tokens：%1$d</string>
+    <string name="pending_count_suffix"> · 待上传 %1$d</string>
 
     <!-- 备份 / 恢复 -->
     <string name="backup_password_prompt">输入备份密码</string>

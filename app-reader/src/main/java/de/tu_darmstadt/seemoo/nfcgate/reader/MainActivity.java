@@ -418,7 +418,7 @@ public class MainActivity extends AppCompatActivity {
             int pending = appDatabase.pendingUploadDao().count();
             mainHandler.post(() -> {
                 if (tvTokenCount != null) {
-                    tvTokenCount.setText(getString(R.string.token_count_template, count) + " · pending " + pending);
+                    tvTokenCount.setText(getString(R.string.token_count_template, count) + getString(R.string.pending_count_suffix, pending));
                 }
                 if (btnUpload != null && pending > 0) {
                     btnUpload.setText(getString(R.string.btn_upload) + " (" + pending + ")");
@@ -577,8 +577,9 @@ public class MainActivity extends AppCompatActivity {
 
     private void performRestore(Uri ybakUri, String password) {
         ioExecutor.execute(() -> {
+            File tempFile = null;
             try {
-                File tempFile = File.createTempFile("restore", ".ybak", getCacheDir());
+                tempFile = File.createTempFile("restore", ".ybak", getCacheDir());
                 try (InputStream is = getContentResolver().openInputStream(ybakUri)) {
                     if (is == null) throw new FileNotFoundException("Cannot open backup URI");
                     byte[] buf = new byte[8192];
@@ -588,8 +589,6 @@ public class MainActivity extends AppCompatActivity {
                     }
                 }
                 int count = DatabaseBackupHelper.restoreFromBackup(appDatabase, tempFile, password);
-                //noinspection ResultOfMethodCallIgnored
-                tempFile.delete();
                 mainHandler.post(() -> {
                     Toast.makeText(this,
                             getString(R.string.restore_success, count),
@@ -601,6 +600,11 @@ public class MainActivity extends AppCompatActivity {
                 mainHandler.post(() -> Toast.makeText(this,
                         getString(R.string.restore_failed, e.getMessage()),
                         Toast.LENGTH_LONG).show());
+            } finally {
+                if (tempFile != null) {
+                    //noinspection ResultOfMethodCallIgnored
+                    tempFile.delete();
+                }
             }
         });
     }

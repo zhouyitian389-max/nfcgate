@@ -40,6 +40,7 @@ public class MainActivity extends AppCompatActivity {
     private boolean running = false;
     private final Handler mainHandler = new Handler(Looper.getMainLooper());
     private final ExecutorService dbExecutor = Executors.newSingleThreadExecutor();
+    private final ExecutorService networkExecutor = Executors.newSingleThreadExecutor();
     private static final int REQUEST_POST_NOTIFICATIONS = 1001;
 
     private final BroadcastReceiver stateReceiver = new BroadcastReceiver() {
@@ -130,6 +131,7 @@ public class MainActivity extends AppCompatActivity {
     protected void onDestroy() {
         super.onDestroy();
         dbExecutor.shutdownNow();
+        networkExecutor.shutdownNow();
     }
 
     private void startReceiver() {
@@ -210,7 +212,7 @@ public class MainActivity extends AppCompatActivity {
     }
 
     private void refreshCloudStats() {
-        dbExecutor.execute(() -> {
+        networkExecutor.execute(() -> {
             try {
                 CloudApiClient.Stats stats = new CloudApiClient(this).fetchStats();
                 mainHandler.post(() -> tvAuthor.setText(getString(R.string.author_credit) + "\n"
