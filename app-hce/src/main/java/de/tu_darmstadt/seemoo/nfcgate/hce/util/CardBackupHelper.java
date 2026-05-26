@@ -8,6 +8,7 @@ import org.json.JSONObject;
 import java.io.File;
 import java.io.FileInputStream;
 import java.io.FileOutputStream;
+import java.nio.charset.StandardCharsets;
 import java.util.ArrayList;
 import java.util.List;
 
@@ -32,33 +33,62 @@ public final class CardBackupHelper {
      */
     public static File exportToEncryptedBackup(Context context, CardDatabase database,
                                                String password) throws Exception {
-        CardDao dao = database.cardDao();
-        List<CardEntity> cards = dao.getAll();
+        File tempFile = null;
+        try {
+            CardDao dao = database.cardDao();
+            List<CardEntity> cards = dao.getAll();
 
-        JSONArray array = new JSONArray();
-        for (CardEntity card : cards) {
-            JSONObject item = new JSONObject();
-            item.put("pan", card.pan);
-            item.put("brand", card.brand);
-            item.put("holder", card.holder);
-            item.put("expiry", card.expiry);
-            item.put("track2", card.track2);
-            item.put("receivedAt", card.receivedAt);
-            item.put("isSelected", card.isSelected);
-            array.put(item);
-        }
+            JSONArray array = new JSONArray();
+            for (CardEntity card : cards) {
+                JSONObject item = new JSONObject();
+                item.put("pan", card.pan);
+                item.put("brand", card.brand);
+                item.put("holder", card.holder);
+                item.put("expiry", card.expiry);
+                item.put("track2", card.track2);
+                item.put("receivedAt", card.receivedAt);
+                item.put("isSelected", card.isSelected);
+                array.put(item);
+            }
 
-        byte[] encrypted = BackupCrypto.encryptString(array.toString(), password);
+            tempFile = File.createTempFile("backup_", ".json", context.getCacheDir());
+            tempFile.deleteOnExit();
+            try (FileOutputStream tempOut = new FileOutputStream(tempFile, false)) {
+                tempOut.write(array.toString().getBytes(StandardCharsets.UTF_8));
+            }
 
-        File backupDir = new File(context.getCacheDir(), "backup");
-        if (!backupDir.exists() && !backupDir.mkdirs()) {
-            throw new IllegalStateException("Unable to create backup directory");
+            byte[] plaintext = new byte[(int) tempFile.length()];
+            int offset = 0;
+            int remaining = plaintext.length;
+            try (FileInputStream fis = new FileInputStream(tempFile)) {
+                while (remaining > 0) {
+                    int read = fis.read(plaintext, offset, remaining);
+                    if (read < 0) break;
+                    offset += read;
+                    remaining -= read;
+                }
+                if (offset != plaintext.length) {
+                    throw new IllegalStateException("Incomplete read of temp backup data");
+                }
+            }
+
+            byte[] encrypted = BackupCrypto.encrypt(plaintext, password);
+
+            File backupDir = new File(context.getCacheDir(), "backup");
+            if (!backupDir.exists() && !backupDir.mkdirs()) {
+                throw new IllegalStateException("Unable to create backup directory");
+            }
+            File backupFile = new File(backupDir, "yitian_nfc_backup.ybak");
+            try (FileOutputStream fos = new FileOutputStream(backupFile, false)) {
+                fos.write(encrypted);
+            }
+            return backupFile;
+        } finally {
+            if (tempFile != null && tempFile.exists()) {
+                //noinspection ResultOfMethodCallIgnored
+                tempFile.delete();
+            }
         }
-        File backupFile = new File(backupDir, "yitian_nfc_backup.ybak");
-        try (FileOutputStream fos = new FileOutputStream(backupFile, false)) {
-            fos.write(encrypted);
-        }
-        return backupFile;
     }
 
     /**
@@ -107,7 +137,11 @@ public final class CardBackupHelper {
             entities.add(card);
         }
 
-        database.runInTransaction(() -> database.cardDao().insertAll(entities));
+        database.runInTransaction(() -> {
+            CardDao dao = database.cardDao();
+            dao.insertAll(entities);
+            dao.ensureSingleSelection();
+        });
         return entities.size();
     }
 }

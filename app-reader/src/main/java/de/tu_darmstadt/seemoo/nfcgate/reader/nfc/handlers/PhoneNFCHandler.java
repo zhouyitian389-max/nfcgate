@@ -20,18 +20,30 @@ import de.tu_darmstadt.seemoo.nfcgate.reader.nfc.emv.EMVReader;
 public class PhoneNFCHandler implements NFCHandler {
     private static final String TAG = "PhoneNFCHandler";
 
-    private final Context context;
-    private NfcAdapter adapter;
+    private enum ReaderState {
+        IDLE,
+        READER_MODE_ENABLED,
+        CAPTURING
+    }
+
+    private Activity activity;
+    private final NfcAdapter adapter;
     private EventCallback callback;
+    private ReaderState state = ReaderState.IDLE;
 
     public PhoneNFCHandler(Context context) {
-        this.context = context.getApplicationContext();
-        this.adapter = NfcAdapter.getDefaultAdapter(this.context);
+        this.activity = context instanceof Activity ? (Activity) context : null;
+        this.adapter = NfcAdapter.getDefaultAdapter(context);
+    }
+
+    public void bindActivity(Activity activity) {
+        this.activity = activity;
     }
 
     @Override
     public void startCapture(EventCallback callback) {
         this.callback = callback;
+        transitionTo(ReaderState.IDLE);
         if (adapter == null) {
             callback.onEvent(new NFCEvent.Error("Phone has no NFC adapter", NFCSource.PHONE));
             return;
@@ -40,15 +52,13 @@ public class PhoneNFCHandler implements NFCHandler {
             callback.onEvent(new NFCEvent.Error("NFC is disabled in system settings", NFCSource.PHONE));
             return;
         }
-        if (!(context instanceof Activity)) {
-            // We're holding an application context. Reader mode requires an Activity.
-            // Emit a friendly event so user sees feedback instead of silence.
+        if (activity == null) {
             callback.onEvent(new NFCEvent.Error(
-                    "Phone NFC ready. Tap a card while app is foreground.",
+                    "Phone NFC requires a foreground Activity.",
                     NFCSource.PHONE));
             return;
         }
-        enableReaderMode((Activity) context);
+        enableReaderMode(activity);
     }
 
     /** Public so MainActivity can re-bind ReaderMode using a real Activity reference. */
@@ -62,10 +72,12 @@ public class PhoneNFCHandler implements NFCHandler {
         Bundle extras = new Bundle();
         extras.putInt(NfcAdapter.EXTRA_READER_PRESENCE_CHECK_DELAY, 500);
         adapter.enableReaderMode(activity, this::onTag, flags, extras);
+        transitionTo(ReaderState.READER_MODE_ENABLED);
     }
 
     private void onTag(Tag tag) {
         if (callback == null) return;
+        transitionTo(ReaderState.CAPTURING);
 
         // Attempt a full EMV read first; fall back to UID-only if the card
         // does not support ISO-DEP or any APDU step fails.
@@ -83,15 +95,26 @@ public class PhoneNFCHandler implements NFCHandler {
             callback.onEvent(new NFCEvent.CardDetected(
                     type, tag.getId(), NFCSource.PHONE, System.currentTimeMillis()));
         }
+        transitionTo(ReaderState.READER_MODE_ENABLED);
     }
 
     @Override
     public void stopCapture() {
-        if (adapter != null && context instanceof Activity) {
+        Activity currentActivity = activity;
+        if (adapter != null && currentActivity != null) {
             try {
-                adapter.disableReaderMode((Activity) context);
+                adapter.disableReaderMode(currentActivity);
             } catch (Exception ignored) { /* activity may already be destroyed */ }
         }
+        transitionTo(ReaderState.IDLE);
         callback = null;
+    }
+
+    private void transitionTo(ReaderState nextState) {
+        if (state == nextState) {
+            return;
+        }
+        Log.d(TAG, "State transition: " + state + " -> " + nextState);
+        state = nextState;
     }
 }

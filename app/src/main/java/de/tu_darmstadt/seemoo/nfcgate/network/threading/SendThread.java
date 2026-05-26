@@ -35,8 +35,8 @@ public class SendThread extends BaseThread {
         SendRecord record = mConnection.getSendQueue().take();
         Log.v(TAG, "Sending message of " + record.getData().length + " bytes");
 
-        // 4 byte data length
-        mWriteStream.writeInt(record.getData().length);
+        // 4 byte frame length (session byte + payload)
+        mWriteStream.writeInt(record.getData().length + 1);
         // 1 byte session number
         mWriteStream.writeByte(record.getSession());
         // send actual data

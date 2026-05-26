@@ -15,6 +15,7 @@ import java.nio.charset.StandardCharsets;
 import java.util.ArrayList;
 import java.util.List;
 
+import de.tu_darmstadt.seemoo.nfcgate.reader.BuildConfig;
 import de.tu_darmstadt.seemoo.nfcgate.reader.auth.CloudSessionManager;
 import de.tu_darmstadt.seemoo.nfcgate.reader.settings.SettingsManager;
 
@@ -205,6 +206,9 @@ public class CloudApiClient {
     private String baseUrl() {
         String configured = SettingsManager.getApiServerUrl(appContext);
         String normalized = configured == null ? "" : configured.trim();
+        if (!BuildConfig.DEBUG && normalized.startsWith("http://")) {
+            normalized = "https://" + normalized.substring("http://".length());
+        }
         if (normalized.endsWith("/")) {
             normalized = normalized.substring(0, normalized.length() - 1);
         }

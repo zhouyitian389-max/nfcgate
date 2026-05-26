@@ -33,14 +33,22 @@ public class ReceiveThread extends BaseThread {
     @Override
     void runInternal() throws IOException {
         // block and wait for the 4 byte length prefix
-        int length = mReadStream.readInt();
-        Log.v(TAG, "Got message of " + length + " bytes");
+        int totalLength = mReadStream.readInt();
+        Log.v(TAG, "Got message of " + totalLength + " bytes");
 
-        if (length > MAX_RECEIVE_BYTES)
+        if (totalLength <= 0 || totalLength > MAX_RECEIVE_BYTES)
             throw new IOException("Invalid protocol length prefix received");
 
-        // block and wait for actual data
-        byte[] data = new byte[length];
+        // consume session byte to keep framing in sync
+        mReadStream.readByte();
+
+        int payloadLength = totalLength - 1;
+        if (payloadLength < 0) {
+            throw new IOException("Invalid protocol payload length");
+        }
+
+        // block and wait for actual payload data
+        byte[] data = new byte[payloadLength];
         mReadStream.readFully(data);
 
         // deliver data

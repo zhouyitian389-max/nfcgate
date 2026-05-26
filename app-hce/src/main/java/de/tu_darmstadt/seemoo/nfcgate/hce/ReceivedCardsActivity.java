@@ -21,16 +21,21 @@ import androidx.annotation.NonNull;
 import androidx.appcompat.app.AlertDialog;
 import androidx.appcompat.app.AppCompatActivity;
 import androidx.appcompat.widget.SearchView;
-import androidx.core.content.FileProvider;
 import androidx.recyclerview.widget.ItemTouchHelper;
 import androidx.recyclerview.widget.LinearLayoutManager;
 import androidx.recyclerview.widget.RecyclerView;
+import com.google.android.material.snackbar.Snackbar;
 
 import java.io.File;
+import java.io.FileInputStream;
 import java.io.FileNotFoundException;
 import java.io.InputStream;
+import java.io.OutputStream;
 import java.util.ArrayList;
+import java.util.Date;
 import java.util.List;
+import java.util.Locale;
+import java.util.concurrent.atomic.AtomicBoolean;
 import java.util.concurrent.ExecutorService;
 import java.util.concurrent.Executors;
 
@@ -47,9 +52,12 @@ public class ReceivedCardsActivity extends AppCompatActivity {
     private CardDao dao;
     private Adapter adapter;
     private ActivityResultLauncher<String[]> restoreFileLauncher;
+    private ActivityResultLauncher<String> createBackupLauncher;
     private String searchQuery = "";
+    private String backupPassword;
     private final Handler mainHandler = new Handler(Looper.getMainLooper());
     private final ExecutorService dbExecutor = Executors.newSingleThreadExecutor();
+    private final AtomicBoolean isActive = new AtomicBoolean(true);
 
     @Override
     protected void onCreate(Bundle savedInstanceState) {
@@ -68,6 +76,15 @@ public class ReceivedCardsActivity extends AppCompatActivity {
                 uri -> {
                     if (uri != null) {
                         showRestorePasswordDialog(uri);
+                    }
+                });
+        createBackupLauncher = registerForActivityResult(
+                new ActivityResultContracts.CreateDocument("application/octet-stream"),
+                uri -> {
+                    if (uri != null) {
+                        performBackupExport(uri);
+                    } else {
+                        backupPassword = null;
                     }
                 });
         ItemTouchHelper helper = new ItemTouchHelper(new ItemTouchHelper.SimpleCallback(0, ItemTouchHelper.LEFT) {
@@ -106,7 +123,7 @@ public class ReceivedCardsActivity extends AppCompatActivity {
         } else if (item.getItemId() == R.id.action_clear_expired) {
             dbExecutor.execute(() -> {
                 int deleted = dao.clearExpired();
-                mainHandler.post(() -> {
+                postToMainIfActive(() -> {
                     Toast.makeText(this, getString(R.string.cleared_expired_cards, deleted), Toast.LENGTH_SHORT).show();
                     adapter.reload();
                 });
@@ -124,7 +141,7 @@ public class ReceivedCardsActivity extends AppCompatActivity {
         MenuItem searchItem = menu.findItem(R.id.action_search);
         if (searchItem != null && searchItem.getActionView() instanceof SearchView) {
             SearchView searchView = (SearchView) searchItem.getActionView();
-            searchView.setQueryHint("Search cards");
+            searchView.setQueryHint(getString(R.string.search_cards_hint));
             searchView.setOnQueryTextListener(new SearchView.OnQueryTextListener() {
                 @Override
                 public boolean onQueryTextSubmit(String query) {
@@ -151,9 +168,17 @@ public class ReceivedCardsActivity extends AppCompatActivity {
     }
 
     @Override
+    protected void onStop() {
+        super.onStop();
+        mainHandler.removeCallbacksAndMessages(null);
+    }
+
+    @Override
     protected void onDestroy() {
-        super.onDestroy();
+        isActive.set(false);
+        mainHandler.removeCallbacksAndMessages(null);
         dbExecutor.shutdownNow();
+        super.onDestroy();
     }
 
     private void showEncryptedBackupDialog() {
@@ -185,32 +210,51 @@ public class ReceivedCardsActivity extends AppCompatActivity {
                                 Toast.LENGTH_SHORT).show();
                         return;
                     }
-                    exportEncryptedBackup(pw1);
+                    backupPassword = pw1;
+                    String filename = "yitian_cards_"
+                            + new java.text.SimpleDateFormat("yyyyMMdd_HHmmss", Locale.US)
+                            .format(new Date())
+                            + ".ybak";
+                    createBackupLauncher.launch(filename);
                 })
                 .setNegativeButton(android.R.string.cancel, null)
                 .show();
     }
 
-    private void exportEncryptedBackup(String password) {
+    private void performBackupExport(Uri destinationUri) {
+        if (backupPassword == null) {
+            return;
+        }
+        final String password = backupPassword;
+        backupPassword = null;
         dbExecutor.execute(() -> {
+            File tempFile = null;
             try {
-                File ybakFile = CardBackupHelper.exportToEncryptedBackup(
+                tempFile = CardBackupHelper.exportToEncryptedBackup(
                         this, CardDatabase.getInstance(this), password);
-                Uri uri = FileProvider.getUriForFile(this,
-                        getPackageName() + ".provider", ybakFile);
-                mainHandler.post(() -> {
-                    Intent intent = new Intent(Intent.ACTION_SEND);
-                    intent.setType("application/octet-stream");
-                    intent.putExtra(Intent.EXTRA_STREAM, uri);
-                    intent.addFlags(Intent.FLAG_GRANT_READ_URI_PERMISSION);
-                    startActivity(Intent.createChooser(intent,
-                            getString(R.string.menu_encrypted_backup)));
+                try (InputStream is = new FileInputStream(tempFile);
+                     OutputStream os = getContentResolver().openOutputStream(destinationUri)) {
+                    if (os == null) {
+                        throw new FileNotFoundException("Cannot open destination URI");
+                    }
+                    byte[] buf = new byte[8192];
+                    int n;
+                    while ((n = is.read(buf)) != -1) {
+                        os.write(buf, 0, n);
+                    }
+                }
+                postToMainIfActive(() -> {
                     Toast.makeText(this, R.string.backup_success, Toast.LENGTH_SHORT).show();
                 });
             } catch (Exception e) {
-                mainHandler.post(() -> Toast.makeText(this,
+                postToMainIfActive(() -> Toast.makeText(this,
                         getString(R.string.backup_failed, e.getMessage()),
                         Toast.LENGTH_LONG).show());
+            } finally {
+                if (tempFile != null) {
+                    //noinspection ResultOfMethodCallIgnored
+                    tempFile.delete();
+                }
             }
         });
     }
@@ -249,9 +293,10 @@ public class ReceivedCardsActivity extends AppCompatActivity {
 
     private void performRestore(Uri ybakUri, String password) {
         dbExecutor.execute(() -> {
+            File tempFile = null;
             try {
                 // Copy URI content to a temp file so CardBackupHelper can read it
-                File tempFile = File.createTempFile("restore", ".ybak", getCacheDir());
+                tempFile = File.createTempFile("restore", ".ybak", getCacheDir());
                 try (InputStream is = getContentResolver().openInputStream(ybakUri)) {
                     if (is == null) throw new FileNotFoundException("Cannot open backup URI");
                     byte[] buf = new byte[8192];
@@ -262,18 +307,22 @@ public class ReceivedCardsActivity extends AppCompatActivity {
                 }
                 int count = CardBackupHelper.restoreFromBackup(
                         CardDatabase.getInstance(this), tempFile, password);
-                //noinspection ResultOfMethodCallIgnored
-                tempFile.delete();
-                mainHandler.post(() -> {
+                postToMainIfActive(() -> {
                     Toast.makeText(this,
                             getString(R.string.restore_success, count),
                             Toast.LENGTH_SHORT).show();
+                    sendSelectionChangedBroadcast();
                     adapter.reload();
                 });
             } catch (Exception e) {
-                mainHandler.post(() -> Toast.makeText(this,
+                postToMainIfActive(() -> Toast.makeText(this,
                         getString(R.string.restore_failed, e.getMessage()),
                         Toast.LENGTH_LONG).show());
+            } finally {
+                if (tempFile != null && tempFile.exists()) {
+                    //noinspection ResultOfMethodCallIgnored
+                    tempFile.delete();
+                }
             }
         });
     }
@@ -283,8 +332,11 @@ public class ReceivedCardsActivity extends AppCompatActivity {
 
         void reload() {
             dbExecutor.execute(() -> {
+                if (!isActive.get()) {
+                    return;
+                }
                 List<CardEntity> newData = searchQuery.isEmpty() ? dao.getAll() : dao.search(searchQuery);
-                mainHandler.post(() -> {
+                postToMainIfActive(() -> {
                     data = newData;
                     notifyDataSetChanged();
                     boolean empty = data.isEmpty();
@@ -319,9 +371,8 @@ public class ReceivedCardsActivity extends AppCompatActivity {
             });
             h.itemView.setOnClickListener(v -> {
                 dbExecutor.execute(() -> {
-                    dao.clearSelection();
-                    dao.select(c.id);
-                    mainHandler.post(() -> {
+                    dao.selectExclusive(c.id);
+                    postToMainIfActive(() -> {
                         sendSelectionChangedBroadcast();
                         reload();
                         Toast.makeText(ReceivedCardsActivity.this,
@@ -355,31 +406,39 @@ public class ReceivedCardsActivity extends AppCompatActivity {
     }
 
     private void showDeleteConfirm(CardEntity c) {
-        new AlertDialog.Builder(this)
-                .setTitle(R.string.dialog_delete_card_title)
-                .setMessage(R.string.dialog_delete_card_message)
-                .setPositiveButton(android.R.string.ok, (dialog, which) -> {
-                    dbExecutor.execute(() -> {
-                        dao.deleteById(c.id);
-                        if (c.serverCardId != null && !c.serverCardId.isEmpty()) {
-                            try {
-                                new CloudApiClient(this).requestDeleteCard(c.serverCardId);
-                            } catch (Exception ignored) {
-                            }
-                        }
-                        mainHandler.post(() -> {
-                            sendSelectionChangedBroadcast();
-                            adapter.reload();
-                            Toast.makeText(this, R.string.toast_card_deleted, Toast.LENGTH_SHORT).show();
-                        });
-                    });
+        int position = adapter.data.indexOf(c);
+        if (position < 0) {
+            adapter.reload();
+            return;
+        }
+        adapter.data.remove(position);
+        adapter.notifyItemRemoved(position);
+        Snackbar.make(rv, R.string.card_deleted, 5000)
+                .setAction(R.string.undo, v -> {
+                    int insertPosition = Math.min(position, adapter.data.size());
+                    adapter.data.add(insertPosition, c);
+                    adapter.notifyItemInserted(insertPosition);
                 })
-                .setNegativeButton(android.R.string.cancel, (dialog, which) -> {
-                    int position = adapter.data.indexOf(c);
-                    if (position >= 0) {
-                        adapter.notifyItemChanged(position);
-                    } else {
-                        adapter.reload();
+                .addCallback(new Snackbar.Callback() {
+                    @Override
+                    public void onDismissed(Snackbar transientBottomBar, int event) {
+                        if (event == DISMISS_EVENT_ACTION) {
+                            return;
+                        }
+                        dbExecutor.execute(() -> {
+                            dao.deleteById(c.id);
+                            if (c.serverCardId != null && !c.serverCardId.isEmpty()) {
+                                try {
+                                    new CloudApiClient(ReceivedCardsActivity.this).requestDeleteCard(c.serverCardId);
+                                } catch (Exception ignored) {
+                                }
+                            }
+                            postToMainIfActive(() -> {
+                                sendSelectionChangedBroadcast();
+                                adapter.reload();
+                                Toast.makeText(ReceivedCardsActivity.this, R.string.toast_card_deleted, Toast.LENGTH_SHORT).show();
+                            });
+                        });
                     }
                 })
                 .show();
@@ -396,11 +455,23 @@ public class ReceivedCardsActivity extends AppCompatActivity {
                     dbExecutor.execute(() -> {
                         c.note = note;
                         dao.insert(c);
-                        mainHandler.post(adapter::reload);
+                        postToMainIfActive(adapter::reload);
                     });
                 })
                 .setNegativeButton(android.R.string.cancel, null)
                 .show();
+    }
+
+    private void postToMainIfActive(Runnable task) {
+        if (!isActive.get()) {
+            return;
+        }
+        mainHandler.post(() -> {
+            if (!isActive.get() || isFinishing() || isDestroyed()) {
+                return;
+            }
+            task.run();
+        });
     }
 
     private void bindExpiryBadge(Adapter.VH h, CardEntity c) {

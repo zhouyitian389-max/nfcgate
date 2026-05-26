@@ -17,6 +17,7 @@ import de.tu_darmstadt.seemoo.nfcgate.nfc.config.Technologies;
  * Interface to all NFCTagReader-Classes.
  */
 public abstract class NFCTagReader {
+    private static final String TAG = "NFCGATE";
     final TagTechnology mReader;
 
     NFCTagReader(TagTechnology reader) {
@@ -34,10 +35,10 @@ public abstract class NFCTagReader {
      * Opens the connection
      */
     public void connect() {
-        try{
+        try {
             mReader.connect();
-        } catch(IOException e) {
-            e.printStackTrace();
+        } catch (IOException e) {
+            Log.e(TAG, "Failed to connect NFC tag", e);
         }
     }
 
@@ -45,10 +46,10 @@ public abstract class NFCTagReader {
      * Closes the connection, no further communication will be possible
      */
     public void close() {
-        try{
+        try {
             mReader.close();
-        } catch(IOException e) {
-            e.printStackTrace();
+        } catch (IOException e) {
+            Log.e(TAG, "Failed to close NFC tag", e);
         }
     }
 
@@ -59,15 +60,44 @@ public abstract class NFCTagReader {
      * @return byte[]-representation of the answer of the NFC chip
      */
     public byte[] transceive(byte[] command) {
+        TagReadResult result = transceiveWithResult(command);
+        if (result instanceof TagReadResult.Success success) {
+            return success.data();
+        }
+        Log.e(TAG, "NFC transceive failed: " + ((TagReadResult.Error) result).message());
+        return null;
+    }
+
+    public TagReadResult transceiveWithResult(byte[] command) {
         try {
             // there is no common interface for TagTechnology...
             Method transceive = mReader.getClass().getMethod("transceive", byte[].class);
-            return (byte[])transceive.invoke(mReader, command);
+            return new TagReadResult.Success((byte[]) transceive.invoke(mReader, command));
         }
         catch (Exception e) {
-            e.printStackTrace();
-            return null;
+            String message = e.getMessage() != null ? e.getMessage() : "Unknown transceive error";
+            return new TagReadResult.Error(message);
         }
+    }
+
+    public TagReadResult transceiveInSession(byte[] command) {
+        try {
+            mReader.connect();
+            return transceiveWithResult(command);
+        } catch (IOException e) {
+            return new TagReadResult.Error(e.getMessage() != null ? e.getMessage() : "Failed to connect to tag");
+        } finally {
+            try {
+                mReader.close();
+            } catch (IOException e) {
+                Log.e(TAG, "Failed to close NFC tag", e);
+            }
+        }
+    }
+
+    public sealed interface TagReadResult permits TagReadResult.Success, TagReadResult.Error {
+        record Success(byte[] data) implements TagReadResult {}
+        record Error(String message) implements TagReadResult {}
     }
 
     /**

@@ -34,6 +34,8 @@
     <string name="toast_stopped">接收器已停止</string>
     <string name="toast_card_selected">已选中 HCE 模拟卡片：%1$s</string>
     <string name="toast_card_deleted">卡片已删除</string>
+    <string name="card_deleted">卡片已删除</string>
+    <string name="undo">撤销</string>
     <string name="toast_no_cards">暂无接收到的卡片，请使用 YitianRead 发送。</string>
     <string name="toast_login_required">请先登录</string>
     <string name="toast_sync_success">已从云端同步 %1$d 张卡</string>
@@ -79,6 +81,10 @@
     <string name="login_password_invalid">密码必须为 4-32 位</string>
     <string name="login_failed">登录失败：%1$s</string>
     <string name="login_failed_generic">无法登录</string>
+    <string name="sync_status_connected">已连接</string>
+    <string name="sync_status_syncing">同步中…</string>
+    <string name="sync_status_offline">离线</string>
+    <string name="stats_summary">用户数：%1$d | 你的卡片：%2$d | 今日活跃：%3$d</string>
     <string name="cleared_expired_cards">已清除 %1$d 张过期卡片</string>
     <string name="dialog_delete_card_title">删除卡片？</string>
     <string name="dialog_delete_card_message">永久删除此卡片？</string>
@@ -87,6 +93,18 @@
     <string name="card_holder">YITIAN</string>
     <string name="masked_pan">**** **** **** %1$s</string>
     <string name="unknown_pan">0000</string>
+    <string name="label_expires_in">%1$d 天后过期</string>
+    <string name="search_cards_hint">搜索卡片</string>
+    <string name="admin_title">管理员</string>
+    <string name="admin_summary">已同步卡片总数、账号 ID、服务器状态</string>
+    <string name="version_title">版本</string>
+    <string name="diagnostics_title">诊断信息</string>
+    <string name="diagnostics_app_version">应用版本：%1$s</string>
+    <string name="diagnostics_version_code">版本号：%1$d</string>
+    <string name="diagnostics_build_type">构建类型：%1$s</string>
+    <string name="diagnostics_logged_in">已登录：%1$b</string>
+    <string name="diagnostics_token_expiry">令牌过期时间：%1$s</string>
+    <string name="diagnostics_not_available">不可用</string>
 
     <!-- 备份 / 恢复 -->
     <string name="backup_password_prompt">输入备份密码</string>

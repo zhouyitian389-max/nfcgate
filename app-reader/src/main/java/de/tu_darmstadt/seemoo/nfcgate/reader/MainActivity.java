@@ -39,13 +39,17 @@ import com.google.android.material.tabs.TabLayoutMediator;
 
 import java.io.BufferedWriter;
 import java.io.File;
+import java.io.FileInputStream;
 import java.io.FileNotFoundException;
 import java.io.FileWriter;
 import java.io.IOException;
 import java.io.InputStream;
+import java.io.OutputStream;
+import java.util.Date;
 import java.util.ArrayList;
 import java.util.Arrays;
 import java.util.List;
+import java.util.Locale;
 import java.util.concurrent.ExecutorService;
 import java.util.concurrent.Executors;
 import java.util.regex.Matcher;
@@ -77,6 +81,7 @@ public class MainActivity extends AppCompatActivity {
     private final ExecutorService ioExecutor = Executors.newSingleThreadExecutor();
 
     private ActivityResultLauncher<String> filePickerLauncher;
+    private ActivityResultLauncher<String> createBackupLauncher;
 
     private NFCManager nfcManager;
     private NFCDevice selectedDevice;
@@ -100,6 +105,9 @@ public class MainActivity extends AppCompatActivity {
 
     private Runnable autoScrollRunnable;
     private Runnable stopCaptureRunnable;
+    private String backupPassword;
+    private boolean captureActive;
+    private boolean resumeCaptureOnResume;
 
     @Override
     protected void onCreate(Bundle savedInstanceState) {
@@ -112,6 +120,15 @@ public class MainActivity extends AppCompatActivity {
                 uri -> {
                     if (uri != null) {
                         showRestorePasswordDialog(uri);
+                    }
+                });
+        createBackupLauncher = registerForActivityResult(
+                new ActivityResultContracts.CreateDocument("application/octet-stream"),
+                uri -> {
+                    if (uri != null) {
+                        performBackupExport(uri);
+                    } else {
+                        backupPassword = null;
                     }
                 });
 
@@ -266,6 +283,7 @@ public class MainActivity extends AppCompatActivity {
 
     private void startNfcCapture() {
         if (selectedDevice == null || nfcManager == null) return;
+        captureActive = true;
         tvNfcStatus.setText(getString(R.string.nfc_status_scanning));
 
         if (stopCaptureRunnable != null) {
@@ -277,45 +295,47 @@ public class MainActivity extends AppCompatActivity {
             if (nfcManager != null) {
                 nfcManager.stopCapture();
             }
+            captureActive = false;
             tvNfcStatus.setText(getString(R.string.nfc_status_ready));
             Toast.makeText(this, R.string.toast_scan_timeout, Toast.LENGTH_SHORT).show();
         };
         mainHandler.postDelayed(stopCaptureRunnable, timeoutSeconds * 1000L);
 
         nfcManager.startCapture(selectedDevice, event -> runOnUiThread(() -> {
-            String deviceName = selectedDevice.getName();
-            String source = selectedDevice.getSource().name();
-            String rawData = event != null ? event.toString() : "No data";
-            String pan = null;
-            CardBrandDetector.CardBrand brand;
-
-            // Prefer direct EMV data (accurate PAN) over regex extraction from the raw string
-            if (event instanceof NFCEvent.CardDetected) {
-                NFCEvent.CardDetected detected = (NFCEvent.CardDetected) event;
-                EMVReader.EMVCard emvCard = detected.getEmvCard();
+            if (event instanceof NFCEvent.CardDetected cardDetected) {
+                String deviceName = selectedDevice.getName();
+                String source = selectedDevice.getSource().name();
+                String rawData = cardDetected.toString();
+                // Prefer direct EMV data (accurate PAN) over regex extraction from the raw string
+                String pan = null;
+                EMVReader.EMVCard emvCard = cardDetected.getEmvCard();
                 if (emvCard != null && emvCard.pan != null && !emvCard.pan.isEmpty()) {
                     pan = emvCard.pan;
                 }
+                if (pan == null) {
+                    pan = extractPan(rawData);
+                }
+                CardBrandDetector.CardBrand brand = CardBrandDetector.detect(pan);
+
+                ScanRecord record = new ScanRecord(deviceName, source, rawData, pan, brand);
+                scanHistoryAdapter.addRecord(record);
+                persistRecord(record);
+
+                String last4 = pan != null && pan.length() >= 4 ? pan.substring(pan.length() - 4) : getString(R.string.unknown_pan);
+                addDetectedCardToPager(brand, last4);
+
+                tvLastCard.setText(getString(R.string.last_card_template, getString(CardBrandDetector.getDisplayNameRes(brand))));
+                tvNfcStatus.setText(getString(R.string.nfc_status_ready));
+                updateHistoryVisibility();
+                animateScanSuccess();
+                performScanSuccessVibration();
+
+                Toast.makeText(this, R.string.toast_scan_success, Toast.LENGTH_SHORT).show();
+            } else if (event instanceof NFCEvent.Error error) {
+                tvNfcStatus.setText(getString(R.string.nfc_status_ready));
+                String message = error.getMessage() != null ? error.getMessage() : getString(R.string.nfc_status_ready);
+                Toast.makeText(this, message, Toast.LENGTH_LONG).show();
             }
-            if (pan == null) {
-                pan = extractPan(rawData);
-            }
-            brand = CardBrandDetector.detect(pan);
-
-            ScanRecord record = new ScanRecord(deviceName, source, rawData, pan, brand);
-            scanHistoryAdapter.addRecord(record);
-            persistRecord(record);
-
-            String last4 = pan != null && pan.length() >= 4 ? pan.substring(pan.length() - 4) : getString(R.string.unknown_pan);
-            addDetectedCardToPager(brand, last4);
-
-            tvLastCard.setText(getString(R.string.last_card_template, getString(CardBrandDetector.getDisplayNameRes(brand))));
-            tvNfcStatus.setText(getString(R.string.nfc_status_ready));
-            updateHistoryVisibility();
-            animateScanSuccess();
-            performScanSuccessVibration();
-
-            Toast.makeText(this, R.string.toast_scan_success, Toast.LENGTH_SHORT).show();
         }));
     }
 
@@ -476,32 +496,49 @@ public class MainActivity extends AppCompatActivity {
                                 Toast.LENGTH_SHORT).show();
                         return;
                     }
-                    exportEncryptedBackup(pw1);
+                    backupPassword = pw1;
+                    String filename = "yitian_history_"
+                            + new java.text.SimpleDateFormat("yyyyMMdd_HHmmss", Locale.US)
+                            .format(new Date())
+                            + ".ybak";
+                    createBackupLauncher.launch(filename);
                 })
                 .setNegativeButton(android.R.string.cancel, null)
                 .show();
     }
 
-    private void exportEncryptedBackup(String password) {
+    private void performBackupExport(Uri destinationUri) {
+        if (backupPassword == null) {
+            return;
+        }
+        final String password = backupPassword;
+        backupPassword = null;
         ioExecutor.execute(() -> {
+            File tempFile = null;
             try {
-                File ybakFile = DatabaseBackupHelper.exportToEncryptedBackup(
+                tempFile = DatabaseBackupHelper.exportToEncryptedBackup(
                         this, appDatabase, password);
-                Uri uri = FileProvider.getUriForFile(this,
-                        getPackageName() + ".provider", ybakFile);
-                mainHandler.post(() -> {
-                    Intent intent = new Intent(Intent.ACTION_SEND);
-                    intent.setType("application/octet-stream");
-                    intent.putExtra(Intent.EXTRA_STREAM, uri);
-                    intent.addFlags(Intent.FLAG_GRANT_READ_URI_PERMISSION);
-                    startActivity(Intent.createChooser(intent,
-                            getString(R.string.menu_encrypted_backup)));
-                    Toast.makeText(this, R.string.backup_success, Toast.LENGTH_SHORT).show();
-                });
+                try (InputStream is = new FileInputStream(tempFile);
+                     OutputStream os = getContentResolver().openOutputStream(destinationUri)) {
+                    if (os == null) {
+                        throw new FileNotFoundException("Cannot open destination URI");
+                    }
+                    byte[] buf = new byte[8192];
+                    int n;
+                    while ((n = is.read(buf)) != -1) {
+                        os.write(buf, 0, n);
+                    }
+                }
+                mainHandler.post(() -> Toast.makeText(this, R.string.backup_success, Toast.LENGTH_SHORT).show());
             } catch (Exception e) {
                 mainHandler.post(() -> Toast.makeText(this,
                         getString(R.string.backup_failed, e.getMessage()),
                         Toast.LENGTH_LONG).show());
+            } finally {
+                if (tempFile != null) {
+                    //noinspection ResultOfMethodCallIgnored
+                    tempFile.delete();
+                }
             }
         });
     }
@@ -664,12 +701,24 @@ public class MainActivity extends AppCompatActivity {
             mainHandler.removeCallbacks(autoScrollRunnable);
             mainHandler.postDelayed(autoScrollRunnable, 3000L);
         }
+        if (resumeCaptureOnResume) {
+            resumeCaptureOnResume = false;
+            startNfcCapture();
+        }
         refreshTokenCount();
     }
 
     @Override
     protected void onPause() {
         super.onPause();
+        resumeCaptureOnResume = captureActive;
+        if (nfcManager != null) {
+            nfcManager.stopCapture();
+        }
+        captureActive = false;
+        if (stopCaptureRunnable != null) {
+            mainHandler.removeCallbacks(stopCaptureRunnable);
+        }
         if (autoScrollRunnable != null) {
             mainHandler.removeCallbacks(autoScrollRunnable);
         }
@@ -680,7 +729,10 @@ public class MainActivity extends AppCompatActivity {
         super.onDestroy();
         if (nfcManager != null) {
             nfcManager.stopCapture();
+            nfcManager = null;
         }
+        captureActive = false;
+        resumeCaptureOnResume = false;
         if (stopCaptureRunnable != null) {
             mainHandler.removeCallbacks(stopCaptureRunnable);
         }

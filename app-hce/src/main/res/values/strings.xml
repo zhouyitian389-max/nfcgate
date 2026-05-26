@@ -34,6 +34,8 @@
     <string name="toast_stopped">Receiver stopped</string>
     <string name="toast_card_selected">Card selected for HCE: %1$s</string>
     <string name="toast_card_deleted">Card deleted</string>
+    <string name="card_deleted">Card deleted</string>
+    <string name="undo">Undo</string>
     <string name="toast_no_cards">No received cards yet. Use YitianRead to send.</string>
     <string name="toast_login_required">Please login first</string>
     <string name="toast_sync_success">Synced %1$d cards from cloud</string>
@@ -73,7 +75,7 @@
     <string name="login_failed_generic">Unable to login</string>
     <string name="too_many_attempts">Too many attempts, please wait %1$d seconds</string>
     <string name="sync_status_connected">Connected</string>
-    <string name="sync_status_syncing">Syncing</string>
+    <string name="sync_status_syncing">Syncing…</string>
     <string name="sync_status_offline">Offline</string>
     <string name="notif_cloud_sync_title">Cloud Sync</string>
     <string name="notif_cloud_sync_text">Syncing cards every 30 seconds</string>
@@ -90,6 +92,17 @@
     <string name="dialog_edit_note_title">Edit note</string>
     <string name="label_expired">Expired</string>
     <string name="label_expires_in">Expires in %1$d days</string>
+    <string name="search_cards_hint">Search cards</string>
+    <string name="admin_title">Admin</string>
+    <string name="admin_summary">Total synced cards, account ID, server status</string>
+    <string name="version_title">Version</string>
+    <string name="diagnostics_title">Diagnostics</string>
+    <string name="diagnostics_app_version">App Version: %1$s</string>
+    <string name="diagnostics_version_code">Version Code: %1$d</string>
+    <string name="diagnostics_build_type">Build Type: %1$s</string>
+    <string name="diagnostics_logged_in">Logged In: %1$b</string>
+    <string name="diagnostics_token_expiry">Token Expiry: %1$s</string>
+    <string name="diagnostics_not_available">N/A</string>
     <string name="pin_verify_title">PIN Verification</string>
     <string name="pin_verify_hint">Enter 4-6 digit PIN</string>
     <string name="pin_verify_button">Verify</string>

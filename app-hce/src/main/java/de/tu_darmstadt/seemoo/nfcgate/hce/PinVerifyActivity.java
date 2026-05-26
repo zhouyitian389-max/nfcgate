@@ -24,6 +24,7 @@ import com.google.android.material.button.MaterialButton;
 import java.util.concurrent.Executor;
 
 import de.tu_darmstadt.seemoo.nfcgate.hce.security.PinHasher;
+import de.tu_darmstadt.seemoo.nfcgate.hce.service.YitianHostApduService;
 
 public class PinVerifyActivity extends FragmentActivity {
     private static final String TAG = "PinVerifyActivity";
@@ -161,6 +162,7 @@ public class PinVerifyActivity extends FragmentActivity {
                 .remove(PREF_LOCK_UNTIL_WALL)
                 .remove(PREF_LOCK_UNTIL_LEGACY)
                 .apply();
+        notifyPinLockStateChanged();
         etPinCode.setEnabled(true);
         btnVerify.setEnabled(true);
         attemptsLeft = MAX_ATTEMPTS;
@@ -238,8 +240,15 @@ public class PinVerifyActivity extends FragmentActivity {
                     .putLong(PREF_LOCK_UNTIL_WALL, lockUntilWall)
                     .remove(PREF_LOCK_UNTIL_LEGACY)
                     .apply();
+            notifyPinLockStateChanged();
             applyLockout(lockUntilElapsed, lockUntilWall);
         }
+    }
+
+    private void notifyPinLockStateChanged() {
+        Intent intent = new Intent(YitianHostApduService.ACTION_PIN_LOCK_CHANGED);
+        intent.setPackage(getPackageName());
+        sendBroadcast(intent);
     }
 
     private void updateAttemptsLabel() {

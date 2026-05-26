@@ -4,6 +4,7 @@ import android.content.Context;
 import android.hardware.usb.UsbDevice;
 import android.hardware.usb.UsbDeviceConnection;
 import android.hardware.usb.UsbEndpoint;
+import android.hardware.usb.UsbInterface;
 import android.hardware.usb.UsbManager;
 import android.util.Log;
 
@@ -21,6 +22,8 @@ public class USBConnection {
     private UsbDeviceConnection connection;
     @Nullable
     private UsbDevice device;
+    @Nullable
+    private UsbInterface claimedInterface;
 
     public USBConnection(Context context) {
         this.usbManager = (UsbManager) context.getSystemService(Context.USB_SERVICE);
@@ -38,11 +41,35 @@ public class USBConnection {
     }
 
     public void disconnect() {
+        if (connection != null && claimedInterface != null) {
+            connection.releaseInterface(claimedInterface);
+        }
+        claimedInterface = null;
         if (connection != null) {
             connection.close();
         }
         connection = null;
         device = null;
+    }
+
+    public boolean claimInterface(UsbInterface usbInterface) {
+        if (connection == null || usbInterface == null) {
+            return false;
+        }
+        if (claimedInterface != null && claimedInterface.getId() != usbInterface.getId()) {
+            connection.releaseInterface(claimedInterface);
+            claimedInterface = null;
+        }
+        if (claimedInterface != null && claimedInterface.getId() == usbInterface.getId()) {
+            return true;
+        }
+        boolean claimed = connection.claimInterface(usbInterface, true);
+        if (claimed) {
+            claimedInterface = usbInterface;
+        } else {
+            Log.w(TAG, "Failed to claim USB interface " + usbInterface.getId());
+        }
+        return claimed;
     }
 
     public byte[] bulkTransfer(UsbEndpoint endpoint, byte[] data, int timeout) {
