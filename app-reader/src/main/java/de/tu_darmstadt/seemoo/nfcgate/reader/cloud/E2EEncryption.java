@@ -19,6 +19,7 @@ public final class E2EEncryption {
     private E2EEncryption() {}
 
     public static String encrypt(String plaintext, String password, String accountSalt) throws Exception {
+        validateSalt(accountSalt, "encryption");
         byte[] iv = new byte[12];
         new SecureRandom().nextBytes(iv);
         SecretKey key = deriveKey(password, accountSalt);
@@ -31,6 +32,7 @@ public final class E2EEncryption {
     }
 
     public static String decrypt(String ciphertext, String password, String accountSalt) throws Exception {
+        validateSalt(accountSalt, "decryption");
         String[] parts = ciphertext.split("\\.", 2);
         if (parts.length != 2) throw new IllegalArgumentException("Invalid ciphertext");
         byte[] iv = Base64.decode(parts[0], Base64.NO_WRAP);
@@ -46,5 +48,12 @@ public final class E2EEncryption {
         SecretKeyFactory factory = SecretKeyFactory.getInstance("PBKDF2WithHmacSHA256");
         byte[] bytes = factory.generateSecret(spec).getEncoded();
         return new SecretKeySpec(bytes, "AES");
+    }
+
+    private static void validateSalt(String salt, String operation) {
+        if (salt == null || salt.trim().isEmpty() || "default".equals(salt.trim())) {
+            throw new IllegalArgumentException(
+                    "Salt is required for " + operation + ". Please re-login to fetch salt from server.");
+        }
     }
 }

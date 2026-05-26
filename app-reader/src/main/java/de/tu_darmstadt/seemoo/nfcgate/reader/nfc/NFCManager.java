@@ -1,5 +1,6 @@
 package de.tu_darmstadt.seemoo.nfcgate.reader.nfc;
 
+import android.app.Activity;
 import android.content.Context;
 import android.hardware.usb.UsbDevice;
 import android.hardware.usb.UsbManager;
@@ -31,12 +32,14 @@ public class NFCManager {
     private final ACR122UHandler acr122uHandler;
 
     public NFCManager(Context context) {
-        this.context = context.getApplicationContext();
+        this.context = context;
         this.usbManager = (UsbManager) context.getSystemService(Context.USB_SERVICE);
         this.phoneHandler = new PhoneNFCHandler(context);
         this.wearHandler = new WearOSNFCHandler(context, new WearDataLayerBridge());
-        this.pn532Handler = new PN532Handler(context, new PN532Protocol(new USBConnection(context), null, null));
-        this.acr122uHandler = new ACR122UHandler(context, new ACR122UProtocol(new USBConnection(context), null, null));
+        USBConnection pn532Connection = new USBConnection(context);
+        USBConnection acr122uConnection = new USBConnection(context);
+        this.pn532Handler = new PN532Handler(pn532Connection, new PN532Protocol(pn532Connection));
+        this.acr122uHandler = new ACR122UHandler(acr122uConnection, new ACR122UProtocol(acr122uConnection));
     }
 
     public List<NFCDevice> scanUSBDevices() {
@@ -81,13 +84,18 @@ public class NFCManager {
                 wearHandler.startCapture(callback);
                 break;
             case PN532:
+                pn532Handler.setTargetDevice(resolveUsbDevice(device));
                 pn532Handler.startCapture(callback);
                 break;
             case ACR122U:
+                acr122uHandler.setTargetDevice(resolveUsbDevice(device));
                 acr122uHandler.startCapture(callback);
                 break;
             case PHONE:
             default:
+                if (context instanceof Activity) {
+                    phoneHandler.bindActivity((Activity) context);
+                }
                 phoneHandler.startCapture(callback);
                 break;
         }
@@ -111,5 +119,17 @@ public class NFCManager {
 
     private String toHex(int value) {
         return String.format(Locale.ROOT, "%04X", value & 0xFFFF);
+    }
+
+    private UsbDevice resolveUsbDevice(NFCDevice device) {
+        if (device == null || usbManager == null) {
+            return null;
+        }
+        for (UsbDevice usbDevice : usbManager.getDeviceList().values()) {
+            if (device.getId().equals(usbDevice.getDeviceName())) {
+                return usbDevice;
+            }
+        }
+        return null;
     }
 }

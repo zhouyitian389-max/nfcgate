@@ -34,27 +34,38 @@ public class YitianHostApduService extends HostApduService {
     private static final String TAG = "YitianHCE";
     private static final String PREF_LOCK_UNTIL_ELAPSED = "pin_lock_until_elapsed";
     private static final String PREF_LOCK_UNTIL_WALL = "pin_lock_until_wall";
+    private static final long PIN_LOCK_CACHE_MS = 1000L;
     private static final byte[] SW_SECURITY_NOT_SATISFIED = {(byte) 0x69, (byte) 0x83};
     public static final String ACTION_SELECTION_CHANGED = "de.tu_darmstadt.seemoo.nfcgate.hce.ACTION_SELECTION_CHANGED";
+    public static final String ACTION_PIN_LOCK_CHANGED = "de.tu_darmstadt.seemoo.nfcgate.hce.ACTION_PIN_LOCK_CHANGED";
     private static final byte[] SW_OK = {(byte) 0x90, (byte) 0x00};
     private static final byte[] SW_NOT_FOUND = {(byte) 0x6A, (byte) 0x82};
     private static final byte[] SELECT_HEADER = {(byte) 0x00, (byte) 0xA4, (byte) 0x04, (byte) 0x00};
     private static final byte[] AID = hex("F0010203040506");
     private final ExecutorService dbExecutor = Executors.newSingleThreadExecutor();
     private volatile CardEntity cachedCard;
+    private volatile boolean cachedPinLocked;
+    private volatile long pinLockCacheExpiryElapsed;
     private final BroadcastReceiver selectionChangedReceiver = new BroadcastReceiver() {
         @Override
         public void onReceive(Context context, Intent intent) {
-            refreshCachedCardAsync();
+            String action = intent != null ? intent.getAction() : null;
+            if (ACTION_SELECTION_CHANGED.equals(action)) {
+                refreshCachedCardAsync();
+            } else if (ACTION_PIN_LOCK_CHANGED.equals(action)) {
+                refreshPinLockCache();
+            }
         }
     };
 
     @Override
     public void onCreate() {
         super.onCreate();
+        refreshPinLockCache();
         refreshCachedCardAsync();
         IntentFilter filter = new IntentFilter(HttpReceiverService.BROADCAST_STATE);
         filter.addAction(ACTION_SELECTION_CHANGED);
+        filter.addAction(ACTION_PIN_LOCK_CHANGED);
         if (Build.VERSION.SDK_INT >= 33) {
             registerReceiver(selectionChangedReceiver, filter, Context.RECEIVER_NOT_EXPORTED);
         } else {
@@ -105,10 +116,25 @@ public class YitianHostApduService extends HostApduService {
     }
 
     private boolean isPinLocked() {
-        SharedPreferences prefs = getPinPrefs();
-        long lockUntilElapsed = prefs.getLong(PREF_LOCK_UNTIL_ELAPSED, 0L);
-        long lockUntilWall = prefs.getLong(PREF_LOCK_UNTIL_WALL, 0L);
-        return SystemClock.elapsedRealtime() < lockUntilElapsed || System.currentTimeMillis() < lockUntilWall;
+        if (SystemClock.elapsedRealtime() < pinLockCacheExpiryElapsed) {
+            return cachedPinLocked;
+        }
+        refreshPinLockCache();
+        return cachedPinLocked;
+    }
+
+    private void refreshPinLockCache() {
+        if (dbExecutor.isShutdown()) {
+            return;
+        }
+        dbExecutor.execute(() -> {
+            SharedPreferences prefs = getPinPrefs();
+            long lockUntilElapsed = prefs.getLong(PREF_LOCK_UNTIL_ELAPSED, 0L);
+            long lockUntilWall = prefs.getLong(PREF_LOCK_UNTIL_WALL, 0L);
+            cachedPinLocked = SystemClock.elapsedRealtime() < lockUntilElapsed
+                    || System.currentTimeMillis() < lockUntilWall;
+            pinLockCacheExpiryElapsed = SystemClock.elapsedRealtime() + PIN_LOCK_CACHE_MS;
+        });
     }
 
     private SharedPreferences getPinPrefs() {

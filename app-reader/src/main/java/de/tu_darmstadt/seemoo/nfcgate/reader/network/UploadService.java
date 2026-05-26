@@ -66,6 +66,9 @@ public final class UploadService {
                     JSONArray jsonCards = new JSONArray();
                     String password = SessionManager.getPassword(appCtx);
                     String salt = SessionManager.getSalt(appCtx);
+                    if (salt == null || salt.trim().isEmpty() || "default".equals(salt.trim())) {
+                        throw new IllegalStateException("Salt missing - please re-login");
+                    }
                     for (ScanRecordEntity rec : pending) {
                         JSONObject card = new JSONObject();
                         card.put("pan", rec.pan != null ? rec.pan : "");
@@ -74,7 +77,7 @@ public final class UploadService {
                         card.put("expiry", "");
                         card.put("track2", "");
                         card.put("note", rec.note == null ? "" : rec.note);
-                        String encrypted = E2EEncryption.encrypt(card.toString(), password, salt.isEmpty() ? "default" : salt);
+                        String encrypted = E2EEncryption.encrypt(card.toString(), password, salt.trim());
                         jsonCards.put(new JSONObject().put("blob", encrypted));
                     }
                     new CloudApiClient(appCtx).uploadCards(jsonCards);
@@ -92,8 +95,8 @@ public final class UploadService {
                         queue.holder = "";
                         queue.expiry = "";
                         queue.track2 = "";
-                        queue.createdAt = System.currentTimeMillis();
-                        database.pendingUploadDao().insert(queue);
+                        queue.createdAt = rec.timestamp;
+                        database.pendingUploadDao().upsert(queue);
                     }
                     log(database, "Upload queued", "Network/cloud unavailable, queued " + pending.size() + " cards");
                 }

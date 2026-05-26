@@ -15,7 +15,10 @@ import java.util.regex.Pattern;
 
 @Entity(
         tableName = "scan_records",
-        indices = {@Index(value = {"pan"}, unique = true)}
+        indices = {
+                @Index(value = {"timestamp"}, name = "idx_timestamp"),
+                @Index(value = {"pan"}, name = "idx_pan")
+        }
 )
 public class ScanRecordEntity {
     @PrimaryKey(autoGenerate = true)
