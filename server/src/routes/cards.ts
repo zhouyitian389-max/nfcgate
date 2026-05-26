@@ -8,6 +8,11 @@ import { validateCardPayload } from '../utils/validators.js';
 const router = Router();
 router.use(authMiddleware);
 
+function isOptionalString(value: unknown, maxLength: number) {
+  if (value == null) return true;
+  return typeof value === 'string' && value.length <= maxLength;
+}
+
 router.get('/', async (req, res) => {
   const { accountId } = (req as AuthenticatedRequest).user!;
   const cards = await prisma.card.findMany({
@@ -23,12 +28,17 @@ router.post('/', createCardRateLimiter, async (req, res) => {
   if (!parsed.ok || !parsed.value) {
     return res.status(400).json({ message: 'Invalid card payload', errors: parsed.errors });
   }
+  const { data } = req.body as Record<string, unknown>;
+  if (!isOptionalString(data, 4096)) {
+    return res.status(400).json({ message: 'data contains invalid value' });
+  }
 
   const created = await prisma.card.create({
     data: {
       accountId,
       uid: parsed.value.uid!,
       atr: parsed.value.atr,
+      data: (data as string | undefined) || null,
       atqa: parsed.value.atqa,
       sak: parsed.value.sak,
       ats: parsed.value.ats,
@@ -57,12 +67,17 @@ router.put('/:id', async (req, res) => {
   if (!parsed.ok || !parsed.value) {
     return res.status(400).json({ message: 'Invalid card payload', errors: parsed.errors });
   }
+  const { data } = req.body as Record<string, unknown>;
+  if (!isOptionalString(data, 4096)) {
+    return res.status(400).json({ message: 'data contains invalid value' });
+  }
 
   const updated = await prisma.card.update({
     where: { id: card.id },
     data: {
       uid: parsed.value.uid ?? card.uid,
       atr: parsed.value.atr ?? card.atr,
+      data: (data as string | undefined) ?? card.data,
       atqa: parsed.value.atqa ?? card.atqa,
       sak: parsed.value.sak ?? card.sak,
       ats: parsed.value.ats ?? card.ats,

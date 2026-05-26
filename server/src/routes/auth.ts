@@ -1,12 +1,19 @@
 import { Router } from 'express';
 import bcrypt from 'bcrypt';
+import rateLimit from 'express-rate-limit';
 import prisma from '../db.js';
-import { authMiddleware, createAccessToken, createRefreshToken, type AuthenticatedRequest } from '../middleware/auth.js';
+import { authMiddleware, createAccessToken, createRefreshToken, verifyRefreshToken, type AuthenticatedRequest } from '../middleware/auth.js';
 import { loginRateLimiter } from '../middleware/rateLimit.js';
 
 const router = Router();
+const authLimiter = rateLimit({
+  windowMs: 60 * 1000,
+  max: Number(process.env.AUTH_RATE_LIMIT_MAX || 30),
+  standardHeaders: true,
+  legacyHeaders: false
+});
 
-router.post('/register', async (req, res) => {
+router.post('/register', authLimiter, async (req, res) => {
   const { email, password, name, accountName } = req.body as {
     email?: string;
     password?: string;
@@ -78,7 +85,37 @@ router.post('/login', loginRateLimiter, async (req, res) => {
   });
 });
 
-router.get('/me', authMiddleware, async (req, res) => {
+router.post('/refresh', authLimiter, async (req, res) => {
+  const { refreshToken } = req.body as { refreshToken?: string };
+  if (!refreshToken) {
+    return res.status(400).json({ message: 'refreshToken is required' });
+  }
+
+  try {
+    const payload = verifyRefreshToken(refreshToken);
+    const user = await prisma.user.findUnique({
+      where: { id: payload.id },
+      select: { id: true, accountId: true, role: true, email: true, name: true }
+    });
+    if (!user) {
+      return res.status(401).json({ message: 'Invalid refresh token user' });
+    }
+
+    const authUser = { id: user.id, accountId: user.accountId, role: user.role, email: user.email };
+    const accessToken = createAccessToken(authUser);
+    const nextRefreshToken = createRefreshToken(authUser);
+    return res.json({
+      token: accessToken,
+      accessToken,
+      refreshToken: nextRefreshToken,
+      user: { id: user.id, email: user.email, role: user.role, name: user.name }
+    });
+  } catch {
+    return res.status(401).json({ message: 'Invalid or expired refresh token' });
+  }
+});
+
+router.get('/me', authLimiter, authMiddleware, async (req, res) => {
   const authReq = req as AuthenticatedRequest;
   if (!authReq.user) {
     return res.status(401).json({ message: 'Unauthorized' });

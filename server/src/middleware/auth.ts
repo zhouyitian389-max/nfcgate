@@ -40,6 +40,10 @@ export function createRefreshToken(user: AuthUser): string {
   return jwt.sign(user, JWT_REFRESH_SECRET, { expiresIn });
 }
 
+export function verifyRefreshToken(token: string): AuthUser {
+  return jwt.verify(token, JWT_REFRESH_SECRET) as AuthUser;
+}
+
 export async function authMiddleware(req: AuthenticatedRequest, res: Response, next: NextFunction) {
   const authHeader = req.headers.authorization;
   if (!authHeader || !authHeader.startsWith('Bearer ')) {

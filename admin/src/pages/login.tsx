@@ -1,6 +1,6 @@
 import { useState } from 'react';
 import { useRouter } from 'next/router';
-import { api, setToken } from '@/lib/api';
+import { api, setTokens } from '@/lib/api';
 
 export default function LoginPage() {
   const router = useRouter();
@@ -16,7 +16,7 @@ export default function LoginPage() {
 
     try {
       const res = await api.login(email, password);
-      setToken(res.token);
+      setTokens(res.accessToken || res.token, res.refreshToken);
       router.push('/');
     } catch (err: any) {
       setError(err?.response?.data?.message || err.message || 'Login failed');
