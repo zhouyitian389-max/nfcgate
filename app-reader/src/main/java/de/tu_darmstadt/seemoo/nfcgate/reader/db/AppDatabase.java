@@ -63,12 +63,6 @@ public abstract class AppDatabase extends RoomDatabase {
             db.execSQL("DROP INDEX IF EXISTS idx_pan");
             db.execSQL("CREATE INDEX IF NOT EXISTS idx_pan ON scan_records(pan)");
             db.execSQL("CREATE INDEX IF NOT EXISTS idx_timestamp ON scan_records(timestamp)");
-        }
-    };
-
-    static final Migration MIGRATION_4_5 = new Migration(4, 5) {
-        @Override
-        public void migrate(SupportSQLiteDatabase db) {
             db.execSQL("DELETE FROM pending_uploads " +
                     "WHERE rowid NOT IN (SELECT MIN(rowid) FROM pending_uploads GROUP BY pan, created_at)");
             db.execSQL("CREATE UNIQUE INDEX IF NOT EXISTS index_pending_uploads_pan_created_at " +
