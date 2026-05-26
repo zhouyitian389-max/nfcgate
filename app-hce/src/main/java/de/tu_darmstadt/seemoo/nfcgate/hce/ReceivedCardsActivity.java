@@ -124,7 +124,7 @@ public class ReceivedCardsActivity extends AppCompatActivity {
         MenuItem searchItem = menu.findItem(R.id.action_search);
         if (searchItem != null && searchItem.getActionView() instanceof SearchView) {
             SearchView searchView = (SearchView) searchItem.getActionView();
-            searchView.setQueryHint("Search cards");
+            searchView.setQueryHint(getString(R.string.search_cards_hint));
             searchView.setOnQueryTextListener(new SearchView.OnQueryTextListener() {
                 @Override
                 public boolean onQueryTextSubmit(String query) {

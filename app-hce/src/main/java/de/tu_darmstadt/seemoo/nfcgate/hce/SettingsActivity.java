@@ -7,6 +7,7 @@ import android.util.Log;
 import android.widget.Toast;
 
 import androidx.appcompat.app.AppCompatActivity;
+import androidx.appcompat.app.AlertDialog;
 import androidx.preference.EditTextPreference;
 import androidx.preference.ListPreference;
 import androidx.preference.Preference;
@@ -14,6 +15,9 @@ import androidx.preference.PreferenceFragmentCompat;
 import androidx.security.crypto.EncryptedSharedPreferences;
 import androidx.security.crypto.MasterKey;
 
+import java.util.Date;
+
+import de.tu_darmstadt.seemoo.nfcgate.hce.cloud.SessionManager;
 import de.tu_darmstadt.seemoo.nfcgate.hce.security.PinHasher;
 import de.tu_darmstadt.seemoo.nfcgate.hce.service.HttpReceiverService;
 
@@ -93,16 +97,16 @@ public class SettingsActivity extends AppCompatActivity {
             }
             Preference admin = new Preference(requireContext());
             admin.setKey("admin_entry");
-            admin.setTitle("Admin");
-            admin.setSummary("Total synced cards, account ID, server status");
+            admin.setTitle(R.string.admin_title);
+            admin.setSummary(R.string.admin_summary);
             admin.setVisible(false);
             admin.setOnPreferenceClickListener(preference -> {
-                Toast.makeText(requireContext(), "Admin: " + de.tu_darmstadt.seemoo.nfcgate.hce.cloud.SessionManager.getToken(requireContext()), Toast.LENGTH_SHORT).show();
+                showDiagnosticsDialog();
                 return true;
             });
             getPreferenceScreen().addPreference(admin);
             Preference versionPref = new Preference(requireContext());
-            versionPref.setTitle("Version");
+            versionPref.setTitle(R.string.version_title);
             versionPref.setSummary(BuildConfig.VERSION_NAME);
             versionPref.setOnPreferenceClickListener(new Preference.OnPreferenceClickListener() {
                 int taps = 0;
@@ -110,12 +114,34 @@ public class SettingsActivity extends AppCompatActivity {
                 public boolean onPreferenceClick(Preference preference) {
                     taps++;
                     if (taps >= 7) {
+                        taps = 0;
                         admin.setVisible(true);
+                        showDiagnosticsDialog();
                     }
                     return true;
                 }
             });
             getPreferenceScreen().addPreference(versionPref);
+        }
+
+        private void showDiagnosticsDialog() {
+            new AlertDialog.Builder(requireContext())
+                    .setTitle(R.string.diagnostics_title)
+                    .setMessage(buildDiagnostics())
+                    .setPositiveButton(android.R.string.ok, null)
+                    .show();
+        }
+
+        private String buildDiagnostics() {
+            StringBuilder sb = new StringBuilder();
+            sb.append(getString(R.string.diagnostics_app_version, BuildConfig.VERSION_NAME)).append('\n');
+            sb.append(getString(R.string.diagnostics_version_code, BuildConfig.VERSION_CODE)).append('\n');
+            sb.append(getString(R.string.diagnostics_build_type, BuildConfig.BUILD_TYPE)).append('\n');
+            sb.append(getString(R.string.diagnostics_logged_in, SessionManager.isLoggedIn(requireContext()))).append('\n');
+            long expiry = SessionManager.getTokenExpiryMillis(requireContext());
+            String expiryText = expiry > 0 ? new Date(expiry).toString() : getString(R.string.diagnostics_not_available);
+            sb.append(getString(R.string.diagnostics_token_expiry, expiryText));
+            return sb.toString();
         }
 
         private SharedPreferences getPinPrefs() {
