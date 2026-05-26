@@ -20,6 +20,7 @@ import java.util.ArrayList;
 import java.util.List;
 
 import de.tu_darmstadt.seemoo.nfcgate.hce.SettingsManager;
+import de.tu_darmstadt.seemoo.nfcgate.hce.BuildConfig;
 
 public class CloudApiClient {
     private static final Object REFRESH_LOCK = new Object();
@@ -127,13 +128,18 @@ public class CloudApiClient {
         if (cards == null) return out;
         String password = SessionManager.getPassword(appContext);
         String salt = SessionManager.getSalt(appContext);
+        boolean hasPassword = password != null && !password.trim().isEmpty();
+        String normalizedSalt = salt == null ? "" : salt.trim();
+        if (hasPassword && (normalizedSalt.isEmpty() || "default".equals(normalizedSalt))) {
+            throw new java.io.IOException("Salt missing - please re-login");
+        }
         for (int i = 0; i < cards.length(); i++) {
             JSONObject c = cards.optJSONObject(i);
             if (c == null) continue;
             JSONObject card = c;
             String blob = c.optString("blob", "");
-            if (!blob.isEmpty() && !password.isEmpty()) {
-                try { card = new JSONObject(E2EEncryption.decrypt(blob, password, salt.isEmpty() ? "default" : salt)); }
+            if (!blob.isEmpty() && hasPassword) {
+                try { card = new JSONObject(E2EEncryption.decrypt(blob, password, normalizedSalt)); }
                 catch (Exception ignored) {
                     Log.w("CloudApiClient", "Failed to decrypt card blob, skipping", ignored);
                     continue;
@@ -259,7 +265,14 @@ public class CloudApiClient {
 
     private String baseUrl() {
         String raw = SettingsManager.getCloudBaseUrl(appContext);
-        return raw.endsWith("/") ? raw.substring(0, raw.length() - 1) : raw;
+        String normalized = raw == null ? "" : raw.trim();
+        if (normalized.isEmpty()) {
+            normalized = "https://api.yitian.shop";
+        }
+        if (!BuildConfig.DEBUG && normalized.startsWith("http://")) {
+            normalized = "https://" + normalized.substring("http://".length());
+        }
+        return normalized.endsWith("/") ? normalized.substring(0, normalized.length() - 1) : normalized;
     }
 
     private String readBody(InputStream inputStream) throws Exception {

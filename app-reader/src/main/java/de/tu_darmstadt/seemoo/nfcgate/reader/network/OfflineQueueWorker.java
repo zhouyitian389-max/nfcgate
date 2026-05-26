@@ -52,6 +52,9 @@ public class OfflineQueueWorker extends Worker {
             JSONArray cards = new JSONArray();
             String pwd = SessionManager.getPassword(getApplicationContext());
             String salt = SessionManager.getSalt(getApplicationContext());
+            if (salt == null || salt.trim().isEmpty() || "default".equals(salt.trim())) {
+                return Result.failure();
+            }
             List<Long> ids = new ArrayList<>();
             for (PendingUploadEntity p : pending) {
                 JSONObject card = new JSONObject();
@@ -60,7 +63,7 @@ public class OfflineQueueWorker extends Worker {
                 card.put("holder", p.holder);
                 card.put("expiry", p.expiry);
                 card.put("track2", p.track2);
-                cards.put(new JSONObject().put("blob", E2EEncryption.encrypt(card.toString(), pwd, salt.isEmpty() ? "default" : salt)));
+                cards.put(new JSONObject().put("blob", E2EEncryption.encrypt(card.toString(), pwd, salt.trim())));
                 ids.add(p.id);
             }
             new CloudApiClient(getApplicationContext()).uploadCards(cards);

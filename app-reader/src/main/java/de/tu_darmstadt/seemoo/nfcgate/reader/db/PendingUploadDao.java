@@ -2,6 +2,7 @@ package de.tu_darmstadt.seemoo.nfcgate.reader.db;
 
 import androidx.room.Dao;
 import androidx.room.Insert;
+import androidx.room.OnConflictStrategy;
 import androidx.room.Query;
 
 import java.util.List;
@@ -11,7 +12,10 @@ public interface PendingUploadDao {
     @Insert
     long insert(PendingUploadEntity entity);
 
-    @Insert
+    @Insert(onConflict = OnConflictStrategy.REPLACE)
+    long upsert(PendingUploadEntity entity);
+
+    @Insert(onConflict = OnConflictStrategy.REPLACE)
     void insertAll(List<PendingUploadEntity> entities);
 
     @Query("SELECT * FROM pending_uploads ORDER BY created_at ASC")
