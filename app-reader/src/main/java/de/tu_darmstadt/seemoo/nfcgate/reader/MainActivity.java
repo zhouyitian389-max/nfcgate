@@ -60,7 +60,9 @@ import de.tu_darmstadt.seemoo.nfcgate.reader.network.OfflineQueueWorker;
 import de.tu_darmstadt.seemoo.nfcgate.reader.model.ScanRecord;
 import de.tu_darmstadt.seemoo.nfcgate.reader.network.UploadService;
 import de.tu_darmstadt.seemoo.nfcgate.reader.nfc.NFCDevice;
+import de.tu_darmstadt.seemoo.nfcgate.reader.nfc.NFCEvent;
 import de.tu_darmstadt.seemoo.nfcgate.reader.nfc.NFCManager;
+import de.tu_darmstadt.seemoo.nfcgate.reader.nfc.emv.EMVReader;
 import de.tu_darmstadt.seemoo.nfcgate.reader.settings.SettingsManager;
 import de.tu_darmstadt.seemoo.nfcgate.reader.ui.CardPagerAdapter;
 import de.tu_darmstadt.seemoo.nfcgate.reader.ui.DeviceSelector;
@@ -284,8 +286,21 @@ public class MainActivity extends AppCompatActivity {
             String deviceName = selectedDevice.getName();
             String source = selectedDevice.getSource().name();
             String rawData = event != null ? event.toString() : "No data";
-            String pan = extractPan(rawData);
-            CardBrandDetector.CardBrand brand = CardBrandDetector.detect(pan);
+            String pan = null;
+            CardBrandDetector.CardBrand brand;
+
+            // Prefer direct EMV data (accurate PAN) over regex extraction from the raw string
+            if (event instanceof NFCEvent.CardDetected) {
+                NFCEvent.CardDetected detected = (NFCEvent.CardDetected) event;
+                EMVReader.EMVCard emvCard = detected.getEmvCard();
+                if (emvCard != null && emvCard.pan != null && !emvCard.pan.isEmpty()) {
+                    pan = emvCard.pan;
+                }
+            }
+            if (pan == null) {
+                pan = extractPan(rawData);
+            }
+            brand = CardBrandDetector.detect(pan);
 
             ScanRecord record = new ScanRecord(deviceName, source, rawData, pan, brand);
             scanHistoryAdapter.addRecord(record);

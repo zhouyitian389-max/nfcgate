@@ -1,8 +1,11 @@
 package de.tu_darmstadt.seemoo.nfcgate.reader.nfc;
 
 import androidx.annotation.NonNull;
+import androidx.annotation.Nullable;
 
 import java.util.Locale;
+
+import de.tu_darmstadt.seemoo.nfcgate.reader.nfc.emv.EMVReader;
 
 public abstract class NFCEvent {
     private final NFCSource source;
@@ -26,21 +29,38 @@ public abstract class NFCEvent {
         private final String type;
         private final byte[] uid;
         private final long timestamp;
+        @Nullable
+        private final EMVReader.EMVCard emvCard;
 
         public CardDetected(String type, byte[] uid, NFCSource source, long timestamp) {
+            this(type, uid, source, timestamp, null);
+        }
+
+        public CardDetected(String type, byte[] uid, NFCSource source, long timestamp,
+                @Nullable EMVReader.EMVCard emvCard) {
             super(source);
             this.type = type;
             this.uid = uid;
             this.timestamp = timestamp;
+            this.emvCard = emvCard;
         }
 
         public String getType()      { return type; }
         public byte[] getUid()       { return uid; }
         public long getTimestamp()   { return timestamp; }
+        @Nullable
+        public EMVReader.EMVCard getEmvCard() { return emvCard; }
 
         @NonNull
         @Override
         public String toString() {
+            if (emvCard != null && emvCard.pan != null) {
+                return "Card[" + (emvCard.brand != null ? emvCard.brand : type) + "]"
+                        + " PAN=" + emvCard.pan
+                        + (emvCard.expiry != null ? " EXP=" + emvCard.expiry : "")
+                        + (emvCard.cardholderName != null ? " NAME=" + emvCard.cardholderName : "")
+                        + " UID=" + hex(uid);
+            }
             return "Card[" + type + "] UID=" + hex(uid);
         }
     }

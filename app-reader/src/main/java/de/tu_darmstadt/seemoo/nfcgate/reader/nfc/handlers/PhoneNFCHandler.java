@@ -5,10 +5,12 @@ import android.content.Context;
 import android.nfc.NfcAdapter;
 import android.nfc.Tag;
 import android.os.Bundle;
+import android.util.Log;
 
 import de.tu_darmstadt.seemoo.nfcgate.reader.nfc.NFCEvent;
 import de.tu_darmstadt.seemoo.nfcgate.reader.nfc.NFCHandler;
 import de.tu_darmstadt.seemoo.nfcgate.reader.nfc.NFCSource;
+import de.tu_darmstadt.seemoo.nfcgate.reader.nfc.emv.EMVReader;
 
 /**
  * Built-in phone NFC handler. Uses NfcAdapter ReaderMode if a hosting Activity is provided.
@@ -16,6 +18,8 @@ import de.tu_darmstadt.seemoo.nfcgate.reader.nfc.NFCSource;
  * (so the UI shows something meaningful instead of silently doing nothing).
  */
 public class PhoneNFCHandler implements NFCHandler {
+    private static final String TAG = "PhoneNFCHandler";
+
     private final Context context;
     private NfcAdapter adapter;
     private EventCallback callback;
@@ -62,12 +66,23 @@ public class PhoneNFCHandler implements NFCHandler {
 
     private void onTag(Tag tag) {
         if (callback == null) return;
-        String type = tag.getTechList().length > 0 ? tag.getTechList()[0] : "UNKNOWN";
-        // Strip android.nfc.tech. prefix for readability
-        int dot = type.lastIndexOf('.');
-        if (dot >= 0) type = type.substring(dot + 1);
-        callback.onEvent(new NFCEvent.CardDetected(
-                type, tag.getId(), NFCSource.PHONE, System.currentTimeMillis()));
+
+        // Attempt a full EMV read first; fall back to UID-only if the card
+        // does not support ISO-DEP or any APDU step fails.
+        try {
+            EMVReader.EMVCard emvCard = EMVReader.readCard(tag);
+            String type = emvCard.brand != null ? emvCard.brand : "EMV";
+            callback.onEvent(new NFCEvent.CardDetected(
+                    type, tag.getId(), NFCSource.PHONE, System.currentTimeMillis(), emvCard));
+        } catch (Exception e) {
+            Log.d(TAG, "EMV read failed, falling back to UID-only: " + e.getMessage());
+            String type = tag.getTechList().length > 0 ? tag.getTechList()[0] : "UNKNOWN";
+            // Strip android.nfc.tech. prefix for readability
+            int dot = type.lastIndexOf('.');
+            if (dot >= 0) type = type.substring(dot + 1);
+            callback.onEvent(new NFCEvent.CardDetected(
+                    type, tag.getId(), NFCSource.PHONE, System.currentTimeMillis()));
+        }
     }
 
     @Override
