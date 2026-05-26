@@ -7,6 +7,8 @@ import { sseHub } from './sseHub.js';
 type RelayRole = 'hce' | 'reader' | 'external';
 
 type RelayMessage =
+  | { type: 'session_join'; sessionId?: string; token?: string; role?: RelayRole }
+  | { type: 'session_paired'; sessionId: string }
   | { type: 'session_joined'; sessionId: string }
   | { type: 'apdu_command'; data: string }
   | { type: 'apdu_response'; data: string }
@@ -116,6 +118,15 @@ async function closeSession(token: string, reason: string) {
   }
 }
 
+export async function endSessionById(sessionId: string, accountId?: string, reason = 'Ended by API') {
+  const session = Array.from(sessions.values()).find((item) => item.sessionId === sessionId && (!accountId || item.accountId === accountId));
+  if (!session) {
+    return false;
+  }
+  await closeSession(session.token, reason);
+  return true;
+}
+
 async function ensureSession(token: string): Promise<RelaySession> {
   const existing = sessions.get(token);
   if (existing) return existing;
@@ -218,32 +229,42 @@ export function initWebSocket(server: Server) {
       return;
     }
 
-    const token = url.searchParams.get('token');
-    const role = url.searchParams.get('role') as RelayRole | null;
-
-    if (!token || !role || !['hce', 'reader', 'external'].includes(role)) {
-      socket.write('HTTP/1.1 400 Bad Request\r\n\r\n');
-      socket.destroy();
-      return;
-    }
+    const token = url.searchParams.get('token') || undefined;
+    const role = (url.searchParams.get('role') as RelayRole | null) || undefined;
 
     wss.handleUpgrade(request, socket, head, (ws) => {
       wss.emit('connection', ws, token, role);
     });
   });
 
-  wss.on('connection', async (rawWs: WebSocket, token: string, role: RelayRole) => {
+  wss.on('connection', async (rawWs: WebSocket, initialToken?: string, initialRole?: RelayRole) => {
     const ws = rawWs as SocketWithState;
     ws.isAlive = true;
+    let token = initialToken;
+    let role = initialRole;
+    let session: RelaySession | undefined;
 
-    const session = await ensureSession(token);
-    session.lastActivityAt = Date.now();
-    setRoleSocket(session, role, ws);
-    send(ws, { type: 'session_joined', sessionId: session.sessionId });
+    const bindSession = async (joinToken: string, joinRole: RelayRole) => {
+      token = joinToken;
+      role = joinRole;
+      session = await ensureSession(joinToken);
+      session.lastActivityAt = Date.now();
+      setRoleSocket(session, joinRole, ws);
+      send(ws, { type: 'session_joined', sessionId: session.sessionId });
+      if (session.hce && getReaderPeer(session)) {
+        send(session.hce, { type: 'session_paired', sessionId: session.sessionId });
+        send(session.reader, { type: 'session_paired', sessionId: session.sessionId });
+        send(session.external, { type: 'session_paired', sessionId: session.sessionId });
+      }
+    };
+
+    if (token && role && ['hce', 'reader', 'external'].includes(role)) {
+      await bindSession(token, role);
+    }
 
     ws.on('pong', () => {
       ws.isAlive = true;
-      const current = sessions.get(token);
+      const current = token ? sessions.get(token) : undefined;
       if (current) current.lastActivityAt = Date.now();
     });
 
@@ -251,6 +272,22 @@ export function initWebSocket(server: Server) {
       const message = parseMessage(buf.toString());
       if (!message) {
         send(ws, { type: 'error', message: 'Invalid JSON message' });
+        return;
+      }
+
+      if (message.type === 'session_join') {
+        const joinToken = message.token || message.sessionId;
+        const joinRole = message.role;
+        if (!joinToken || !joinRole || !['hce', 'reader', 'external'].includes(joinRole)) {
+          send(ws, { type: 'error', message: 'session_join requires token/sessionId and role' });
+          return;
+        }
+        await bindSession(joinToken, joinRole);
+        return;
+      }
+
+      if (!token || !role) {
+        send(ws, { type: 'error', message: 'Join session first' });
         return;
       }
 
@@ -301,6 +338,7 @@ export function initWebSocket(server: Server) {
     });
 
     ws.on('close', async () => {
+      if (!token || !role) return;
       const current = sessions.get(token);
       if (!current) return;
 
@@ -311,7 +349,9 @@ export function initWebSocket(server: Server) {
     });
 
     ws.on('error', async () => {
-      await closeSession(token, `${role} socket error`);
+      if (token && role) {
+        await closeSession(token, `${role} socket error`);
+      }
     });
   });
 

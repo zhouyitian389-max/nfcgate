@@ -7,8 +7,26 @@ router.use(authMiddleware);
 
 router.get('/', async (req, res) => {
   const user = (req as AuthenticatedRequest).user!;
+  const {
+    sessionId,
+    cardId,
+    mode,
+    from,
+    to
+  } = req.query as { sessionId?: string; cardId?: string; mode?: string; from?: string; to?: string };
+
+  const createdAt: { gte?: Date; lte?: Date } = {};
+  if (from) createdAt.gte = new Date(from);
+  if (to) createdAt.lte = new Date(to);
+
   const logs = await prisma.apduLog.findMany({
-    where: user.role === 'ADMIN' ? undefined : { accountId: user.accountId },
+    where: {
+      ...(user.role === 'ADMIN' ? {} : { accountId: user.accountId }),
+      ...(sessionId ? { sessionId } : {}),
+      ...(cardId ? { cardId } : {}),
+      ...(mode ? { mode } : {}),
+      ...(from || to ? { createdAt } : {})
+    },
     orderBy: { createdAt: 'desc' },
     take: 200
   });

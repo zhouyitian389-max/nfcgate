@@ -17,6 +17,7 @@ model Account {
   cards   Card[]
   devices Device[]
   logs    ApduLog[]
+  relaySessions RelaySession[]
 }
 
 model User {
@@ -38,6 +39,8 @@ model Card {
   accountId        String
   account          Account   @relation(fields: [accountId], references: [id])
   uid              String
+  atR              String?
+  data             String?
   atqa             String?
   sak              String?
   ats              String?
@@ -47,12 +50,30 @@ model Card {
   aidList          String?   // JSON array of AIDs
   relayToken       String?   // Token for HCE to join relay session
   relayTokenExpiresAt DateTime?
+  relaySessions    RelaySession[]
   createdAt        DateTime  @default(now())
   updatedAt        DateTime  @updatedAt
 
   @@unique([accountId, uid], name: "accountId_uid")
   @@index([accountId])
   @@index([relayToken])
+}
+
+model RelaySession {
+  id         String   @id @default(cuid())
+  accountId  String
+  account    Account  @relation(fields: [accountId], references: [id])
+  cardId     String?
+  card       Card?    @relation(fields: [cardId], references: [id])
+  sessionId  String   @unique
+  token      String   @unique
+  mode       String   @default("NFC_RELAY")
+  status     String   @default("active")
+  createdAt  DateTime @default(now())
+  endedAt    DateTime?
+
+  @@index([accountId])
+  @@index([cardId])
 }
 
 model Device {
