@@ -81,7 +81,7 @@
     <string name="login_failed_generic">无法登录</string>
     <string name="cleared_expired_cards">已清除 %1$d 张过期卡片</string>
     <string name="dialog_delete_card_title">删除卡片？</string>
-    <string name="dialog_delete_card_message">确定永久删除此卡片？</string>
+    <string name="dialog_delete_card_message">永久删除此卡片？</string>
     <string name="dialog_edit_note_title">编辑备注</string>
 
     <string name="card_holder">YITIAN</string>
