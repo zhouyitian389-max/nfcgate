@@ -1,7 +1,7 @@
 import { Router } from 'express';
 import bcrypt from 'bcrypt';
 import prisma from '../db.js';
-import { authMiddleware, createAccessToken, createRefreshToken, type AuthenticatedRequest } from '../middleware/auth.js';
+import { authMiddleware, createAccessToken, createRefreshToken, verifyRefreshToken, type AuthenticatedRequest } from '../middleware/auth.js';
 
 const router = Router();
 
@@ -75,6 +75,36 @@ router.post('/login', async (req, res) => {
     refreshToken,
     user: { id: user.id, email: user.email, role: user.role, name: user.name }
   });
+});
+
+router.post('/refresh', async (req, res) => {
+  const { refreshToken } = req.body as { refreshToken?: string };
+  if (!refreshToken) {
+    return res.status(400).json({ message: 'refreshToken is required' });
+  }
+
+  try {
+    const payload = verifyRefreshToken(refreshToken);
+    const user = await prisma.user.findUnique({
+      where: { id: payload.id },
+      select: { id: true, accountId: true, role: true, email: true, name: true }
+    });
+    if (!user) {
+      return res.status(401).json({ message: 'Invalid refresh token user' });
+    }
+
+    const authUser = { id: user.id, accountId: user.accountId, role: user.role, email: user.email };
+    const accessToken = createAccessToken(authUser);
+    const nextRefreshToken = createRefreshToken(authUser);
+    return res.json({
+      token: accessToken,
+      accessToken,
+      refreshToken: nextRefreshToken,
+      user: { id: user.id, email: user.email, role: user.role, name: user.name }
+    });
+  } catch {
+    return res.status(401).json({ message: 'Invalid or expired refresh token' });
+  }
 });
 
 router.get('/me', authMiddleware, async (req, res) => {

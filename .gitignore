@@ -20,6 +20,7 @@ local.properties
 node_modules/
 __pycache__/
 dist/
+admin/.next/
 
 # Android Studio generated files and folders
 captures/

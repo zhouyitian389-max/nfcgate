@@ -6,6 +6,18 @@ import { authMiddleware, type AuthenticatedRequest } from '../middleware/auth.js
 const router = Router();
 router.use(authMiddleware);
 
+const HEX_RE = /^[0-9A-Fa-f]+$/;
+
+function isOptionalHex(value: unknown, maxLength: number) {
+  if (value == null || value === '') return true;
+  return typeof value === 'string' && value.length <= maxLength && HEX_RE.test(value);
+}
+
+function isOptionalString(value: unknown, maxLength: number) {
+  if (value == null) return true;
+  return typeof value === 'string' && value.length <= maxLength;
+}
+
 router.get('/', async (req, res) => {
   const { accountId } = (req as AuthenticatedRequest).user!;
   const cards = await prisma.card.findMany({
@@ -17,17 +29,33 @@ router.get('/', async (req, res) => {
 
 router.post('/', async (req, res) => {
   const { accountId } = (req as AuthenticatedRequest).user!;
+  const { uid, atr, atqa, sak, ats, historicalBytes, label, type, aidList, data } = req.body as Record<string, unknown>;
+  if (!isOptionalHex(uid, 64) || !uid) {
+    return res.status(400).json({ message: 'uid must be a non-empty hex string' });
+  }
+  if (!isOptionalHex(atr, 256) || !isOptionalHex(atqa, 16) || !isOptionalHex(sak, 8) || !isOptionalHex(ats, 256) || !isOptionalHex(historicalBytes, 512)) {
+    return res.status(400).json({ message: 'atr/atqa/sak/ats/historicalBytes must be hex strings' });
+  }
+  if (!isOptionalString(label, 128) || !isOptionalString(type, 32) || !isOptionalString(data, 4096)) {
+    return res.status(400).json({ message: 'label/type/data contains invalid value' });
+  }
+  if (aidList != null && !Array.isArray(aidList)) {
+    return res.status(400).json({ message: 'aidList must be an array' });
+  }
+
   const created = await prisma.card.create({
     data: {
       accountId,
-      uid: req.body.uid,
-      atqa: req.body.atqa,
-      sak: req.body.sak,
-      ats: req.body.ats,
-      historicalBytes: req.body.historicalBytes,
-      label: req.body.label,
-      type: req.body.type || 'UNKNOWN',
-      aidList: req.body.aidList ? JSON.stringify(req.body.aidList) : null
+      uid: uid as string,
+      atr: (atr as string | undefined) || null,
+      data: (data as string | undefined) || null,
+      atqa: (atqa as string | undefined) || null,
+      sak: (sak as string | undefined) || null,
+      ats: (ats as string | undefined) || null,
+      historicalBytes: (historicalBytes as string | undefined) || null,
+      label: (label as string | undefined) || null,
+      type: (type as string | undefined) || 'UNKNOWN',
+      aidList: aidList ? JSON.stringify(aidList) : null
     }
   });
   return res.status(201).json(created);
@@ -45,17 +73,30 @@ router.put('/:id', async (req, res) => {
   const card = await prisma.card.findFirst({ where: { id: req.params.id, accountId } });
   if (!card) return res.status(404).json({ message: 'Card not found' });
 
+  const { uid, atr, atqa, sak, ats, historicalBytes, label, type, aidList, data } = req.body as Record<string, unknown>;
+  if (!isOptionalHex(uid, 64) || !isOptionalHex(atr, 256) || !isOptionalHex(atqa, 16) || !isOptionalHex(sak, 8) || !isOptionalHex(ats, 256) || !isOptionalHex(historicalBytes, 512)) {
+    return res.status(400).json({ message: 'uid/atr/atqa/sak/ats/historicalBytes must be hex strings' });
+  }
+  if (!isOptionalString(label, 128) || !isOptionalString(type, 32) || !isOptionalString(data, 4096)) {
+    return res.status(400).json({ message: 'label/type/data contains invalid value' });
+  }
+  if (aidList != null && !Array.isArray(aidList)) {
+    return res.status(400).json({ message: 'aidList must be an array' });
+  }
+
   const updated = await prisma.card.update({
     where: { id: card.id },
     data: {
-      uid: req.body.uid ?? card.uid,
-      atqa: req.body.atqa ?? card.atqa,
-      sak: req.body.sak ?? card.sak,
-      ats: req.body.ats ?? card.ats,
-      historicalBytes: req.body.historicalBytes ?? card.historicalBytes,
-      label: req.body.label ?? card.label,
-      type: req.body.type ?? card.type,
-      aidList: req.body.aidList ? JSON.stringify(req.body.aidList) : card.aidList
+      uid: (uid as string | undefined) ?? card.uid,
+      atr: (atr as string | undefined) ?? card.atr,
+      data: (data as string | undefined) ?? card.data,
+      atqa: (atqa as string | undefined) ?? card.atqa,
+      sak: (sak as string | undefined) ?? card.sak,
+      ats: (ats as string | undefined) ?? card.ats,
+      historicalBytes: (historicalBytes as string | undefined) ?? card.historicalBytes,
+      label: (label as string | undefined) ?? card.label,
+      type: (type as string | undefined) ?? card.type,
+      aidList: aidList ? JSON.stringify(aidList) : card.aidList
     }
   });
 

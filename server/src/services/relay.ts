@@ -44,8 +44,8 @@ interface RelaySession {
   external?: SocketWithState;
 }
 
-const SESSION_TIMEOUT_MS = 30_000;
-const HEARTBEAT_MS = 15_000;
+const SESSION_TIMEOUT_MS = Number(process.env.RELAY_SESSION_TIMEOUT_MS || 20_000);
+const HEARTBEAT_MS = Number(process.env.RELAY_HEARTBEAT_MS || 10_000);
 
 const sessions = new Map<string, RelaySession>();
 const sessionTokens = new Map<string, SessionTokenMeta>();
@@ -180,6 +180,12 @@ function setRoleSocket(session: RelaySession, role: RelayRole, ws: SocketWithSta
   }
 }
 
+function getRoleSocket(session: RelaySession, role: RelayRole) {
+  if (role === 'hce') return session.hce;
+  if (role === 'reader') return session.reader;
+  return session.external;
+}
+
 function removeRoleSocket(session: RelaySession, role: RelayRole, ws: SocketWithState) {
   if (role === 'hce' && session.hce === ws) session.hce = undefined;
   if (role === 'reader' && session.reader === ws) session.reader = undefined;
@@ -296,6 +302,10 @@ export function initWebSocket(server: Server) {
         send(ws, { type: 'error', message: 'Session not found' });
         return;
       }
+      if (getRoleSocket(current, role) !== ws) {
+        send(ws, { type: 'error', message: 'Socket is no longer active for this role' });
+        return;
+      }
 
       current.lastActivityAt = Date.now();
 
@@ -317,6 +327,7 @@ export function initWebSocket(server: Server) {
         }
 
         current.apduCount += 1;
+        console.info(`[relay] APDU command ${current.sessionId} from hce`);
         send(target, { type: 'apdu_command', data: message.data });
       }
 
@@ -325,7 +336,12 @@ export function initWebSocket(server: Server) {
           send(ws, { type: 'error', message: 'Only reader/external can send apdu_response' });
           return;
         }
-
+        if (!current.hce || current.hce.readyState !== current.hce.OPEN) {
+          send(ws, { type: 'error', message: 'No hce connected' });
+          console.warn(`[relay] Dropped APDU response ${current.sessionId}: no hce peer`);
+          return;
+        }
+        console.info(`[relay] APDU response ${current.sessionId} from ${role}`);
         send(current.hce, { type: 'apdu_response', data: message.data });
       }
 
@@ -349,7 +365,11 @@ export function initWebSocket(server: Server) {
     });
 
     ws.on('error', async () => {
-      if (token && role) {
+      if (!token || !role) return;
+      const current = sessions.get(token);
+      if (!current) return;
+      removeRoleSocket(current, role, ws);
+      if (!hasAnyPeer(current)) {
         await closeSession(token, `${role} socket error`);
       }
     });

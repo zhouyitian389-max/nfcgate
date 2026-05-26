@@ -39,7 +39,7 @@ model Card {
   accountId        String
   account          Account   @relation(fields: [accountId], references: [id])
   uid              String
-  atR              String?
+  atr              String?
   data             String?
   atqa             String?
   sak              String?

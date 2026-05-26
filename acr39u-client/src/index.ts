@@ -9,6 +9,7 @@ const program = new Command();
 program
   .option('-s, --server <url>', 'WebSocket server URL', process.env.SERVER_URL || 'ws://localhost:8080/ws/relay')
   .option('-t, --token <token>', 'Relay token', process.env.RELAY_TOKEN || '')
+  .option('-b, --baud <rate>', 'Reader baud rate (best effort)', process.env.ACR39U_BAUD_RATE || '9600')
   .parse();
 
 const opts = program.opts();
@@ -27,6 +28,7 @@ const pcsc = pcsclite();
 let activeReader: any = null;
 let activeProtocol: number = 0;
 let ws: WebSocket | null = null;
+let reconnectTimer: NodeJS.Timeout | null = null;
 
 pcsc.on('reader', (reader: any) => {
   console.log(`📖 Reader detected: ${reader.name}`);
@@ -47,8 +49,10 @@ pcsc.on('reader', (reader: any) => {
         activeProtocol = protocol;
         console.log(`✅ Card connected (protocol: ${protocol === 1 ? 'T=0' : 'T=1'})`);
 
-        // Connect WebSocket after card is ready
-        connectWebSocket();
+        configureReader().finally(() => {
+          // Connect WebSocket after card is ready
+          connectWebSocket();
+        });
       });
     }
 
@@ -56,12 +60,15 @@ pcsc.on('reader', (reader: any) => {
       console.log('💳 Card removed');
       activeReader = null;
       ws?.close();
+      clearReconnectTimer();
     }
   });
 
   reader.on('end', () => {
     console.log('📖 Reader removed');
     activeReader = null;
+    ws?.close();
+    clearReconnectTimer();
   });
 
   reader.on('error', (err: any) => {
@@ -74,6 +81,9 @@ pcsc.on('error', (err: any) => {
 });
 
 function connectWebSocket() {
+  if (!activeReader) return;
+  if (ws && (ws.readyState === WebSocket.OPEN || ws.readyState === WebSocket.CONNECTING)) return;
+
   const url = `${opts.server}?token=${opts.token}&role=external`;
   console.log(`🌐 Connecting to ${url}`);
 
@@ -94,10 +104,54 @@ function connectWebSocket() {
 
   ws.on('close', (code: number, reason: Buffer) => {
     console.log(`🔌 WebSocket closed: ${code} ${reason.toString()}`);
+    if (activeReader) {
+      scheduleReconnect();
+    }
   });
 
   ws.on('error', (err: Error) => {
     console.error('❌ WebSocket error:', err.message);
+    if (activeReader) {
+      scheduleReconnect();
+    }
+  });
+}
+
+function scheduleReconnect() {
+  if (reconnectTimer) return;
+  reconnectTimer = setTimeout(() => {
+    reconnectTimer = null;
+    connectWebSocket();
+  }, 2000);
+}
+
+function clearReconnectTimer() {
+  if (reconnectTimer) {
+    clearTimeout(reconnectTimer);
+    reconnectTimer = null;
+  }
+}
+
+async function configureReader() {
+  const baudRate = Number(opts.baud || 9600);
+  if (!activeReader || !Number.isFinite(baudRate) || baudRate <= 0) return;
+  if (!String(activeReader.name || '').toUpperCase().includes('ACR39U')) return;
+  if (baudRate !== 9600) {
+    console.log(`ℹ️ Requested baud rate ${baudRate} (ACR39U vendor commands currently optimized for 9600)`);
+  }
+
+  await new Promise<void>((resolve) => {
+    // ACS escape command (best effort): set PICC polling/communication parameters for 9600-bps compatible cards.
+    const ioctl = 0x42000000 + 3500;
+    const command = Buffer.from('FF00517F00', 'hex');
+    activeReader.control(command, ioctl, 256, (err: any) => {
+      if (err) {
+        console.warn(`⚠️ Unable to apply ACR39U 9600-bps profile: ${err.message}`);
+      } else {
+        console.log('✅ ACR39U 9600-bps profile applied');
+      }
+      resolve();
+    });
   });
 }
 
@@ -162,6 +216,7 @@ function hexToBuffer(hex: string): Buffer {
 process.on('SIGINT', () => {
   console.log('\n👋 Shutting down...');
   ws?.close();
+  clearReconnectTimer();
   pcsc.close();
   process.exit(0);
 });

@@ -16,6 +16,8 @@ import androidx.security.crypto.MasterKey;
 
 import java.util.concurrent.ExecutorService;
 import java.util.concurrent.Executors;
+import java.util.concurrent.Future;
+import java.util.concurrent.TimeUnit;
 
 import de.tu_darmstadt.seemoo.nfcgate.hce.SplashActivity;
 import de.tu_darmstadt.seemoo.nfcgate.hce.db.CardDatabase;
@@ -61,7 +63,7 @@ public class YitianHostApduService extends HostApduService {
     public void onCreate() {
         super.onCreate();
         refreshPinLockCache();
-        refreshCachedCardAsync();
+        refreshCachedCardSync(500);
         IntentFilter filter = new IntentFilter(HttpReceiverService.BROADCAST_STATE);
         filter.addAction(ACTION_SELECTION_CHANGED);
         filter.addAction(ACTION_PIN_LOCK_CHANGED);
@@ -80,6 +82,9 @@ public class YitianHostApduService extends HostApduService {
             return SW_SECURITY_NOT_SATISFIED;
         }
         CardEntity selected = cachedCard;
+        if (selected == null) {
+            selected = refreshCachedCardSync(250);
+        }
         if (selected == null) {
             Log.w(TAG, "APDU received but no card selected");
             return SW_NOT_FOUND;
@@ -113,6 +118,22 @@ public class YitianHostApduService extends HostApduService {
             return;
         }
         dbExecutor.execute(() -> cachedCard = CardDatabase.getInstance(this).cardDao().getSelected());
+    }
+
+    private CardEntity refreshCachedCardSync(long timeoutMs) {
+        if (dbExecutor.isShutdown()) {
+            return cachedCard;
+        }
+        try {
+            Future<CardEntity> future = dbExecutor.submit(() -> CardDatabase.getInstance(this).cardDao().getSelected());
+            CardEntity selected = future.get(timeoutMs, TimeUnit.MILLISECONDS);
+            cachedCard = selected;
+            return selected;
+        } catch (Exception e) {
+            Log.w(TAG, "Failed to refresh selected card synchronously", e);
+            refreshCachedCardAsync();
+            return cachedCard;
+        }
     }
 
     private boolean isPinLocked() {

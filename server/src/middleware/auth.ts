@@ -13,8 +13,18 @@ export interface AuthenticatedRequest extends Request {
   user?: AuthUser;
 }
 
-const JWT_SECRET = process.env.JWT_SECRET || 'dev-secret-change-me';
-const JWT_REFRESH_SECRET = process.env.JWT_REFRESH_SECRET || 'dev-refresh-secret-change-me';
+function resolveSecret(envName: 'JWT_SECRET' | 'JWT_REFRESH_SECRET', fallback: string) {
+  const value = process.env[envName];
+  if (value) return value;
+  if (process.env.NODE_ENV === 'production') {
+    throw new Error(`${envName} must be set in production`);
+  }
+  console.warn(`[auth] ${envName} is not set; using development fallback secret`);
+  return fallback;
+}
+
+const JWT_SECRET = resolveSecret('JWT_SECRET', 'dev-secret-change-me');
+const JWT_REFRESH_SECRET = resolveSecret('JWT_REFRESH_SECRET', 'dev-refresh-secret-change-me');
 
 export function createAccessToken(user: AuthUser): string {
   const expiresIn = (process.env.JWT_EXPIRES_IN || '7d') as jwt.SignOptions['expiresIn'];
@@ -24,6 +34,10 @@ export function createAccessToken(user: AuthUser): string {
 export function createRefreshToken(user: AuthUser): string {
   const expiresIn = (process.env.JWT_REFRESH_EXPIRES_IN || '30d') as jwt.SignOptions['expiresIn'];
   return jwt.sign(user, JWT_REFRESH_SECRET, { expiresIn });
+}
+
+export function verifyRefreshToken(token: string): AuthUser {
+  return jwt.verify(token, JWT_REFRESH_SECRET) as AuthUser;
 }
 
 export async function authMiddleware(req: AuthenticatedRequest, res: Response, next: NextFunction) {

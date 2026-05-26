@@ -17,7 +17,7 @@ export default function CardsPage() {
         </thead>
         <tbody>
           {rows.map((card) => (
-            <tr key={card.id} className="border-t"><td className="p-2">{card.uid}</td><td className="p-2">{card.atR || card.ats || '-'}</td><td className="p-2">{card.label || '-'}</td></tr>
+            <tr key={card.id} className="border-t"><td className="p-2">{card.uid}</td><td className="p-2">{card.atr || card.ats || '-'}</td><td className="p-2">{card.label || '-'}</td></tr>
           ))}
         </tbody>
       </table>
