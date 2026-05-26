@@ -3,6 +3,7 @@ import bcrypt from 'bcrypt';
 import rateLimit from 'express-rate-limit';
 import prisma from '../db.js';
 import { authMiddleware, createAccessToken, createRefreshToken, verifyRefreshToken, type AuthenticatedRequest } from '../middleware/auth.js';
+import { loginRateLimiter } from '../middleware/rateLimit.js';
 
 const router = Router();
 const authLimiter = rateLimit({
@@ -57,7 +58,7 @@ router.post('/register', authLimiter, async (req, res) => {
   });
 });
 
-router.post('/login', authLimiter, async (req, res) => {
+router.post('/login', loginRateLimiter, async (req, res) => {
   const { email, password } = req.body as { email?: string; password?: string };
   if (!email || !password) {
     return res.status(400).json({ message: 'email and password are required' });

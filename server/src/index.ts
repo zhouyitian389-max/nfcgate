@@ -5,6 +5,8 @@ import { createServer } from 'http';
 import prisma from './db.js';
 import { authMiddleware, adminOnly } from './middleware/auth.js';
 import { initWebSocket } from './ws/relay.js';
+import healthRoutes from './middleware/health.js';
+import { apiRateLimiter } from './middleware/rateLimit.js';
 
 import authRoutes from './routes/auth.js';
 import cardRoutes from './routes/cards.js';
@@ -21,8 +23,24 @@ dotenv.config();
 const app = express();
 const server = createServer(app);
 
+app.set('trust proxy', 1);
 app.use(cors({ origin: process.env.CORS_ORIGIN || '*' }));
 app.use(express.json({ limit: '10mb' }));
+app.use((req, res, next) => {
+  if (process.env.NODE_ENV === 'production') {
+    const proto = req.headers['x-forwarded-proto'];
+    if (!req.secure && proto !== 'https') {
+      const host = req.get('host');
+      if (host) {
+        return res.redirect(301, `https://${host}${req.originalUrl}`);
+      }
+    }
+    res.setHeader('Strict-Transport-Security', 'max-age=31536000; includeSubDomains');
+  }
+  return next();
+});
+app.use('/health', healthRoutes);
+app.use('/api', apiRateLimiter);
 
 app.get('/health', (_req, res) => {
   res.json({ status: 'ok', timestamp: new Date().toISOString() });

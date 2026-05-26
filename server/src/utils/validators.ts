@@ -1,0 +1,123 @@
+const HEX_RE = /^[0-9a-fA-F]+$/;
+const TRACK2_RE = /^[0-9D=Ff]+$/;
+
+export interface CardPayload {
+  uid?: unknown;
+  atr?: unknown;
+  atR?: unknown;
+  atqa?: unknown;
+  sak?: unknown;
+  aidList?: unknown;
+  label?: unknown;
+  track2?: unknown;
+  type?: unknown;
+  ats?: unknown;
+  historicalBytes?: unknown;
+}
+
+export interface ValidationResult<T> {
+  ok: boolean;
+  errors: string[];
+  value?: T;
+}
+
+function optionalHex(value: unknown, field: string, minLen: number, maxLen: number, errors: string[]) {
+  if (value == null) return undefined;
+  if (typeof value !== 'string') {
+    errors.push(`${field} must be a string`);
+    return undefined;
+  }
+  const normalized = value.trim();
+  if (normalized.length < minLen || normalized.length > maxLen || !HEX_RE.test(normalized)) {
+    errors.push(`${field} must be hex with length ${minLen}-${maxLen}`);
+    return undefined;
+  }
+  return normalized.toUpperCase();
+}
+
+export function validateCardPayload(input: CardPayload, isPatch = false): ValidationResult<{
+  uid?: string;
+  atr?: string;
+  atqa?: string;
+  sak?: string;
+  aidList?: string[];
+  label?: string;
+  track2?: string;
+  type?: string;
+  ats?: string;
+  historicalBytes?: string;
+}> {
+  const errors: string[] = [];
+  const uid = optionalHex(input.uid, 'uid', 8, 40, errors);
+  if (!isPatch && !uid) {
+    errors.push('uid is required');
+  }
+
+  const atr = optionalHex(input.atr ?? input.atR, 'atr', 2, 200, errors);
+  const atqa = optionalHex(input.atqa, 'atqa', 2, 8, errors);
+  const sak = optionalHex(input.sak, 'sak', 2, 2, errors);
+  const ats = optionalHex(input.ats, 'ats', 2, 200, errors);
+  const historicalBytes = optionalHex(input.historicalBytes, 'historicalBytes', 2, 200, errors);
+
+  let aidList: string[] | undefined;
+  if (input.aidList != null) {
+    if (!Array.isArray(input.aidList)) {
+      errors.push('aidList must be an array');
+    } else {
+      aidList = [];
+      for (const aid of input.aidList) {
+        if (typeof aid !== 'string') {
+          errors.push('aidList items must be strings');
+          continue;
+        }
+        const normalized = aid.trim().toUpperCase();
+        if (normalized.length < 7 || normalized.length > 40 || !HEX_RE.test(normalized)) {
+          errors.push('aidList items must be ISO AID-like hex with length 7-40');
+          continue;
+        }
+        aidList.push(normalized);
+      }
+    }
+  }
+
+  let label: string | undefined;
+  if (input.label != null) {
+    if (typeof input.label !== 'string') {
+      errors.push('label must be a string');
+    } else if (input.label.length > 100) {
+      errors.push('label must be <= 100 characters');
+    } else {
+      label = input.label.trim();
+    }
+  }
+
+  let track2: string | undefined;
+  if (input.track2 != null) {
+    if (typeof input.track2 !== 'string') {
+      errors.push('track2 must be a string');
+    } else if (input.track2.length > 100 || !TRACK2_RE.test(input.track2)) {
+      errors.push('track2 must be <= 100 chars and only contain digits with D/= separators');
+    } else {
+      track2 = input.track2;
+    }
+  }
+
+  let type: string | undefined;
+  if (input.type != null) {
+    if (typeof input.type !== 'string') {
+      errors.push('type must be a string');
+    } else {
+      type = input.type;
+    }
+  }
+
+  if (errors.length > 0) {
+    return { ok: false, errors };
+  }
+
+  return {
+    ok: true,
+    errors: [],
+    value: { uid, atr, atqa, sak, ats, historicalBytes, aidList, label, track2, type }
+  };
+}

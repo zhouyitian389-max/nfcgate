@@ -49,6 +49,7 @@ const HEARTBEAT_MS = Number(process.env.RELAY_HEARTBEAT_MS || 10_000);
 
 const sessions = new Map<string, RelaySession>();
 const sessionTokens = new Map<string, SessionTokenMeta>();
+const wsConnectionByIp = new Map<string, number>();
 
 export async function createSessionToken(accountId: string, cardId?: string, mode = 'NFC_RELAY') {
   const token = uuidv4();
@@ -57,7 +58,7 @@ export async function createSessionToken(accountId: string, cardId?: string, mod
   return { token, expiresAt };
 }
 
-async function resolveSessionMeta(token: string): Promise<Pick<RelaySession, 'accountId' | 'cardId' | 'mode'>> {
+async function resolveSessionMeta(token: string): Promise<Pick<RelaySession, 'accountId' | 'cardId' | 'mode'> | null> {
   const meta = sessionTokens.get(token);
   if (meta && meta.expiresAt.getTime() > Date.now()) {
     return { accountId: meta.accountId, cardId: meta.cardId, mode: meta.mode };
@@ -75,7 +76,7 @@ async function resolveSessionMeta(token: string): Promise<Pick<RelaySession, 'ac
     return { accountId: card.accountId, cardId: card.id, mode: 'NFC_RELAY' };
   }
 
-  return { mode: 'NFC_RELAY' };
+  return null;
 }
 
 function send(ws: WebSocket | undefined, message: RelayMessage) {
@@ -132,6 +133,9 @@ async function ensureSession(token: string): Promise<RelaySession> {
   if (existing) return existing;
 
   const meta = await resolveSessionMeta(token);
+  if (!meta) {
+    throw new Error('token_expired');
+  }
   const session: RelaySession = {
     token,
     sessionId: uuidv4(),
@@ -234,6 +238,14 @@ export function initWebSocket(server: Server) {
       socket.destroy();
       return;
     }
+    const ip = request.socket.remoteAddress || 'unknown';
+    const now = Date.now();
+    const last = wsConnectionByIp.get(ip) ?? 0;
+    if (now - last < 1000) {
+      socket.destroy();
+      return;
+    }
+    wsConnectionByIp.set(ip, now);
 
     const token = url.searchParams.get('token') || undefined;
     const role = (url.searchParams.get('role') as RelayRole | null) || undefined;
@@ -253,7 +265,13 @@ export function initWebSocket(server: Server) {
     const bindSession = async (joinToken: string, joinRole: RelayRole) => {
       token = joinToken;
       role = joinRole;
-      session = await ensureSession(joinToken);
+      try {
+        session = await ensureSession(joinToken);
+      } catch {
+        send(ws, { type: 'error', message: 'token_expired' });
+        ws.close(4001, 'token_expired');
+        return false;
+      }
       session.lastActivityAt = Date.now();
       setRoleSocket(session, joinRole, ws);
       send(ws, { type: 'session_joined', sessionId: session.sessionId });
@@ -262,6 +280,7 @@ export function initWebSocket(server: Server) {
         send(session.reader, { type: 'session_paired', sessionId: session.sessionId });
         send(session.external, { type: 'session_paired', sessionId: session.sessionId });
       }
+      return true;
     };
 
     if (token && role && ['hce', 'reader', 'external'].includes(role)) {
@@ -391,5 +410,12 @@ export function initWebSocket(server: Server) {
       ws.isAlive = false;
       ws.ping();
     });
+
+    const now = Date.now();
+    for (const [ip, ts] of wsConnectionByIp.entries()) {
+      if (now - ts > 10_000) {
+        wsConnectionByIp.delete(ip);
+      }
+    }
   }, HEARTBEAT_MS).unref();
 }
