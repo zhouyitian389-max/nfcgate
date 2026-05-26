@@ -1,12 +1,16 @@
 import { Router } from 'express';
-import { authMiddleware, type AuthenticatedRequest } from '../middleware/auth.js';
+import { authenticateAccessToken, extractBearerToken } from '../middleware/auth.js';
 import { sseHub } from '../services/sseHub.js';
+import { asyncHandler, HttpError } from '../utils/http.js';
 
 const router = Router();
-router.use(authMiddleware);
+router.get('/', asyncHandler(async (req, res) => {
+  const token = typeof req.query.token === 'string' ? req.query.token : extractBearerToken(req.headers.authorization);
+  if (!token) {
+    throw new HttpError(401, 'Missing authorization token');
+  }
 
-router.get('/', (req, res) => {
-  const user = (req as AuthenticatedRequest).user!;
+  const user = await authenticateAccessToken(token);
 
   res.setHeader('Content-Type', 'text/event-stream');
   res.setHeader('Cache-Control', 'no-cache');
@@ -25,6 +29,6 @@ router.get('/', (req, res) => {
     sseHub.removeClient(clientId);
     res.end();
   });
-});
+}));
 
 export default router;

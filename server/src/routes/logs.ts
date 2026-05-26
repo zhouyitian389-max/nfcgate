@@ -1,29 +1,38 @@
 import { Router } from 'express';
 import prisma from '../db.js';
 import { authMiddleware, type AuthenticatedRequest } from '../middleware/auth.js';
+import { asyncHandler, HttpError } from '../utils/http.js';
+import { parsePagination } from '../utils/validation.js';
 
 const router = Router();
 router.use(authMiddleware);
 
-router.get('/', async (req, res) => {
+router.get('/', asyncHandler(async (req, res) => {
   const user = (req as AuthenticatedRequest).user!;
-  const logs = await prisma.apduLog.findMany({
-    where: user.role === 'ADMIN' ? undefined : { accountId: user.accountId },
-    orderBy: { createdAt: 'desc' },
-    take: 200
-  });
-  res.json({ data: logs });
-});
+  const page = parsePagination(req.query.page, 1, 10_000);
+  const pageSize = parsePagination(req.query.pageSize, 50, 200);
+  const where = user.role === 'ADMIN' ? undefined : { accountId: user.accountId };
+  const [total, logs] = await Promise.all([
+    prisma.apduLog.count({ where }),
+    prisma.apduLog.findMany({
+      where,
+      orderBy: { createdAt: 'desc' },
+      skip: (page - 1) * pageSize,
+      take: pageSize
+    })
+  ]);
+  res.json({ data: logs, pagination: { page, pageSize, total } });
+}));
 
-router.get('/:id', async (req, res) => {
+router.get('/:id', asyncHandler(async (req, res) => {
   const user = (req as AuthenticatedRequest).user!;
   const log = await prisma.apduLog.findUnique({ where: { id: req.params.id } });
-  if (!log) return res.status(404).json({ message: 'Log not found' });
+  if (!log) throw new HttpError(404, 'Log not found');
   if (user.role !== 'ADMIN' && log.accountId !== user.accountId) {
-    return res.status(403).json({ message: 'Forbidden' });
+    throw new HttpError(403, 'Forbidden');
   }
 
   return res.json(log);
-});
+}));
 
 export default router;

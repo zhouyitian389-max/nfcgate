@@ -68,13 +68,20 @@ class RelayClient(
             val msg = JSONObject(text)
             when (msg.optString("type")) {
                 "session_joined" -> listener?.onConnected(msg.optString("sessionId"))
-                "apdu_command" -> listener?.onApduCommand(msg.optString("data"))
-                "session_end" -> listener?.onDisconnected(msg.optString("reason", "session_end"))
+                "apdu_command" -> listener?.onApduCommand(msg.optString("data").uppercase())
+                "session_end" -> {
+                    manuallyClosed.set(true)
+                    listener?.onDisconnected(msg.optString("reason", "session_end"))
+                }
                 "ping" -> ws?.send(JSONObject().put("type", "pong").toString())
             }
         } catch (e: Exception) {
             Log.e("ReaderRelayClient", "Invalid message", e)
         }
+    }
+
+    override fun onClosing(webSocket: WebSocket, code: Int, reason: String) {
+        listener?.onDisconnected(reason)
     }
 
     override fun onClosed(webSocket: WebSocket, code: Int, reason: String) {

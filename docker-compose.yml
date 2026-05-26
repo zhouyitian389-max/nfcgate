@@ -12,24 +12,30 @@ services:
       - '5432:5432'
     volumes:
       - postgres_data:/var/lib/postgresql/data
+    healthcheck:
+      test: ['CMD-SHELL', 'pg_isready -U nfcgate -d nfcgate']
+      interval: 10s
+      timeout: 5s
+      retries: 5
+    restart: unless-stopped
 
   server:
-    image: node:20-alpine
+    build:
+      context: ./server
     container_name: nfcgate-server
-    working_dir: /app
-    volumes:
-      - ./server:/app
     environment:
       PORT: 8080
       DATABASE_URL: postgresql://nfcgate:nfcgate@postgres:5432/nfcgate?schema=public
       JWT_SECRET: change-me
-      CORS_ORIGIN: '*'
-    command: >
-      sh -c "npm install && npx prisma generate && npx prisma db push && npm run dev"
+      CORS_ORIGIN: http://localhost:3000
+      RELAY_TOKEN_TTL_MINUTES: 1440
+      SESSION_TOKEN_TTL_MINUTES: 60
     ports:
       - '8080:8080'
     depends_on:
-      - postgres
+      postgres:
+        condition: service_healthy
+    restart: unless-stopped
 
 volumes:
   postgres_data:

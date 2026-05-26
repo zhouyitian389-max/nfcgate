@@ -1,6 +1,8 @@
 import type { NextFunction, Request, Response } from 'express';
 import jwt from 'jsonwebtoken';
 import prisma from '../db.js';
+import { JWT_EXPIRES_IN, JWT_SECRET } from '../config.js';
+import { HttpError } from '../utils/http.js';
 
 export interface AuthUser {
   id: string;
@@ -13,20 +15,18 @@ export interface AuthenticatedRequest extends Request {
   user?: AuthUser;
 }
 
-const JWT_SECRET = process.env.JWT_SECRET || 'dev-secret-change-me';
-
 export function createAccessToken(user: AuthUser): string {
-  const expiresIn = (process.env.JWT_EXPIRES_IN || '7d') as jwt.SignOptions['expiresIn'];
-  return jwt.sign(user, JWT_SECRET, { expiresIn });
+  return jwt.sign(user, JWT_SECRET, { expiresIn: JWT_EXPIRES_IN });
 }
 
-export async function authMiddleware(req: AuthenticatedRequest, res: Response, next: NextFunction) {
-  const authHeader = req.headers.authorization;
+export function extractBearerToken(authHeader?: string): string | null {
   if (!authHeader || !authHeader.startsWith('Bearer ')) {
-    return res.status(401).json({ message: 'Missing Bearer token' });
+    return null;
   }
+  return authHeader.slice('Bearer '.length).trim();
+}
 
-  const token = authHeader.slice('Bearer '.length);
+export async function authenticateAccessToken(token: string): Promise<AuthUser> {
   try {
     const payload = jwt.verify(token, JWT_SECRET) as AuthUser;
     const user = await prisma.user.findUnique({
@@ -35,13 +35,27 @@ export async function authMiddleware(req: AuthenticatedRequest, res: Response, n
     });
 
     if (!user) {
-      return res.status(401).json({ message: 'Invalid token user' });
+      throw new HttpError(401, 'Invalid token user');
     }
 
-    req.user = user;
-    return next();
+    return user;
   } catch {
-    return res.status(401).json({ message: 'Invalid or expired token' });
+    throw new HttpError(401, 'Invalid or expired token');
+  }
+}
+
+export async function authMiddleware(req: AuthenticatedRequest, res: Response, next: NextFunction) {
+  const token = extractBearerToken(req.headers.authorization);
+  if (!token) {
+    return res.status(401).json({ message: 'Missing authorization token' });
+  }
+
+  try {
+    req.user = await authenticateAccessToken(token);
+    return next();
+  } catch (error) {
+    const message = error instanceof HttpError ? error.message : 'Invalid or expired token';
+    return res.status(401).json({ message });
   }
 }
 

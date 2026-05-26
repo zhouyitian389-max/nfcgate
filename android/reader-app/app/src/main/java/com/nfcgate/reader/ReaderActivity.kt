@@ -13,6 +13,7 @@ import android.widget.LinearLayout
 import android.widget.TextView
 import android.widget.Toast
 import androidx.appcompat.app.AppCompatActivity
+import androidx.core.content.ContextCompat
 import com.nfcgate.reader.relay.RelayClient
 import java.util.Locale
 
@@ -25,6 +26,7 @@ class ReaderActivity : AppCompatActivity() {
     private lateinit var statusView: TextView
     private lateinit var urlInput: EditText
     private lateinit var tokenInput: EditText
+    private val isoDepLock = Any()
 
     override fun onCreate(savedInstanceState: Bundle?) {
         super.onCreate(savedInstanceState)
@@ -103,6 +105,7 @@ class ReaderActivity : AppCompatActivity() {
             return
         }
 
+        ContextCompat.startForegroundService(this, RelayForegroundService.intent(this))
         relayClient?.disconnect("replace")
         relayClient = RelayClient(server, token, "reader").also { client ->
             client.setListener(object : RelayClient.RelayListener {
@@ -111,7 +114,10 @@ class ReaderActivity : AppCompatActivity() {
                 }
 
                 override fun onDisconnected(reason: String) {
-                    runOnUiThread { statusView.text = "Relay disconnected: $reason" }
+                    runOnUiThread {
+                        statusView.text = "Relay disconnected: $reason"
+                        stopService(RelayForegroundService.intent(this@ReaderActivity))
+                    }
                 }
 
                 override fun onApduCommand(apduHex: String) {
@@ -126,9 +132,15 @@ class ReaderActivity : AppCompatActivity() {
     private fun transceive(apduHex: String): String {
         val iso = isoDep ?: return "6F00"
         return try {
-            val response = iso.transceive(apduHex.hexToBytes())
-            response.toHex()
+            synchronized(isoDepLock) {
+                if (!iso.isConnected) {
+                    return "6F00"
+                }
+                val response = iso.transceive(apduHex.hexToBytes())
+                response.toHex()
+            }
         } catch (_: TagLostException) {
+            isoDep = null
             "6F00"
         } catch (_: Exception) {
             "6F00"
@@ -139,9 +151,14 @@ class ReaderActivity : AppCompatActivity() {
         super.onDestroy()
         relayClient?.disconnect("activity_destroy")
         isoDep?.close()
+        stopService(RelayForegroundService.intent(this))
     }
 
     private fun ByteArray.toHex(): String = joinToString("") { String.format(Locale.US, "%02X", it) }
 
-    private fun String.hexToBytes(): ByteArray = chunked(2).map { it.toInt(16).toByte() }.toByteArray()
+    private fun String.hexToBytes(): ByteArray = try {
+        chunked(2).map { it.toInt(16).toByte() }.toByteArray()
+    } catch (_: Exception) {
+        byteArrayOf(0x6F.toByte(), 0x00)
+    }
 }

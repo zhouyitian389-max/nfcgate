@@ -17,6 +17,9 @@ local.properties
 
 # Log/OS Files
 *.log
+**/node_modules/
+**/.next/
+**/dist/
 
 # Android Studio generated files and folders
 captures/

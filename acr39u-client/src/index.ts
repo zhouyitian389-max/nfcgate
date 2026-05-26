@@ -22,11 +22,12 @@ console.log('🔌 ACR39U NFCGate Client');
 console.log(`   Server: ${opts.server}`);
 console.log('   Waiting for smart card reader...\n');
 
-// PC/SC Lite — detect readers
 const pcsc = pcsclite();
 let activeReader: any = null;
-let activeProtocol: number = 0;
+let activeProtocol = 0;
 let ws: WebSocket | null = null;
+let reconnectTimer: NodeJS.Timeout | null = null;
+let reconnectDelayMs = 3_000;
 
 pcsc.on('reader', (reader: any) => {
   console.log(`📖 Reader detected: ${reader.name}`);
@@ -34,38 +35,47 @@ pcsc.on('reader', (reader: any) => {
   reader.on('status', (status: any) => {
     const changes = reader.state ^ status.state;
 
-    if (changes & reader.SCARD_STATE_PRESENT && status.state & reader.SCARD_STATE_PRESENT) {
+    if ((changes & reader.SCARD_STATE_PRESENT) && (status.state & reader.SCARD_STATE_PRESENT)) {
       console.log('💳 Card inserted');
+      if (status.atr) {
+        console.log(`   ATR: ${Buffer.from(status.atr).toString('hex').toUpperCase()}`);
+      }
 
       reader.connect({ share_mode: reader.SCARD_SHARE_SHARED }, (err: any, protocol: number) => {
         if (err) {
           console.error('❌ Connect error:', err.message);
+          scheduleReconnect();
           return;
         }
 
         activeReader = reader;
         activeProtocol = protocol;
-        console.log(`✅ Card connected (protocol: ${protocol === 1 ? 'T=0' : 'T=1'})`);
-
-        // Connect WebSocket after card is ready
+        reconnectDelayMs = 3_000;
+        console.log(`✅ Card connected (protocol: ${describeProtocol(reader, protocol)})`);
         connectWebSocket();
       });
     }
 
-    if (changes & reader.SCARD_STATE_EMPTY && status.state & reader.SCARD_STATE_EMPTY) {
+    if ((changes & reader.SCARD_STATE_EMPTY) && (status.state & reader.SCARD_STATE_EMPTY)) {
       console.log('💳 Card removed');
       activeReader = null;
-      ws?.close();
+      activeProtocol = 0;
+      clearReconnect();
+      ws?.close(1000, 'card_removed');
     }
   });
 
   reader.on('end', () => {
     console.log('📖 Reader removed');
     activeReader = null;
+    activeProtocol = 0;
+    clearReconnect();
+    ws?.close(1000, 'reader_removed');
   });
 
   reader.on('error', (err: any) => {
     console.error('❌ Reader error:', err.message);
+    scheduleReconnect();
   });
 });
 
@@ -74,12 +84,21 @@ pcsc.on('error', (err: any) => {
 });
 
 function connectWebSocket() {
+  if (!activeReader) {
+    return;
+  }
+  if (ws && (ws.readyState === WebSocket.OPEN || ws.readyState === WebSocket.CONNECTING)) {
+    return;
+  }
+
+  clearReconnect();
   const url = `${opts.server}?token=${opts.token}&role=external`;
   console.log(`🌐 Connecting to ${url}`);
 
   ws = new WebSocket(url);
 
   ws.on('open', () => {
+    reconnectDelayMs = 3_000;
     console.log('✅ WebSocket connected as external reader');
   });
 
@@ -87,13 +106,15 @@ function connectWebSocket() {
     try {
       const msg = JSON.parse(data.toString());
       handleMessage(msg);
-    } catch (e) {
+    } catch {
       console.error('❌ Invalid message:', data.toString());
     }
   });
 
   ws.on('close', (code: number, reason: Buffer) => {
     console.log(`🔌 WebSocket closed: ${code} ${reason.toString()}`);
+    ws = null;
+    scheduleReconnect();
   });
 
   ws.on('error', (err: Error) => {
@@ -101,32 +122,50 @@ function connectWebSocket() {
   });
 }
 
+function scheduleReconnect() {
+  if (!activeReader || reconnectTimer) {
+    return;
+  }
+
+  reconnectTimer = setTimeout(() => {
+    reconnectTimer = null;
+    connectWebSocket();
+  }, reconnectDelayMs);
+  reconnectDelayMs = Math.min(reconnectDelayMs * 2, 30_000);
+}
+
+function clearReconnect() {
+  if (reconnectTimer) {
+    clearTimeout(reconnectTimer);
+    reconnectTimer = null;
+  }
+}
+
 function handleMessage(msg: any) {
   switch (msg.type) {
     case 'session_joined':
       console.log(`🔗 Joined session: ${msg.sessionId}`);
       break;
-
-    case 'apdu_command':
-      // Received APDU command from HCE → send to real card via reader
+    case 'apdu_command': {
       const apdu = hexToBuffer(msg.data);
       console.log(`→ APDU CMD: ${msg.data}`);
       transceive(apdu);
       break;
-
+    }
     case 'session_end':
       console.log('📴 Session ended');
-      ws?.close();
+      ws?.close(1000, 'session_end');
       break;
-
     case 'error':
       console.error(`❌ Server error: ${msg.message}`);
+      break;
+    default:
       break;
   }
 }
 
 function transceive(apdu: Buffer) {
-  if (!activeReader) {
+  if (!activeReader || !activeProtocol) {
     console.error('❌ No card connected');
     sendResponse(Buffer.from([0x6F, 0x00]));
     return;
@@ -154,13 +193,20 @@ function sendResponse(response: Buffer) {
   ws.send(msg);
 }
 
+function describeProtocol(reader: any, protocol: number) {
+  const labels: string[] = [];
+  if (protocol & reader.SCARD_PROTOCOL_T0) labels.push('T=0');
+  if (protocol & reader.SCARD_PROTOCOL_T1) labels.push('T=1');
+  return labels.length ? labels.join('/') : `0x${protocol.toString(16)}`;
+}
+
 function hexToBuffer(hex: string): Buffer {
   return Buffer.from(hex, 'hex');
 }
 
-// Graceful shutdown
 process.on('SIGINT', () => {
   console.log('\n👋 Shutting down...');
+  clearReconnect();
   ws?.close();
   pcsc.close();
   process.exit(0);

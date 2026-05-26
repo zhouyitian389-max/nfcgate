@@ -12,6 +12,7 @@ import java.util.concurrent.Executors
 import java.util.concurrent.ScheduledExecutorService
 import java.util.concurrent.TimeUnit
 import java.util.concurrent.atomic.AtomicBoolean
+import java.util.concurrent.atomic.AtomicReference
 
 class RelayClient(
     private val serverUrl: String,
@@ -43,10 +44,9 @@ class RelayClient(
     @Volatile
     private var pendingLatch: CountDownLatch? = null
 
-    @Volatile
-    private var pendingResponse: String? = null
-
     private val manuallyClosed = AtomicBoolean(false)
+    private val pendingResponse = AtomicReference<String?>(null)
+    private val apduLock = Any()
 
     fun setListener(listener: RelayListener?) {
         this.listener = listener
@@ -66,20 +66,21 @@ class RelayClient(
         reconnectExecutor.shutdownNow()
     }
 
-    fun sendApduAndWait(apduHex: String): String? {
-        val socket = ws ?: return null
-        if (socket.send(JSONObject().put("type", "apdu_command").put("data", apduHex).toString()).not()) {
-            return null
+    fun sendApduAndWait(apduHex: String): String? = synchronized(apduLock) {
+        val socket = ws ?: return@synchronized null
+        val latch = CountDownLatch(1)
+        pendingResponse.set(null)
+        pendingLatch = latch
+        if (!socket.send(JSONObject().put("type", "apdu_command").put("data", apduHex).toString())) {
+            pendingLatch = null
+            return@synchronized null
         }
 
-        val latch = CountDownLatch(1)
-        pendingLatch = latch
-        pendingResponse = null
         val ok = latch.await(4500, TimeUnit.MILLISECONDS)
-        val response = if (ok) pendingResponse else null
+        val response = if (ok) pendingResponse.get() else null
         pendingLatch = null
-        pendingResponse = null
-        return response
+        pendingResponse.set(null)
+        response
     }
 
     fun sendApduResponse(respHex: String) {
@@ -103,11 +104,14 @@ class RelayClient(
                     listener?.onConnected(lastSessionId ?: "")
                 }
                 "apdu_response" -> {
-                    pendingResponse = msg.optString("data")
+                    pendingResponse.set(msg.optString("data"))
                     pendingLatch?.countDown()
                 }
-                "apdu_command" -> listener?.onApduCommand(msg.optString("data"))
-                "session_end" -> listener?.onDisconnected(msg.optString("reason", "session_end"))
+                "apdu_command" -> listener?.onApduCommand(msg.optString("data").uppercase())
+                "session_end" -> {
+                    manuallyClosed.set(true)
+                    listener?.onDisconnected(msg.optString("reason", "session_end"))
+                }
                 "ping" -> sendRaw(JSONObject().put("type", "pong").toString())
             }
         } catch (e: Exception) {

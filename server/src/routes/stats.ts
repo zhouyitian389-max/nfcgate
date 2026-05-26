@@ -2,11 +2,12 @@ import { Router } from 'express';
 import prisma from '../db.js';
 import { authMiddleware, type AuthenticatedRequest } from '../middleware/auth.js';
 import { getActiveSessions } from '../services/relay.js';
+import { asyncHandler } from '../utils/http.js';
 
 const router = Router();
 router.use(authMiddleware);
 
-router.get('/', async (req, res) => {
+router.get('/', asyncHandler(async (req, res) => {
   const user = (req as AuthenticatedRequest).user!;
 
   const [cards, devices, apduSessions, apduAgg] = await Promise.all([
@@ -25,6 +26,6 @@ router.get('/', async (req, res) => {
     activeSessions,
     apduCount: apduAgg._sum.apduCount || 0
   });
-});
+}));
 
 export default router;

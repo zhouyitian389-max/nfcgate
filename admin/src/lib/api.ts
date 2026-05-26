@@ -2,10 +2,18 @@ import axios from 'axios';
 
 const API_BASE = process.env.NEXT_PUBLIC_API_URL || 'http://localhost:8080/api';
 const TOKEN_KEY = 'token';
+const getStorage = () => (typeof window === 'undefined' ? null : window.sessionStorage);
 
-export const getToken = () => (typeof window === 'undefined' ? null : localStorage.getItem(TOKEN_KEY));
-export const setToken = (token: string) => localStorage.setItem(TOKEN_KEY, token);
-export const clearToken = () => localStorage.removeItem(TOKEN_KEY);
+export const getToken = () => getStorage()?.getItem(TOKEN_KEY) || null;
+export const setToken = (token: string) => getStorage()?.setItem(TOKEN_KEY, token);
+export const clearToken = () => getStorage()?.removeItem(TOKEN_KEY);
+export const createEventsSource = () => {
+  const token = getToken();
+  if (!token || typeof window === 'undefined') {
+    return null;
+  }
+  return new EventSource(`${API_BASE}/events?token=${encodeURIComponent(token)}`);
+};
 
 const client = axios.create({
   baseURL: API_BASE,

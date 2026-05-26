@@ -234,7 +234,7 @@ WebSocket payloads:
 1. Start infra and server:
    ```bash
    cp .env.example .env
-   docker-compose up -d
+   docker-compose up -d --build
    ```
 2. Start admin panel:
    ```bash
@@ -251,3 +251,5 @@ WebSocket payloads:
 4. Android apps are located at:
    - `android/hce-app`
    - `android/reader-app`
+5. Detailed deployment notes:
+   - [DEPLOY.md](DEPLOY.md)

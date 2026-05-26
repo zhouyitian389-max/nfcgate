@@ -2,6 +2,8 @@ import type { Server } from 'http';
 import { WebSocketServer, type WebSocket } from 'ws';
 import { v4 as uuidv4 } from 'uuid';
 import prisma from '../db.js';
+import { SESSION_TOKEN_TTL_MINUTES } from '../config.js';
+import { HttpError } from '../utils/http.js';
 import { sseHub } from './sseHub.js';
 
 type RelayRole = 'hce' | 'reader' | 'external';
@@ -21,6 +23,7 @@ interface SessionTokenMeta {
   cardId?: string;
   mode: string;
   expiresAt: Date;
+  source: 'session' | 'card';
 }
 
 interface SocketWithState extends WebSocket {
@@ -30,9 +33,10 @@ interface SocketWithState extends WebSocket {
 interface RelaySession {
   token: string;
   sessionId: string;
-  accountId?: string;
+  accountId: string;
   cardId?: string;
   mode: string;
+  tokenSource: 'session' | 'card';
   logId?: string;
   apduCount: number;
   startedAt: number;
@@ -44,36 +48,52 @@ interface RelaySession {
 
 const SESSION_TIMEOUT_MS = 30_000;
 const HEARTBEAT_MS = 15_000;
+const MAX_HEX_MESSAGE_LENGTH = 8192;
+const MAX_PAYLOAD_BYTES = 16 * 1024;
 
 const sessions = new Map<string, RelaySession>();
 const sessionTokens = new Map<string, SessionTokenMeta>();
+const sessionCreationLocks = new Map<string, Promise<RelaySession>>();
 
 export async function createSessionToken(accountId: string, cardId?: string, mode = 'NFC_RELAY') {
   const token = uuidv4();
-  const expiresAt = new Date(Date.now() + 60 * 60 * 1000);
-  sessionTokens.set(token, { token, accountId, cardId, mode, expiresAt });
+  const expiresAt = new Date(Date.now() + SESSION_TOKEN_TTL_MINUTES * 60_000);
+  sessionTokens.set(token, { token, accountId, cardId, mode, expiresAt, source: 'session' });
   return { token, expiresAt };
 }
 
-async function resolveSessionMeta(token: string): Promise<Pick<RelaySession, 'accountId' | 'cardId' | 'mode'>> {
+function cleanupExpiredSessionTokens() {
+  const now = Date.now();
+  for (const [token, meta] of sessionTokens.entries()) {
+    if (meta.expiresAt.getTime() <= now) {
+      sessionTokens.delete(token);
+    }
+  }
+}
+
+async function resolveSessionMeta(token: string): Promise<Pick<RelaySession, 'accountId' | 'cardId' | 'mode' | 'tokenSource'> | null> {
   const meta = sessionTokens.get(token);
-  if (meta && meta.expiresAt.getTime() > Date.now()) {
-    return { accountId: meta.accountId, cardId: meta.cardId, mode: meta.mode };
+  if (meta) {
+    if (meta.expiresAt.getTime() <= Date.now()) {
+      sessionTokens.delete(token);
+      return null;
+    }
+    return { accountId: meta.accountId, cardId: meta.cardId, mode: meta.mode, tokenSource: meta.source };
   }
 
   const card = await prisma.card.findFirst({
     where: {
       relayToken: token,
-      OR: [{ relayTokenExpiresAt: null }, { relayTokenExpiresAt: { gt: new Date() } }]
+      relayTokenExpiresAt: { gt: new Date() }
     },
     select: { id: true, accountId: true }
   });
 
-  if (card) {
-    return { accountId: card.accountId, cardId: card.id, mode: 'NFC_RELAY' };
+  if (!card) {
+    return null;
   }
 
-  return { mode: 'NFC_RELAY' };
+  return { accountId: card.accountId, cardId: card.id, mode: 'NFC_RELAY', tokenSource: 'card' };
 }
 
 function send(ws: WebSocket | undefined, message: RelayMessage) {
@@ -98,14 +118,20 @@ async function closeSession(token: string, reason: string) {
   }
 
   sessions.delete(token);
-  if (session.accountId) {
-    sseHub.sendToUser(session.accountId, 'relay_session_end', {
-      sessionId: session.sessionId,
-      token,
-      reason,
-      apduCount: session.apduCount
-    });
+  if (session.tokenSource === 'session') {
+    sessionTokens.delete(token);
   }
+
+  sseHub.sendToUser(session.accountId, 'relay_session_end', {
+    sessionId: session.sessionId,
+    token,
+    reason,
+    apduCount: session.apduCount
+  });
+  sseHub.sendToUser(session.accountId, 'logs_changed', {
+    sessionId: session.sessionId,
+    apduCount: session.apduCount
+  });
 
   if (session.logId) {
     const duration = Date.now() - session.startedAt;
@@ -120,19 +146,30 @@ async function ensureSession(token: string): Promise<RelaySession> {
   const existing = sessions.get(token);
   if (existing) return existing;
 
-  const meta = await resolveSessionMeta(token);
-  const session: RelaySession = {
-    token,
-    sessionId: uuidv4(),
-    accountId: meta.accountId,
-    cardId: meta.cardId,
-    mode: meta.mode,
-    startedAt: Date.now(),
-    lastActivityAt: Date.now(),
-    apduCount: 0
-  };
+  const inFlight = sessionCreationLocks.get(token);
+  if (inFlight) return inFlight;
 
-  if (session.accountId) {
+  const pending = (async () => {
+    const current = sessions.get(token);
+    if (current) return current;
+
+    const meta = await resolveSessionMeta(token);
+    if (!meta) {
+      throw new HttpError(401, 'Invalid or expired relay token');
+    }
+
+    const session: RelaySession = {
+      token,
+      sessionId: uuidv4(),
+      accountId: meta.accountId,
+      cardId: meta.cardId,
+      mode: meta.mode,
+      tokenSource: meta.tokenSource,
+      startedAt: Date.now(),
+      lastActivityAt: Date.now(),
+      apduCount: 0
+    };
+
     const created = await prisma.apduLog.create({
       data: {
         accountId: session.accountId,
@@ -150,23 +187,36 @@ async function ensureSession(token: string): Promise<RelaySession> {
       sessionId: session.sessionId,
       token
     });
-  }
 
-  sessions.set(token, session);
-  return session;
+    sessions.set(token, session);
+    return session;
+  })();
+
+  sessionCreationLocks.set(token, pending);
+  try {
+    return await pending;
+  } finally {
+    sessionCreationLocks.delete(token);
+  }
 }
 
 function setRoleSocket(session: RelaySession, role: RelayRole, ws: SocketWithState) {
   if (role === 'hce') {
     if (session.hce && session.hce !== ws) session.hce.close(1000, 'Replaced by new hce connection');
     session.hce = ws;
-  } else if (role === 'reader') {
+    return;
+  }
+
+  if (role === 'reader') {
+    if (session.external && session.external !== ws) session.external.close(1000, 'Replaced by reader connection');
     if (session.reader && session.reader !== ws) session.reader.close(1000, 'Replaced by new reader connection');
     session.reader = ws;
-  } else {
-    if (session.external && session.external !== ws) session.external.close(1000, 'Replaced by new external connection');
-    session.external = ws;
+    return;
   }
+
+  if (session.reader && session.reader !== ws) session.reader.close(1000, 'Replaced by external connection');
+  if (session.external && session.external !== ws) session.external.close(1000, 'Replaced by new external connection');
+  session.external = ws;
 }
 
 function removeRoleSocket(session: RelaySession, role: RelayRole, ws: SocketWithState) {
@@ -181,7 +231,44 @@ function hasAnyPeer(session: RelaySession) {
 
 function parseMessage(raw: string): RelayMessage | null {
   try {
-    return JSON.parse(raw) as RelayMessage;
+    const parsed = JSON.parse(raw) as Partial<RelayMessage>;
+    if (!parsed || typeof parsed !== 'object' || typeof parsed.type !== 'string') {
+      return null;
+    }
+
+    if (parsed.type === 'apdu_command' || parsed.type === 'apdu_response') {
+      if (
+        typeof parsed.data !== 'string' ||
+        parsed.data.length < 2 ||
+        parsed.data.length > MAX_HEX_MESSAGE_LENGTH ||
+        parsed.data.length % 2 !== 0 ||
+        !/^[0-9A-Fa-f]+$/.test(parsed.data)
+      ) {
+        return null;
+      }
+      return { type: parsed.type, data: parsed.data.toUpperCase() };
+    }
+
+    if (parsed.type === 'session_end') {
+      return {
+        type: 'session_end',
+        reason: typeof parsed.reason === 'string' && parsed.reason.trim() ? parsed.reason.trim() : 'session_end'
+      };
+    }
+
+    if (parsed.type === 'error' && typeof parsed.message === 'string') {
+      return { type: 'error', message: parsed.message };
+    }
+
+    if (parsed.type === 'ping' || parsed.type === 'pong') {
+      return { type: parsed.type };
+    }
+
+    if (parsed.type === 'session_joined' && typeof parsed.sessionId === 'string') {
+      return { type: 'session_joined', sessionId: parsed.sessionId };
+    }
+
+    return null;
   } catch {
     return null;
   }
@@ -209,7 +296,7 @@ export function getActiveSessions(accountId?: string) {
 }
 
 export function initWebSocket(server: Server) {
-  const wss = new WebSocketServer({ noServer: true });
+  const wss = new WebSocketServer({ noServer: true, maxPayload: MAX_PAYLOAD_BYTES });
 
   server.on('upgrade', (request, socket, head) => {
     const url = new URL(request.url || '', `http://${request.headers.host}`);
@@ -236,7 +323,15 @@ export function initWebSocket(server: Server) {
     const ws = rawWs as SocketWithState;
     ws.isAlive = true;
 
-    const session = await ensureSession(token);
+    let session: RelaySession;
+    try {
+      session = await ensureSession(token);
+    } catch (error) {
+      const message = error instanceof HttpError ? error.message : 'Invalid or expired relay token';
+      ws.close(4401, message);
+      return;
+    }
+
     session.lastActivityAt = Date.now();
     setRoleSocket(session, role, ws);
     send(ws, { type: 'session_joined', sessionId: session.sessionId });
@@ -250,7 +345,7 @@ export function initWebSocket(server: Server) {
     ws.on('message', async (buf) => {
       const message = parseMessage(buf.toString());
       if (!message) {
-        send(ws, { type: 'error', message: 'Invalid JSON message' });
+        send(ws, { type: 'error', message: 'Invalid relay message' });
         return;
       }
 
@@ -267,6 +362,11 @@ export function initWebSocket(server: Server) {
         return;
       }
 
+      if (message.type === 'session_end') {
+        await closeSession(token, message.reason);
+        return;
+      }
+
       if (message.type === 'apdu_command') {
         if (role !== 'hce') {
           send(ws, { type: 'error', message: 'Only hce can send apdu_command' });
@@ -274,7 +374,7 @@ export function initWebSocket(server: Server) {
         }
 
         const target = getReaderPeer(current);
-        if (!target) {
+        if (!target || target.readyState !== target.OPEN) {
           send(ws, { type: 'error', message: 'No reader connected' });
           return;
         }
@@ -286,6 +386,11 @@ export function initWebSocket(server: Server) {
       if (message.type === 'apdu_response') {
         if (role !== 'reader' && role !== 'external') {
           send(ws, { type: 'error', message: 'Only reader/external can send apdu_response' });
+          return;
+        }
+
+        if (!current.hce || current.hce.readyState !== current.hce.OPEN) {
+          send(ws, { type: 'error', message: 'No hce connected' });
           return;
         }
 
@@ -316,6 +421,8 @@ export function initWebSocket(server: Server) {
   });
 
   setInterval(async () => {
+    cleanupExpiredSessionTokens();
+
     for (const [token, session] of sessions.entries()) {
       if (Date.now() - session.lastActivityAt > SESSION_TIMEOUT_MS) {
         await closeSession(token, 'Session timeout');

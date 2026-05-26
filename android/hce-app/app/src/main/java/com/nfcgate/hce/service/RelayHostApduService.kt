@@ -32,11 +32,15 @@ class RelayHostApduService : HostApduService() {
     private fun String.hexToBytes(): ByteArray {
         val clean = trim().replace(" ", "")
         if (clean.length % 2 != 0) return SW_INTERNAL_ERROR
-        return clean.chunked(2).map { it.toInt(16).toByte() }.toByteArray()
+        return try {
+            clean.chunked(2).map { it.toInt(16).toByte() }.toByteArray()
+        } catch (_: NumberFormatException) {
+            SW_INTERNAL_ERROR
+        }
     }
 
     companion object {
-        private val SW_TIMEOUT = byteArrayOf(0x64.toByte(), 0x00)
+        private val SW_TIMEOUT = byteArrayOf(0x6F.toByte(), 0x00)
         private val SW_INTERNAL_ERROR = byteArrayOf(0x6F.toByte(), 0x00)
     }
 }
