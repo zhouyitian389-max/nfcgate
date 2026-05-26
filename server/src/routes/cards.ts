@@ -2,6 +2,8 @@ import { Router } from 'express';
 import { v4 as uuidv4 } from 'uuid';
 import prisma from '../db.js';
 import { authMiddleware, type AuthenticatedRequest } from '../middleware/auth.js';
+import { createCardRateLimiter, relayTokenRateLimiter } from '../middleware/rateLimit.js';
+import { validateCardPayload } from '../utils/validators.js';
 
 const router = Router();
 router.use(authMiddleware);
@@ -15,19 +17,25 @@ router.get('/', async (req, res) => {
   return res.json({ data: cards });
 });
 
-router.post('/', async (req, res) => {
+router.post('/', createCardRateLimiter, async (req, res) => {
   const { accountId } = (req as AuthenticatedRequest).user!;
+  const parsed = validateCardPayload(req.body ?? {});
+  if (!parsed.ok || !parsed.value) {
+    return res.status(400).json({ message: 'Invalid card payload', errors: parsed.errors });
+  }
+
   const created = await prisma.card.create({
     data: {
       accountId,
-      uid: req.body.uid,
-      atqa: req.body.atqa,
-      sak: req.body.sak,
-      ats: req.body.ats,
-      historicalBytes: req.body.historicalBytes,
-      label: req.body.label,
-      type: req.body.type || 'UNKNOWN',
-      aidList: req.body.aidList ? JSON.stringify(req.body.aidList) : null
+      uid: parsed.value.uid!,
+      atr: parsed.value.atr,
+      atqa: parsed.value.atqa,
+      sak: parsed.value.sak,
+      ats: parsed.value.ats,
+      historicalBytes: parsed.value.historicalBytes,
+      label: parsed.value.label,
+      type: parsed.value.type || 'UNKNOWN',
+      aidList: parsed.value.aidList ? JSON.stringify(parsed.value.aidList) : null
     }
   });
   return res.status(201).json(created);
@@ -45,17 +53,23 @@ router.put('/:id', async (req, res) => {
   const card = await prisma.card.findFirst({ where: { id: req.params.id, accountId } });
   if (!card) return res.status(404).json({ message: 'Card not found' });
 
+  const parsed = validateCardPayload(req.body ?? {}, true);
+  if (!parsed.ok || !parsed.value) {
+    return res.status(400).json({ message: 'Invalid card payload', errors: parsed.errors });
+  }
+
   const updated = await prisma.card.update({
     where: { id: card.id },
     data: {
-      uid: req.body.uid ?? card.uid,
-      atqa: req.body.atqa ?? card.atqa,
-      sak: req.body.sak ?? card.sak,
-      ats: req.body.ats ?? card.ats,
-      historicalBytes: req.body.historicalBytes ?? card.historicalBytes,
-      label: req.body.label ?? card.label,
-      type: req.body.type ?? card.type,
-      aidList: req.body.aidList ? JSON.stringify(req.body.aidList) : card.aidList
+      uid: parsed.value.uid ?? card.uid,
+      atr: parsed.value.atr ?? card.atr,
+      atqa: parsed.value.atqa ?? card.atqa,
+      sak: parsed.value.sak ?? card.sak,
+      ats: parsed.value.ats ?? card.ats,
+      historicalBytes: parsed.value.historicalBytes ?? card.historicalBytes,
+      label: parsed.value.label ?? card.label,
+      type: parsed.value.type ?? card.type,
+      aidList: parsed.value.aidList ? JSON.stringify(parsed.value.aidList) : card.aidList
     }
   });
 
@@ -71,7 +85,7 @@ router.delete('/:id', async (req, res) => {
   return res.status(204).send();
 });
 
-router.post('/:id/relay-token', async (req, res) => {
+router.post('/:id/relay-token', relayTokenRateLimiter, async (req, res) => {
   const { accountId } = (req as AuthenticatedRequest).user!;
   const card = await prisma.card.findFirst({ where: { id: req.params.id, accountId } });
   if (!card) return res.status(404).json({ message: 'Card not found' });

@@ -13,8 +13,22 @@ export interface AuthenticatedRequest extends Request {
   user?: AuthUser;
 }
 
-const JWT_SECRET = process.env.JWT_SECRET || 'dev-secret-change-me';
-const JWT_REFRESH_SECRET = process.env.JWT_REFRESH_SECRET || 'dev-refresh-secret-change-me';
+const DEFAULT_JWT_SECRET = 'dev-secret-change-me';
+const DEFAULT_JWT_REFRESH_SECRET = 'dev-refresh-secret-change-me';
+const MIN_SECRET_LENGTH = 32;
+
+function resolveSecret(envName: 'JWT_SECRET' | 'JWT_REFRESH_SECRET', fallback: string) {
+  const value = process.env[envName] || fallback;
+  if (process.env.NODE_ENV === 'production') {
+    if (!process.env[envName] || value === fallback || value.length < MIN_SECRET_LENGTH) {
+      throw new Error(`${envName} must be set to a random secret with at least ${MIN_SECRET_LENGTH} characters in production`);
+    }
+  }
+  return value;
+}
+
+const JWT_SECRET = resolveSecret('JWT_SECRET', DEFAULT_JWT_SECRET);
+const JWT_REFRESH_SECRET = resolveSecret('JWT_REFRESH_SECRET', DEFAULT_JWT_REFRESH_SECRET);
 
 export function createAccessToken(user: AuthUser): string {
   const expiresIn = (process.env.JWT_EXPIRES_IN || '7d') as jwt.SignOptions['expiresIn'];
