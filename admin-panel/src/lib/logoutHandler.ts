@@ -10,6 +10,7 @@ const API_BASE = process.env.NEXT_PUBLIC_API_BASE || 'http://localhost:8080/api'
  */
 export async function logout(reason?: string): Promise<void> {
   const token = tokenStorage.getAccessToken();
+  const refreshToken = tokenStorage.getRefreshToken();
 
   try {
     const headers: Record<string, string> = { 'Content-Type': 'application/json' };
@@ -17,7 +18,7 @@ export async function logout(reason?: string): Promise<void> {
     await fetch(`${API_BASE}/auth/logout`, {
       method: 'POST',
       headers,
-      body: JSON.stringify({})
+      body: JSON.stringify({ refreshToken })
     });
   } catch {
     // Transport failures should not block local cleanup.

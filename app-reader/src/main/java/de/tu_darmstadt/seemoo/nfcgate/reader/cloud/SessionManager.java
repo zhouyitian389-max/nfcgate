@@ -12,6 +12,7 @@ public final class SessionManager {
     private static final String TAG = "SessionManager";
     private static final String PREF_CLOUD_SECRETS = "cloud_secrets";
     private static final String KEY_TOKEN = "cloud_token";
+    private static final String KEY_REFRESH_TOKEN = "cloud_refresh_token";
     private static final String KEY_TOKEN_EXPIRY = "cloud_token_expiry";
     private static final String KEY_ACCOUNT_ID = "cloud_account_id";
     private static final String KEY_PASSWORD = "cloud_password";
@@ -42,19 +43,38 @@ public final class SessionManager {
         }
     }
 
-    public static void saveLogin(Context context, String token, long expiresAtMillis, String accountId, String password) {
+    public static void saveLogin(Context context, String token, String refreshToken, long expiresAtMillis, String accountId, String password) {
         prefs(context).edit()
-                .putString(KEY_TOKEN, token)
                 .putLong(KEY_TOKEN_EXPIRY, expiresAtMillis)
                 .putString(KEY_ACCOUNT_ID, accountId)
                 .remove(KEY_PASSWORD)
                 .remove(KEY_SALT)
                 .apply();
-        secretPrefs(context).edit().putString(KEY_PASSWORD, password).apply();
+        secretPrefs(context).edit()
+                .putString(KEY_TOKEN, token)
+                .putString(KEY_REFRESH_TOKEN, refreshToken)
+                .putString(KEY_PASSWORD, password)
+                .apply();
     }
 
     public static String getToken(Context context) {
-        return prefs(context).getString(KEY_TOKEN, null);
+        SharedPreferences secrets = secretPrefs(context);
+        String token = secrets.getString(KEY_TOKEN, null);
+        if (token != null && !token.isEmpty()) return token;
+        String legacy = prefs(context).getString(KEY_TOKEN, null);
+        if (legacy != null && !legacy.isEmpty()) {
+            secrets.edit().putString(KEY_TOKEN, legacy).apply();
+            prefs(context).edit().remove(KEY_TOKEN).apply();
+            return legacy;
+        }
+        return null;
+    }
+
+    public static String getRefreshToken(Context context) {
+        SharedPreferences secrets = secretPrefs(context);
+        String refreshToken = secrets.getString(KEY_REFRESH_TOKEN, "");
+        if (!refreshToken.isEmpty()) return refreshToken;
+        return "";
     }
 
     public static String getPassword(Context context) {
@@ -78,8 +98,13 @@ public final class SessionManager {
         return prefs(context).getLong(KEY_TOKEN_EXPIRY, 0L);
     }
 
-    public static void updateToken(Context context, String token, long expiresAtMillis) {
-        prefs(context).edit().putString(KEY_TOKEN, token).putLong(KEY_TOKEN_EXPIRY, expiresAtMillis).apply();
+    public static void updateToken(Context context, String token, String refreshToken, long expiresAtMillis) {
+        prefs(context).edit().putLong(KEY_TOKEN_EXPIRY, expiresAtMillis).apply();
+        SharedPreferences.Editor editor = secretPrefs(context).edit().putString(KEY_TOKEN, token);
+        if (refreshToken != null && !refreshToken.isEmpty()) {
+            editor.putString(KEY_REFRESH_TOKEN, refreshToken);
+        }
+        editor.apply();
     }
 
     public static boolean isLoggedIn(Context context) {
@@ -100,7 +125,7 @@ public final class SessionManager {
                 .remove(KEY_SALT)
                 .remove(KEY_COOLDOWN_UNTIL)
                 .apply();
-        secretPrefs(context).edit().remove(KEY_PASSWORD).remove(KEY_SALT).apply();
+        secretPrefs(context).edit().remove(KEY_TOKEN).remove(KEY_REFRESH_TOKEN).remove(KEY_PASSWORD).remove(KEY_SALT).apply();
     }
 
     public static void setSalt(Context context, String salt) {

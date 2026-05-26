@@ -3,48 +3,13 @@
 import { useCallback, useEffect, useRef, useState } from 'react';
 import { tokenStorage } from '@/lib/tokenStorage';
 import { logout as doLogout } from '@/lib/logoutHandler';
-
-const API_BASE = process.env.NEXT_PUBLIC_API_BASE || 'http://localhost:8080/api';
+import { requestTokenRefresh } from '@/lib/tokenRefresh';
 
 /** How many milliseconds before expiry we proactively refresh (1 minute). */
 const REFRESH_THRESHOLD_MS = 60_000;
 
 /** How often we poll to check token health (10 seconds). */
 const POLL_INTERVAL_MS = 10_000;
-
-async function callRefreshEndpoint(): Promise<{
-  accessToken: string;
-  refreshToken: string;
-  expiresAt: number;
-} | null> {
-  const refreshToken = tokenStorage.getRefreshToken();
-  if (!refreshToken) return null;
-
-  try {
-    const res = await fetch(`${API_BASE}/auth/refresh`, {
-      method: 'POST',
-      headers: { 'Content-Type': 'application/json' },
-      body: JSON.stringify({ refreshToken })
-    });
-    if (!res.ok) return null;
-
-    const data = await res.json() as {
-      accessToken?: string;
-      token?: string;
-      refreshToken?: string;
-      expiresAt?: number;
-    };
-
-    const newAccess  = data.accessToken  || data.token   || '';
-    const newRefresh = data.refreshToken || '';
-    const expiresAt  = data.expiresAt    ?? (Date.now() + 15 * 60 * 1000);
-
-    if (!newAccess || !newRefresh) return null;
-    return { accessToken: newAccess, refreshToken: newRefresh, expiresAt };
-  } catch {
-    return null;
-  }
-}
 
 /**
  * React hook that manages the token lifecycle:
@@ -62,14 +27,13 @@ export function useTokenRefresh() {
     inflightRef.current = (async () => {
       setIsRefreshing(true);
       try {
-        const result = await callRefreshEndpoint();
-        if (!result) {
+        const accessToken = await requestTokenRefresh();
+        if (!accessToken) {
           await doLogout('session_expired');
           return null;
         }
-        tokenStorage.setTokens(result.accessToken, result.refreshToken, result.expiresAt);
-        setExpiresAt(result.expiresAt);
-        return result.accessToken;
+        setExpiresAt(tokenStorage.getAccessTokenExpiry());
+        return accessToken;
       } finally {
         setIsRefreshing(false);
         inflightRef.current = null;

@@ -1,5 +1,5 @@
 import { Router } from 'express';
-import { createHash } from 'crypto';
+import { createHash, createHmac } from 'crypto';
 import { v4 as uuidv4 } from 'uuid';
 import prisma from '../db.js';
 import { authMiddleware, type AuthenticatedRequest } from '../middleware/auth.js';
@@ -10,7 +10,15 @@ import { normalizeTrack2, validateCardPayload } from '../utils/validators.js';
 const router = Router();
 router.use(authMiddleware);
 
+function panHashSecret() {
+  return process.env.PAN_HASH_SECRET || process.env.CARD_ENCRYPTION_KEY || 'dev-pan-hash-secret-change-me';
+}
+
 function hashPan(pan: string): string {
+  return createHmac('sha256', panHashSecret()).update(pan).digest('hex');
+}
+
+function hashPanLegacy(pan: string): string {
   return createHash('sha256').update(pan).digest('hex');
 }
 
@@ -66,56 +74,61 @@ async function upsertCloudCard(accountId: string, item: Record<string, unknown>)
     throw new Error('Each card must contain either blob or pan');
   }
 
-  let existing = encryptedBlob
-    ? await prisma.cloudCard.findFirst({ where: { accountId, encryptedBlob, deletedAt: null } })
-    : null;
-
-  if (!existing && pan) {
-    const ph = hashPan(pan);
-    existing = await prisma.cloudCard.findFirst({
-      where: { accountId, panHash: ph, deletedAt: null }
-    }) ?? null;
-  }
-
   const panEncrypted = pan ? encryptString(pan) : null;
   const track2Encrypted = track2 ? encryptString(track2) : null;
-
   const panHashValue = pan ? hashPan(pan) : null;
+  const legacyPanHashValue = pan ? hashPanLegacy(pan) : null;
 
-  if (existing) {
-    return prisma.cloudCard.update({
-      where: { id: existing.id },
+  return prisma.$transaction(async (tx) => {
+    let existing = encryptedBlob
+      ? await tx.cloudCard.findFirst({ where: { accountId, encryptedBlob, deletedAt: null } })
+      : null;
+
+    if (!existing && panHashValue) {
+      existing = await tx.cloudCard.findFirst({
+        where: {
+          accountId,
+          deletedAt: null,
+          panHash: { in: legacyPanHashValue ? [panHashValue, legacyPanHashValue] : [panHashValue] }
+        }
+      }) ?? null;
+    }
+
+    if (existing) {
+      return tx.cloudCard.update({
+        where: { id: existing.id },
+        data: {
+          encryptedBlob: encryptedBlob ?? existing.encryptedBlob,
+          panEncrypted: panEncrypted ?? existing.panEncrypted,
+          pan: pan ? maskPan(pan) : existing.pan,
+          panHash: panHashValue ?? existing.panHash,
+          brand,
+          holder: holder ?? existing.holder,
+          expiry: expiry ?? existing.expiry,
+          track2Encrypted: track2Encrypted ?? existing.track2Encrypted,
+          track2: track2 ? null : existing.track2,
+          note: note ?? existing.note,
+          deletedAt: null
+        }
+      });
+    }
+
+    return tx.cloudCard.create({
       data: {
-        encryptedBlob: encryptedBlob ?? existing.encryptedBlob,
-        panEncrypted: panEncrypted ?? existing.panEncrypted,
-        pan: pan ? maskPan(pan) : existing.pan,
-        panHash: panHashValue ?? existing.panHash,
+        accountId,
+        encryptedBlob: encryptedBlob ?? null,
+        panEncrypted,
+        pan: pan ? maskPan(pan) : null,
+        panHash: panHashValue,
         brand,
-        holder: holder ?? existing.holder,
-        expiry: expiry ?? existing.expiry,
-        track2Encrypted: track2Encrypted ?? existing.track2Encrypted,
-        track2: track2 ? null : existing.track2,
-        note: note ?? existing.note,
-        deletedAt: null
+        holder: holder ?? null,
+        expiry: expiry ?? null,
+        track2Encrypted,
+        track2: null,
+        note: note ?? null,
+        source: encryptedBlob ? 'encrypted-mobile' : 'plain-mobile'
       }
     });
-  }
-
-  return prisma.cloudCard.create({
-    data: {
-      accountId,
-      encryptedBlob: encryptedBlob ?? null,
-      panEncrypted,
-      pan: pan ? maskPan(pan) : null,
-      panHash: panHashValue,
-      brand,
-      holder: holder ?? null,
-      expiry: expiry ?? null,
-      track2Encrypted,
-      track2: null,
-      note: note ?? null,
-      source: encryptedBlob ? 'encrypted-mobile' : 'plain-mobile'
-    }
   });
 }
 
