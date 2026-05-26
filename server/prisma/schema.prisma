@@ -7,75 +7,84 @@ datasource db {
   url      = env("DATABASE_URL")
 }
 
-enum Role {
-  USER
-  ADMIN
-}
-
 model Account {
-  id            String   @id @default(uuid())
-  email         String   @unique
-  password      String
-  role          Role     @default(USER)
-  createdAt     DateTime @default(now())
-  updatedAt     DateTime @updatedAt
-  cards         Card[]
-  devices       Device[]
-  operationLogs OperationLog[]
-  relaySessions RelaySession[]
+  id        String   @id @default(cuid())
+  name      String
+  createdAt DateTime @default(now())
+  updatedAt DateTime @updatedAt
+
+  users   User[]
+  cards   Card[]
+  devices Device[]
+  logs    ApduLog[]
 }
 
-model Card {
-  id        String   @id @default(uuid())
-  uid       String
-  atqa      String?  @default("")
-  sak       String?  @default("")
-  ats       String?  @default("")
-  type      String?  @default("ISO-A")
-  label     String?  @default("")
-  token     String   @db.Text
+model User {
+  id        String   @id @default(cuid())
+  email     String   @unique
+  password  String
+  name      String?
+  role      String   @default("USER") // USER | ADMIN
   accountId String
-  account   Account  @relation(fields: [accountId], references: [id], onDelete: Cascade)
+  account   Account  @relation(fields: [accountId], references: [id])
   createdAt DateTime @default(now())
   updatedAt DateTime @updatedAt
 
   @@index([accountId])
 }
 
+model Card {
+  id               String    @id @default(cuid())
+  accountId        String
+  account          Account   @relation(fields: [accountId], references: [id])
+  uid              String
+  atqa             String?
+  sak              String?
+  ats              String?
+  historicalBytes  String?
+  label            String?
+  type             String    @default("UNKNOWN") // MIFARE | EMV | FELICA | UNKNOWN
+  aidList          String?   // JSON array of AIDs
+  relayToken       String?   // Token for HCE to join relay session
+  relayTokenExpiresAt DateTime?
+  createdAt        DateTime  @default(now())
+  updatedAt        DateTime  @updatedAt
+
+  @@unique([accountId, uid], name: "accountId_uid")
+  @@index([accountId])
+  @@index([relayToken])
+}
+
 model Device {
-  id         String   @id @default(uuid())
-  name       String
-  platform   String   @default("android")
-  pushToken  String?  @default("")
-  accountId  String
-  account    Account  @relation(fields: [accountId], references: [id], onDelete: Cascade)
-  lastSeen   DateTime @default(now())
-  createdAt  DateTime @default(now())
-
-  @@index([accountId])
-}
-
-model OperationLog {
-  id        String   @id @default(uuid())
-  action    String
-  details   String?  @default("")
+  id        String   @id @default(cuid())
   accountId String
-  account   Account  @relation(fields: [accountId], references: [id], onDelete: Cascade)
+  account   Account  @relation(fields: [accountId], references: [id])
+  deviceId  String
+  name      String?
+  type      String   @default("HCE") // HCE | READER | EXTERNAL_READER
+  model     String?
+  osVersion String?
+  online    Boolean  @default(false)
+  lastSeen  DateTime @default(now())
   createdAt DateTime @default(now())
+  updatedAt DateTime @updatedAt
 
+  @@unique([accountId, deviceId], name: "accountId_deviceId")
   @@index([accountId])
 }
 
-model RelaySession {
-  id          String   @id @default(uuid())
-  accountId   String
-  account     Account  @relation(fields: [accountId], references: [id], onDelete: Cascade)
-  cardId      String?
-  status      String   @default("waiting")
-  readerData  String?  @db.Text
-  emulatorData String? @db.Text
-  createdAt   DateTime @default(now())
-  updatedAt   DateTime @updatedAt
+model ApduLog {
+  id           String   @id @default(cuid())
+  accountId    String
+  account      Account  @relation(fields: [accountId], references: [id])
+  sessionId    String
+  cardId       String?
+  mode         String   // NFC_RELAY | EMV_EXTERNAL
+  apduCount    Int      @default(0)
+  duration     Int      @default(0) // ms
+  closedReason String?
+  createdAt    DateTime @default(now())
 
   @@index([accountId])
+  @@index([sessionId])
 }
