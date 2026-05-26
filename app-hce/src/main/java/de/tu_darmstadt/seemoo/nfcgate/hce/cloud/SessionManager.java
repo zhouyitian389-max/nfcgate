@@ -85,6 +85,7 @@ public final class SessionManager {
         secretPrefs(context).edit().putString(KEY_SALT, salt).apply();
         prefs(context).edit().remove(KEY_SALT).apply();
     }
+    public static String getAccountId(Context context) { return prefs(context).getString(KEY_ACCOUNT_ID, ""); }
     public static boolean isLoggedIn(Context context) { String t = getToken(context); return t != null && !t.isEmpty(); }
     public static long getTokenExpiryMillis(Context context) { return prefs(context).getLong(KEY_TOKEN_EXPIRY, 0L); }
     public static boolean isTokenExpiringSoon(Context context) { return getTokenExpiryMillis(context) - System.currentTimeMillis() <= 5 * 60_000L; }

@@ -42,6 +42,9 @@ public class YitianHostApduService extends HostApduService {
     private static final byte[] AID = hex("F0010203040506");
     private final ExecutorService dbExecutor = Executors.newSingleThreadExecutor();
     private volatile CardEntity cachedCard;
+    /** Cached lock expiry timestamps refreshed off the binder thread. */
+    private volatile long cachedLockUntilElapsed = 0L;
+    private volatile long cachedLockUntilWall = 0L;
     private final BroadcastReceiver selectionChangedReceiver = new BroadcastReceiver() {
         @Override
         public void onReceive(Context context, Intent intent) {
@@ -65,7 +68,9 @@ public class YitianHostApduService extends HostApduService {
     @Override
     public byte[] processCommandApdu(byte[] commandApdu, Bundle extras) {
         if (commandApdu == null || commandApdu.length < 4) return SW_NOT_FOUND;
-        if (isPinLocked()) {
+        // Check against in-memory cached lock timestamps — no disk/keystore I/O on binder thread.
+        if (SystemClock.elapsedRealtime() < cachedLockUntilElapsed
+                || System.currentTimeMillis() < cachedLockUntilWall) {
             Log.w(TAG, "Rejecting APDU while PIN is locked");
             return SW_SECURITY_NOT_SATISFIED;
         }
@@ -101,14 +106,17 @@ public class YitianHostApduService extends HostApduService {
         if (dbExecutor.isShutdown()) {
             return;
         }
-        dbExecutor.execute(() -> cachedCard = CardDatabase.getInstance(this).cardDao().getSelected());
-    }
-
-    private boolean isPinLocked() {
-        SharedPreferences prefs = getPinPrefs();
-        long lockUntilElapsed = prefs.getLong(PREF_LOCK_UNTIL_ELAPSED, 0L);
-        long lockUntilWall = prefs.getLong(PREF_LOCK_UNTIL_WALL, 0L);
-        return SystemClock.elapsedRealtime() < lockUntilElapsed || System.currentTimeMillis() < lockUntilWall;
+        dbExecutor.execute(() -> {
+            cachedCard = CardDatabase.getInstance(this).cardDao().getSelected();
+            // Read PIN lock timestamps off the binder thread so processCommandApdu stays fast.
+            try {
+                SharedPreferences prefs = getPinPrefs();
+                cachedLockUntilElapsed = prefs.getLong(PREF_LOCK_UNTIL_ELAPSED, 0L);
+                cachedLockUntilWall = prefs.getLong(PREF_LOCK_UNTIL_WALL, 0L);
+            } catch (Exception ignored) {
+                // Leave cached values unchanged on error (fail-safe: keep current lock state).
+            }
+        });
     }
 
     private SharedPreferences getPinPrefs() {

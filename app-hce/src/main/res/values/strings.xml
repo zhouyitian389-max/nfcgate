@@ -116,6 +116,10 @@
     <string name="restore_chooser_title">Select backup file (.ybak)</string>
     <string name="menu_encrypted_backup">Encrypted Backup</string>
     <string name="menu_restore_backup">Restore Backup</string>
+    <string name="search_hint">Search cards</string>
+    <string name="admin_panel_title">Admin</string>
+    <string name="admin_panel_summary">Total synced cards, account ID, server status</string>
+    <string name="version_title">Version</string>
 
     <string-array name="settings_theme_entries">
         <item>Dark</item>

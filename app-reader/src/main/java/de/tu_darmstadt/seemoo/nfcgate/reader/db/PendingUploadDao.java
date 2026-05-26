@@ -22,4 +22,7 @@ public interface PendingUploadDao {
 
     @Query("SELECT COUNT(*) FROM pending_uploads")
     int count();
+
+    @Query("SELECT COUNT(*) FROM pending_uploads WHERE pan = :pan")
+    int countByPan(String pan);
 }

@@ -100,6 +100,17 @@
     <string name="restore_chooser_title">选择备份文件（.ybak）</string>
     <string name="menu_encrypted_backup">加密备份</string>
     <string name="menu_restore_backup">恢复备份</string>
+    <string name="search_hint">搜索卡片</string>
+    <string name="admin_panel_title">管理面板</string>
+    <string name="admin_panel_summary">已同步卡片总数、账号 ID、服务器状态</string>
+    <string name="version_title">版本</string>
+    <string name="new_card_received_title">收到新卡片</string>
+    <string name="new_card_received_text">收到新 %1$s 卡片，末四位：%2$s</string>
+    <string name="stats_summary">总用户：%1$d，您的卡片：%2$d，今日活跃：%3$d</string>
+    <string name="dashboard_today_cards">今日新增：%1$d</string>
+    <string name="dashboard_last_sync">上次同步：%1$s</string>
+    <string name="label_expired">已过期</string>
+    <string name="label_expires_in">将在 %1$d 天后过期</string>
 
     <string-array name="settings_theme_entries">
         <item>深色</item>

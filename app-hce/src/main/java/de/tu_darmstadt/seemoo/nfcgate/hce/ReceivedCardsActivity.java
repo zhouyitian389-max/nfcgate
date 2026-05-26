@@ -124,7 +124,7 @@ public class ReceivedCardsActivity extends AppCompatActivity {
         MenuItem searchItem = menu.findItem(R.id.action_search);
         if (searchItem != null && searchItem.getActionView() instanceof SearchView) {
             SearchView searchView = (SearchView) searchItem.getActionView();
-            searchView.setQueryHint("Search cards");
+            searchView.setQueryHint(getString(R.string.search_hint));
             searchView.setOnQueryTextListener(new SearchView.OnQueryTextListener() {
                 @Override
                 public boolean onQueryTextSubmit(String query) {
@@ -249,9 +249,9 @@ public class ReceivedCardsActivity extends AppCompatActivity {
 
     private void performRestore(Uri ybakUri, String password) {
         dbExecutor.execute(() -> {
+            File tempFile = null;
             try {
-                // Copy URI content to a temp file so CardBackupHelper can read it
-                File tempFile = File.createTempFile("restore", ".ybak", getCacheDir());
+                tempFile = File.createTempFile("restore", ".ybak", getCacheDir());
                 try (InputStream is = getContentResolver().openInputStream(ybakUri)) {
                     if (is == null) throw new FileNotFoundException("Cannot open backup URI");
                     byte[] buf = new byte[8192];
@@ -262,8 +262,6 @@ public class ReceivedCardsActivity extends AppCompatActivity {
                 }
                 int count = CardBackupHelper.restoreFromBackup(
                         CardDatabase.getInstance(this), tempFile, password);
-                //noinspection ResultOfMethodCallIgnored
-                tempFile.delete();
                 mainHandler.post(() -> {
                     Toast.makeText(this,
                             getString(R.string.restore_success, count),
@@ -274,6 +272,11 @@ public class ReceivedCardsActivity extends AppCompatActivity {
                 mainHandler.post(() -> Toast.makeText(this,
                         getString(R.string.restore_failed, e.getMessage()),
                         Toast.LENGTH_LONG).show());
+            } finally {
+                if (tempFile != null) {
+                    //noinspection ResultOfMethodCallIgnored
+                    tempFile.delete();
+                }
             }
         });
     }

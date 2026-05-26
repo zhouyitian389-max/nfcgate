@@ -7,6 +7,7 @@ import android.app.PendingIntent;
 import android.app.Service;
 import android.content.Context;
 import android.content.Intent;
+import android.content.pm.ServiceInfo;
 import android.os.Build;
 import android.os.Handler;
 import android.os.IBinder;
@@ -58,7 +59,11 @@ public class CloudSyncService extends Service {
             return START_NOT_STICKY;
         }
         createChannels();
-        startForeground(9011, buildServiceNotification());
+        if (Build.VERSION.SDK_INT >= Build.VERSION_CODES.UPSIDE_DOWN_CAKE) {
+            startForeground(9011, buildServiceNotification(), ServiceInfo.FOREGROUND_SERVICE_TYPE_DATA_SYNC);
+        } else {
+            startForeground(9011, buildServiceNotification());
+        }
         if (eventSource == null) {
             eventSource = new CloudEventSource(this, new CloudEventSource.EventListener() {
                 @Override
@@ -120,6 +125,10 @@ public class CloudSyncService extends Service {
             i.putExtra("last_sync", System.currentTimeMillis());
             i.setPackage(getPackageName());
             sendBroadcast(i);
+            // Notify HCE service to refresh its cached card (selection may have changed).
+            Intent selectionChanged = new Intent(YitianHostApduService.ACTION_SELECTION_CHANGED);
+            selectionChanged.setPackage(getPackageName());
+            sendBroadcast(selectionChanged);
         } catch (Exception e) {
             // ignore and retry on next cycle
         }

@@ -100,4 +100,11 @@
     <string name="brand_discover">Discover</string>
     <string name="brand_unknown">未知</string>
     <string name="token_count_template">已存 Tokens：%1$d</string>
+    <string name="admin_panel_title">管理面板</string>
+    <string name="admin_panel_summary">已同步卡片总数、账号 ID、服务器状态</string>
+    <string name="version_title">版本</string>
+    <string name="settings_upload_mode">上传模式</string>
+    <string name="settings_api_server">API 服务器地址</string>
+    <string name="settings_logout">退出登录</string>
+    <string name="settings_category_account">账号</string>
 </resources>

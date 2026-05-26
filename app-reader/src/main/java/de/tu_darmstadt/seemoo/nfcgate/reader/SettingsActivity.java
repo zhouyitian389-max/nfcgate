@@ -83,8 +83,8 @@ public class SettingsActivity extends AppCompatActivity {
 
             Preference admin = new Preference(requireContext());
             admin.setKey("admin_entry");
-            admin.setTitle("Admin");
-            admin.setSummary("Total synced cards, account ID, server status");
+            admin.setTitle(R.string.admin_panel_title);
+            admin.setSummary(R.string.admin_panel_summary);
             admin.setVisible(false);
             admin.setOnPreferenceClickListener(preference -> {
                 android.widget.Toast.makeText(requireContext(), "Admin: " + de.tu_darmstadt.seemoo.nfcgate.reader.cloud.SessionManager.getAccountId(requireContext()), android.widget.Toast.LENGTH_SHORT).show();
@@ -93,7 +93,7 @@ public class SettingsActivity extends AppCompatActivity {
             getPreferenceScreen().addPreference(admin);
 
             Preference versionPref = new Preference(requireContext());
-            versionPref.setTitle("Version");
+            versionPref.setTitle(R.string.version_title);
             versionPref.setSummary(BuildConfig.VERSION_NAME);
             versionPref.setOnPreferenceClickListener(new Preference.OnPreferenceClickListener() {
                 int taps = 0;

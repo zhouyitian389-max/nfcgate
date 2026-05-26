@@ -61,7 +61,7 @@ public final class UploadService {
             String host = SettingsManager.getYitianHost(appCtx);
             int    port = SettingsManager.getYitianPort(appCtx);
 
-            if (SessionManager.isLoggedIn(appCtx)) {
+            if (SessionManager.isLoggedIn(appCtx) && SettingsManager.isCloudUploadMode(appCtx)) {
                 try {
                     JSONArray jsonCards = new JSONArray();
                     String password = SessionManager.getPassword(appCtx);
@@ -86,8 +86,13 @@ public final class UploadService {
                     return;
                 } catch (Exception cloudError) {
                     for (ScanRecordEntity rec : pending) {
+                        String pan = rec.pan != null ? rec.pan : "";
+                        // Avoid queuing duplicate entries for the same PAN.
+                        if (!pan.isEmpty() && database.pendingUploadDao().countByPan(pan) > 0) {
+                            continue;
+                        }
                         PendingUploadEntity queue = new PendingUploadEntity();
-                        queue.pan = rec.pan != null ? rec.pan : "";
+                        queue.pan = pan;
                         queue.brand = rec.cardBrand;
                         queue.holder = "";
                         queue.expiry = "";

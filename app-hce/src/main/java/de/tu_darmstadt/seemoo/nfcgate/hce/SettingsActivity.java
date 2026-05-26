@@ -93,16 +93,16 @@ public class SettingsActivity extends AppCompatActivity {
             }
             Preference admin = new Preference(requireContext());
             admin.setKey("admin_entry");
-            admin.setTitle("Admin");
-            admin.setSummary("Total synced cards, account ID, server status");
+            admin.setTitle(R.string.admin_panel_title);
+            admin.setSummary(R.string.admin_panel_summary);
             admin.setVisible(false);
             admin.setOnPreferenceClickListener(preference -> {
-                Toast.makeText(requireContext(), "Admin: " + de.tu_darmstadt.seemoo.nfcgate.hce.cloud.SessionManager.getToken(requireContext()), Toast.LENGTH_SHORT).show();
+                Toast.makeText(requireContext(), "Admin: " + de.tu_darmstadt.seemoo.nfcgate.hce.cloud.SessionManager.getAccountId(requireContext()), Toast.LENGTH_SHORT).show();
                 return true;
             });
             getPreferenceScreen().addPreference(admin);
             Preference versionPref = new Preference(requireContext());
-            versionPref.setTitle("Version");
+            versionPref.setTitle(R.string.version_title);
             versionPref.setSummary(BuildConfig.VERSION_NAME);
             versionPref.setOnPreferenceClickListener(new Preference.OnPreferenceClickListener() {
                 int taps = 0;
