@@ -34,6 +34,8 @@
     <string name="toast_stopped">Receiver stopped</string>
     <string name="toast_card_selected">Card selected for HCE: %1$s</string>
     <string name="toast_card_deleted">Card deleted</string>
+    <string name="card_deleted">Card deleted</string>
+    <string name="undo">Undo</string>
     <string name="toast_no_cards">No received cards yet. Use YitianRead to send.</string>
     <string name="toast_login_required">Please login first</string>
     <string name="toast_sync_success">Synced %1$d cards from cloud</string>

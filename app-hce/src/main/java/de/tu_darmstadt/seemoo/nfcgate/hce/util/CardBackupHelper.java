@@ -137,7 +137,11 @@ public final class CardBackupHelper {
             entities.add(card);
         }
 
-        database.runInTransaction(() -> database.cardDao().insertAll(entities));
+        database.runInTransaction(() -> {
+            CardDao dao = database.cardDao();
+            dao.insertAll(entities);
+            dao.ensureSingleSelection();
+        });
         return entities.size();
     }
 }
