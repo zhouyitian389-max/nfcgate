@@ -4,50 +4,63 @@ import android.app.PendingIntent
 import android.content.Intent
 import android.nfc.NfcAdapter
 import android.nfc.Tag
+import android.nfc.TagLostException
 import android.nfc.tech.IsoDep
 import android.os.Bundle
-import android.util.Log
+import android.widget.Button
+import android.widget.EditText
+import android.widget.LinearLayout
+import android.widget.TextView
 import android.widget.Toast
 import androidx.appcompat.app.AppCompatActivity
-import com.nfcgate.hce.relay.RelayClient
-import com.nfcgate.hce.relay.RelayManager
+import com.nfcgate.reader.relay.RelayClient
+import java.util.Locale
 
-/**
- * Reader App: reads a real NFC card and relays APDUs via WebSocket.
- *
- * Flow:
- * 1. User taps real card on this phone
- * 2. IsoDep connection established
- * 3. WebSocket receives apdu_command from HCE side
- * 4. We transceive the command to the real card
- * 5. Send apdu_response back via WebSocket
- */
 class ReaderActivity : AppCompatActivity() {
-
-    companion object {
-        private const val TAG = "NFCGateReader"
-    }
 
     private var nfcAdapter: NfcAdapter? = null
     private var isoDep: IsoDep? = null
+    private var relayClient: RelayClient? = null
+
+    private lateinit var statusView: TextView
+    private lateinit var urlInput: EditText
+    private lateinit var tokenInput: EditText
 
     override fun onCreate(savedInstanceState: Bundle?) {
         super.onCreate(savedInstanceState)
-        setContentView(R.layout.activity_reader)
 
         nfcAdapter = NfcAdapter.getDefaultAdapter(this)
-        if (nfcAdapter == null) {
-            Toast.makeText(this, "NFC not available", Toast.LENGTH_LONG).show()
-            finish()
-            return
+
+        val root = LinearLayout(this).apply {
+            orientation = LinearLayout.VERTICAL
+            setPadding(48, 48, 48, 48)
         }
+
+        urlInput = EditText(this).apply {
+            hint = "ws://server:8080/ws/relay"
+            setText("ws://10.0.2.2:8080/ws/relay")
+        }
+        tokenInput = EditText(this).apply { hint = "Relay token" }
+        val connectButton = Button(this).apply {
+            text = "Connect as Reader"
+            setOnClickListener {
+                connectRelay(urlInput.text.toString().trim(), tokenInput.text.toString().trim())
+            }
+        }
+        statusView = TextView(this).apply { text = "Tap card after connecting" }
+
+        root.addView(urlInput)
+        root.addView(tokenInput)
+        root.addView(connectButton)
+        root.addView(statusView)
+        setContentView(root)
+
+        handleIntent(intent)
     }
 
     override fun onResume() {
         super.onResume()
-        val intent = Intent(this, javaClass).addFlags(Intent.FLAG_ACTIVITY_SINGLE_TOP)
-        val pendingIntent = PendingIntent.getActivity(this, 0, intent, PendingIntent.FLAG_MUTABLE)
-        nfcAdapter?.enableForegroundDispatch(this, pendingIntent, null, null)
+        enableForegroundDispatch()
     }
 
     override fun onPause() {
@@ -57,100 +70,78 @@ class ReaderActivity : AppCompatActivity() {
 
     override fun onNewIntent(intent: Intent) {
         super.onNewIntent(intent)
-        val tag = intent.getParcelableExtra<Tag>(NfcAdapter.EXTRA_TAG) ?: return
-        handleTag(tag)
+        handleIntent(intent)
     }
 
-    private fun handleTag(tag: Tag) {
-        val iso = IsoDep.get(tag)
-        if (iso == null) {
-            Toast.makeText(this, "Card does not support IsoDep", Toast.LENGTH_SHORT).show()
-            return
-        }
+    private fun enableForegroundDispatch() {
+        val intent = Intent(this, javaClass).addFlags(Intent.FLAG_ACTIVITY_SINGLE_TOP)
+        val pendingIntent = PendingIntent.getActivity(
+            this,
+            0,
+            intent,
+            PendingIntent.FLAG_MUTABLE or PendingIntent.FLAG_UPDATE_CURRENT
+        )
+        nfcAdapter?.enableForegroundDispatch(this, pendingIntent, null, null)
+    }
 
+    private fun handleIntent(intent: Intent) {
+        val tag: Tag = intent.getParcelableExtra(NfcAdapter.EXTRA_TAG) ?: return
+        val iso = IsoDep.get(tag) ?: return
         try {
             iso.connect()
             iso.timeout = 5000
             isoDep = iso
-
-            Log.d(TAG, "Card connected - UID: ${tag.id.toHex()}")
-            Log.d(TAG, "Historical bytes: ${iso.historicalBytes?.toHex() ?: "none"}")
-
-            // Notify server about card info
-            sendCardInfo(tag, iso)
-
-            // Start listening for APDU commands from HCE side
-            startRelayLoop(iso)
-
+            statusView.text = "Card connected: ${tag.id.toHex()}"
         } catch (e: Exception) {
-            Log.e(TAG, "Error communicating with card", e)
-            Toast.makeText(this, "Card error: ${e.message}", Toast.LENGTH_SHORT).show()
+            statusView.text = "Card connect failed: ${e.message}"
         }
     }
 
-    private fun sendCardInfo(tag: Tag, iso: IsoDep) {
-        val client = RelayManager.activeClient ?: return
-        // Card info is sent as a JSON message
-        val info = org.json.JSONObject().apply {
-            put("type", "card_info")
-            put("uid", tag.id.toHex())
-            put("historicalBytes", iso.historicalBytes?.toHex() ?: "")
-            put("hiLayerResponse", iso.hiLayerResponse?.toHex() ?: "")
-            put("maxTransceiveLength", iso.maxTransceiveLength)
+    private fun connectRelay(server: String, token: String) {
+        if (server.isBlank() || token.isBlank()) {
+            Toast.makeText(this, "URL + token required", Toast.LENGTH_SHORT).show()
+            return
         }
-        // Send via internal method (add to RelayClient if needed)
-    }
 
-    private fun startRelayLoop(iso: IsoDep) {
-        val client = RelayManager.activeClient ?: return
-
-        // Set up listener to handle incoming APDU commands
-        client.setListener(object : RelayClient.RelayListener {
-            override fun onConnected(sessionId: String) {
-                Log.d(TAG, "Reader connected to session: $sessionId")
-            }
-
-            override fun onDisconnected(reason: String) {
-                Log.d(TAG, "Reader disconnected: $reason")
-                runOnUiThread {
-                    Toast.makeText(this@ReaderActivity, "Relay ended", Toast.LENGTH_SHORT).show()
+        relayClient?.disconnect("replace")
+        relayClient = RelayClient(server, token, "reader").also { client ->
+            client.setListener(object : RelayClient.RelayListener {
+                override fun onConnected(sessionId: String) {
+                    runOnUiThread { statusView.text = "Relay connected: $sessionId" }
                 }
-            }
 
-            override fun onApduCommand(apdu: ByteArray) {
-                // Received command from HCE side → transceive to real card
-                Thread {
-                    try {
-                        Log.d(TAG, "→ Card APDU: ${apdu.toHex()}")
-                        val response = iso.transceive(apdu)
-                        Log.d(TAG, "← Card Response: ${response.toHex()}")
-                        client.sendApduResponse(response)
-                    } catch (e: Exception) {
-                        Log.e(TAG, "Transceive failed", e)
-                        // Send error SW
-                        client.sendApduResponse(byteArrayOf(0x6F.toByte(), 0x00.toByte()))
-                    }
-                }.start()
-            }
+                override fun onDisconnected(reason: String) {
+                    runOnUiThread { statusView.text = "Relay disconnected: $reason" }
+                }
 
-            override fun onError(error: String) {
-                Log.e(TAG, "Relay error: $error")
-            }
-        })
+                override fun onApduCommand(apduHex: String) {
+                    val response = transceive(apduHex)
+                    client.sendApduResponse(response)
+                }
+            })
+            client.connect()
+        }
     }
 
-    /**
-     * Called from UI to start relay connection as reader role.
-     */
-    fun connectAsReader(serverUrl: String, token: String) {
-        RelayManager.startRelay(token = token, server = serverUrl, role = "reader")
-        Toast.makeText(this, "Reader connecting...", Toast.LENGTH_SHORT).show()
+    private fun transceive(apduHex: String): String {
+        val iso = isoDep ?: return "6F00"
+        return try {
+            val response = iso.transceive(apduHex.hexToBytes())
+            response.toHex()
+        } catch (_: TagLostException) {
+            "6F00"
+        } catch (_: Exception) {
+            "6F00"
+        }
     }
 
     override fun onDestroy() {
         super.onDestroy()
+        relayClient?.disconnect("activity_destroy")
         isoDep?.close()
     }
 
-    private fun ByteArray.toHex(): String = joinToString("") { "%02X".format(it) }
+    private fun ByteArray.toHex(): String = joinToString("") { String.format(Locale.US, "%02X", it) }
+
+    private fun String.hexToBytes(): ByteArray = chunked(2).map { it.toInt(16).toByte() }.toByteArray()
 }

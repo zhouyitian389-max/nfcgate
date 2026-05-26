@@ -1,75 +1,46 @@
+import axios from 'axios';
+
 const API_BASE = process.env.NEXT_PUBLIC_API_URL || 'http://localhost:8080/api';
+const TOKEN_KEY = 'token';
 
-function getToken(): string | null {
-  if (typeof window === 'undefined') return null;
-  return localStorage.getItem('token');
-}
+export const getToken = () => (typeof window === 'undefined' ? null : localStorage.getItem(TOKEN_KEY));
+export const setToken = (token: string) => localStorage.setItem(TOKEN_KEY, token);
+export const clearToken = () => localStorage.removeItem(TOKEN_KEY);
 
-export function setToken(token: string) {
-  localStorage.setItem('token', token);
-}
+const client = axios.create({
+  baseURL: API_BASE,
+  timeout: 15_000
+});
 
-export function clearToken() {
-  localStorage.removeItem('token');
-}
-
-export async function apiFetch<T = any>(
-  path: string,
-  options: RequestInit = {}
-): Promise<T> {
+client.interceptors.request.use((config) => {
   const token = getToken();
-  const headers: Record<string, string> = {
-    'Content-Type': 'application/json',
-    ...(options.headers as Record<string, string> || {}),
-  };
   if (token) {
-    headers['Authorization'] = `Bearer ${token}`;
+    config.headers.Authorization = `Bearer ${token}`;
   }
+  return config;
+});
 
-  const res = await fetch(`${API_BASE}${path}`, {
-    ...options,
-    headers,
-  });
-
-  if (res.status === 401) {
-    clearToken();
-    if (typeof window !== 'undefined') {
+client.interceptors.response.use(
+  (response) => response,
+  (error) => {
+    if (error?.response?.status === 401 && typeof window !== 'undefined') {
+      clearToken();
       window.location.href = '/login';
     }
-    throw new Error('Unauthorized');
+    return Promise.reject(error);
   }
+);
 
-  if (!res.ok) {
-    const body = await res.json().catch(() => ({}));
-    throw new Error(body.message || `HTTP ${res.status}`);
-  }
-
-  return res.json();
-}
-
-// Auth
 export const api = {
-  login: (email: string, password: string) =>
-    apiFetch('/auth/login', { method: 'POST', body: JSON.stringify({ email, password }) }),
-
-  me: () => apiFetch('/auth/me'),
-
-  // Users (admin)
-  getUsers: (page = 1) => apiFetch(`/admin/users?page=${page}`),
-  createUser: (data: any) =>
-    apiFetch('/admin/users', { method: 'POST', body: JSON.stringify(data) }),
-  deleteUser: (id: string) =>
-    apiFetch(`/admin/users/${id}`, { method: 'DELETE' }),
-
-  // Cards
-  getCards: (page = 1) => apiFetch(`/admin/cards?page=${page}`),
-
-  // Logs
-  getLogs: (page = 1) => apiFetch(`/admin/logs?page=${page}`),
-
-  // Stats
-  getStats: () => apiFetch('/stats'),
-
-  // Devices
-  getDevices: () => apiFetch('/devices'),
+  login: async (email: string, password: string) => (await client.post('/auth/login', { email, password })).data,
+  me: async () => (await client.get('/auth/me')).data,
+  getStats: async () => (await client.get('/stats')).data,
+  getCards: async () => (await client.get('/cards')).data,
+  generateRelayToken: async (cardId: string) => (await client.post(`/cards/${cardId}/relay-token`)).data,
+  getDevices: async () => (await client.get('/devices')).data,
+  getRelaySessions: async () => (await client.get('/relay/sessions')).data,
+  getLogs: async () => (await client.get('/logs')).data,
+  getLog: async (id: string) => (await client.get(`/logs/${id}`)).data,
+  getUsers: async () => (await client.get('/admin/users')).data,
+  getAdminStats: async () => (await client.get('/admin/stats')).data
 };

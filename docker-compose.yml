@@ -1,0 +1,35 @@
+version: '3.9'
+
+services:
+  postgres:
+    image: postgres:16
+    container_name: nfcgate-postgres
+    environment:
+      POSTGRES_USER: nfcgate
+      POSTGRES_PASSWORD: nfcgate
+      POSTGRES_DB: nfcgate
+    ports:
+      - '5432:5432'
+    volumes:
+      - postgres_data:/var/lib/postgresql/data
+
+  server:
+    image: node:20-alpine
+    container_name: nfcgate-server
+    working_dir: /app
+    volumes:
+      - ./server:/app
+    environment:
+      PORT: 8080
+      DATABASE_URL: postgresql://nfcgate:nfcgate@postgres:5432/nfcgate?schema=public
+      JWT_SECRET: change-me
+      CORS_ORIGIN: '*'
+    command: >
+      sh -c "npm install && npx prisma generate && npx prisma db push && npm run dev"
+    ports:
+      - '8080:8080'
+    depends_on:
+      - postgres
+
+volumes:
+  postgres_data:

@@ -1,20 +1,30 @@
-import { FastifyInstance } from 'fastify';
-import { prisma } from '../db.js';
-import { authenticate } from '../middleware/auth.js';
+import { Router } from 'express';
+import prisma from '../db.js';
+import { authMiddleware, type AuthenticatedRequest } from '../middleware/auth.js';
+import { getActiveSessions } from '../services/relay.js';
 
-export async function statsRoutes(app: FastifyInstance) {
-  app.addHook('preHandler', authenticate);
+const router = Router();
+router.use(authMiddleware);
 
-  // GET /api/stats
-  app.get('/', async () => {
-    const [users, cards, devices, sessions, activeSessions, logs] = await Promise.all([
-      prisma.account.count(),
-      prisma.card.count(),
-      prisma.device.count(),
-      prisma.relaySession.count(),
-      prisma.relaySession.count({ where: { status: 'active' } }),
-      prisma.operationLog.count(),
-    ]);
-    return { users, cards, devices, sessions, activeSessions, logs };
+router.get('/', async (req, res) => {
+  const user = (req as AuthenticatedRequest).user!;
+
+  const [cards, devices, apduSessions, apduAgg] = await Promise.all([
+    prisma.card.count({ where: { accountId: user.accountId } }),
+    prisma.device.count({ where: { accountId: user.accountId } }),
+    prisma.apduLog.count({ where: { accountId: user.accountId } }),
+    prisma.apduLog.aggregate({ where: { accountId: user.accountId }, _sum: { apduCount: true } })
+  ]);
+
+  const activeSessions = getActiveSessions(user.accountId).length;
+
+  res.json({
+    cards,
+    devices,
+    sessions: apduSessions,
+    activeSessions,
+    apduCount: apduAgg._sum.apduCount || 0
   });
-}
+});
+
+export default router;

@@ -213,3 +213,41 @@ The initial NFCGate paper describing the first version of NFCGate can be cited a
 ## Credits
 
 - [ADBI](https://github.com/crmulliner/adbi): ARM and THUMB inline hooking
+
+
+## NFCGate v2 Relay Architecture
+
+```text
+HCE App (role=hce)  <---- websocket/json ---->  Server (/ws/relay)  <---- websocket/json ---->  Reader App / ACR39U (role=reader|external)
+```
+
+WebSocket payloads:
+- `{"type":"session_joined","sessionId":"..."}`
+- `{"type":"apdu_command","data":"HEX"}`
+- `{"type":"apdu_response","data":"HEX"}`
+- `{"type":"session_end","reason":"..."}`
+- `{"type":"error","message":"..."}`
+- `{"type":"ping"}` / `{"type":"pong"}`
+
+## Quick Deployment (v2)
+
+1. Start infra and server:
+   ```bash
+   cp .env.example .env
+   docker-compose up -d
+   ```
+2. Start admin panel:
+   ```bash
+   cd admin
+   npm install
+   npm run dev
+   ```
+3. Start ACR39U client (optional):
+   ```bash
+   cd acr39u-client
+   npm install
+   npm run dev -- --server ws://localhost:8080/ws/relay --token <relay-token>
+   ```
+4. Android apps are located at:
+   - `android/hce-app`
+   - `android/reader-app`
