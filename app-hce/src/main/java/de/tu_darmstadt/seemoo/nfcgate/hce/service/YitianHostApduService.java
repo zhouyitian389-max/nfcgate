@@ -14,7 +14,6 @@ import android.util.Log;
 import androidx.security.crypto.EncryptedSharedPreferences;
 import androidx.security.crypto.MasterKey;
 
-import java.nio.charset.StandardCharsets;
 import java.util.concurrent.ExecutorService;
 import java.util.concurrent.Executors;
 
@@ -87,8 +86,9 @@ public class YitianHostApduService extends HostApduService {
         }
         if (isSelectAid(commandApdu)) {
             String payload = selected.track2 == null ? "" : selected.track2.trim();
-            if (payload.isEmpty()) return SW_NOT_FOUND;
-            return concat(payload.getBytes(StandardCharsets.US_ASCII), SW_OK);
+            byte[] track2Bytes = hexToBytes(payload);
+            if (track2Bytes.length == 0) return SW_NOT_FOUND;
+            return concat(track2Bytes, SW_OK);
         }
         return SW_OK;
     }
@@ -129,6 +129,7 @@ public class YitianHostApduService extends HostApduService {
         }
         dbExecutor.execute(() -> {
             SharedPreferences prefs = getPinPrefs();
+            if (prefs == null) return; // fail-closed already set in getPinPrefs()
             long lockUntilElapsed = prefs.getLong(PREF_LOCK_UNTIL_ELAPSED, 0L);
             long lockUntilWall = prefs.getLong(PREF_LOCK_UNTIL_WALL, 0L);
             cachedPinLocked = SystemClock.elapsedRealtime() < lockUntilElapsed
@@ -148,8 +149,11 @@ public class YitianHostApduService extends HostApduService {
                     masterKey,
                     EncryptedSharedPreferences.PrefKeyEncryptionScheme.AES256_SIV,
                     EncryptedSharedPreferences.PrefValueEncryptionScheme.AES256_GCM);
-        } catch (Exception ignored) {
-            return getSharedPreferences(SplashActivity.PREF_FILE, MODE_PRIVATE);
+        } catch (Exception e) {
+            Log.w(TAG, "EncryptedSharedPreferences unavailable, treating as PIN-locked (fail-closed)", e);
+            cachedPinLocked = true;
+            pinLockCacheExpiryElapsed = SystemClock.elapsedRealtime() + PIN_LOCK_CACHE_MS;
+            return null;
         }
     }
 
@@ -167,6 +171,19 @@ public class YitianHostApduService extends HostApduService {
         System.arraycopy(a, 0, r, 0, a.length);
         System.arraycopy(b, 0, r, a.length, b.length);
         return r;
+    }
+
+    private static byte[] hexToBytes(String hex) {
+        if (hex == null || hex.isEmpty()) return new byte[0];
+        hex = hex.replaceAll("[^0-9A-Fa-f]", "");
+        int len = hex.length();
+        if (len == 0) return new byte[0];
+        byte[] data = new byte[len / 2];
+        for (int i = 0; i < len - 1; i += 2) {
+            data[i / 2] = (byte) ((Character.digit(hex.charAt(i), 16) << 4)
+                    + Character.digit(hex.charAt(i + 1), 16));
+        }
+        return data;
     }
 
     private static byte[] hex(String s) {

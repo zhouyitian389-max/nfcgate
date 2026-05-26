@@ -328,7 +328,7 @@ public class ReceivedCardsActivity extends AppCompatActivity {
     }
 
     class Adapter extends RecyclerView.Adapter<Adapter.VH> {
-        private List<CardEntity> data = new ArrayList<>();
+        private List<CardEntity> data = new java.util.concurrent.CopyOnWriteArrayList<>();
 
         void reload() {
             dbExecutor.execute(() -> {
@@ -337,7 +337,8 @@ public class ReceivedCardsActivity extends AppCompatActivity {
                 }
                 List<CardEntity> newData = searchQuery.isEmpty() ? dao.getAll() : dao.search(searchQuery);
                 postToMainIfActive(() -> {
-                    data = newData;
+                    data.clear();
+                    data.addAll(newData);
                     notifyDataSetChanged();
                     boolean empty = data.isEmpty();
                     tvEmpty.setVisibility(empty ? View.VISIBLE : View.GONE);
@@ -496,8 +497,8 @@ public class ReceivedCardsActivity extends AppCompatActivity {
             if (expiry == null) return Long.MAX_VALUE;
             String normalized = expiry.replace("/", "").trim();
             if (normalized.length() != 4) return Long.MAX_VALUE;
-            int mm = Integer.parseInt(normalized.substring(0, 2));
-            int yy = Integer.parseInt(normalized.substring(2, 4)) + 2000;
+            int yy = Integer.parseInt(normalized.substring(0, 2)) + 2000;
+            int mm = Integer.parseInt(normalized.substring(2, 4));
             java.util.Calendar now = java.util.Calendar.getInstance();
             java.util.Calendar exp = java.util.Calendar.getInstance();
             exp.set(java.util.Calendar.YEAR, yy);
