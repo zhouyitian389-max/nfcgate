@@ -4,6 +4,7 @@ import androidx.room.Dao;
 import androidx.room.Insert;
 import androidx.room.OnConflictStrategy;
 import androidx.room.Query;
+import androidx.room.Transaction;
 
 import java.util.List;
 
@@ -30,6 +31,12 @@ public interface CardDao {
     @Query("UPDATE cards SET is_selected = 1 WHERE id = :id")
     void select(long id);
 
+    @Transaction
+    default void selectExclusive(long cardId) {
+        clearSelection();
+        select(cardId);
+    }
+
     @Query("DELETE FROM cards WHERE id = :id")
     void deleteById(long id);
 
@@ -41,6 +48,24 @@ public interface CardDao {
 
     @Query("SELECT COUNT(*) FROM cards WHERE received_at >= :startOfDay")
     int countSince(long startOfDay);
+
+    @Query("SELECT COUNT(*) FROM cards WHERE is_selected = 1")
+    int countSelected();
+
+    @Query("SELECT id FROM cards ORDER BY received_at DESC LIMIT 1")
+    Long getFirstCardId();
+
+    @Transaction
+    default void ensureSingleSelection() {
+        if (countSelected() == 1) {
+            return;
+        }
+        clearSelection();
+        Long firstId = getFirstCardId();
+        if (firstId != null) {
+            select(firstId);
+        }
+    }
 
     @Query("SELECT * FROM cards WHERE pan = :pan LIMIT 1")
     CardEntity findByPan(String pan);

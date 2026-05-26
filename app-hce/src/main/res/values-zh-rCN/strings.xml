@@ -34,6 +34,8 @@
     <string name="toast_stopped">接收器已停止</string>
     <string name="toast_card_selected">已选中 HCE 模拟卡片：%1$s</string>
     <string name="toast_card_deleted">卡片已删除</string>
+    <string name="card_deleted">卡片已删除</string>
+    <string name="undo">撤销</string>
     <string name="toast_no_cards">暂无接收到的卡片，请使用 YitianRead 发送。</string>
     <string name="toast_login_required">请先登录</string>
     <string name="toast_sync_success">已从云端同步 %1$d 张卡</string>
