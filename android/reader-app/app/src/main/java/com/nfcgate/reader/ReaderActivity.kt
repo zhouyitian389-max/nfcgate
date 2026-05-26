@@ -114,9 +114,9 @@ class ReaderActivity : AppCompatActivity() {
                     runOnUiThread { statusView.text = "Relay disconnected: $reason" }
                 }
 
-                override fun onApduCommand(apduHex: String) {
+                override fun onApduCommand(apduHex: String, seq: Int) {
                     val response = transceive(apduHex)
-                    client.sendApduResponse(response)
+                    client.sendApduResponse(response, seq)
                 }
             })
             client.connect()

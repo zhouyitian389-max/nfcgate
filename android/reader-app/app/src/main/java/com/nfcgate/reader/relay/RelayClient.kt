@@ -21,7 +21,7 @@ class RelayClient(
     interface RelayListener {
         fun onConnected(sessionId: String)
         fun onDisconnected(reason: String)
-        fun onApduCommand(apduHex: String)
+        fun onApduCommand(apduHex: String, seq: Int)
     }
 
     private val httpClient = OkHttpClient.Builder()
@@ -44,8 +44,11 @@ class RelayClient(
 
     fun connect() {
         manuallyClosed.set(false)
-        val url = "$serverUrl?token=$token&role=$role"
-        ws = httpClient.newWebSocket(Request.Builder().url(url).build(), this)
+        val request = Request.Builder()
+            .url(serverUrl)
+            .header("Authorization", "Bearer " + token)
+            .build()
+        ws = httpClient.newWebSocket(request, this)
     }
 
     fun disconnect(reason: String = "reader_close") {
@@ -55,8 +58,8 @@ class RelayClient(
         reconnectExecutor.shutdownNow()
     }
 
-    fun sendApduResponse(respHex: String) {
-        ws?.send(JSONObject().put("type", "apdu_response").put("data", respHex).toString())
+    fun sendApduResponse(respHex: String, seq: Int) {
+        ws?.send(JSONObject().put("type", "apdu_response").put("seq", seq).put("data", respHex).toString())
     }
 
     override fun onOpen(webSocket: WebSocket, response: Response) {
@@ -68,7 +71,7 @@ class RelayClient(
             val msg = JSONObject(text)
             when (msg.optString("type")) {
                 "session_joined" -> listener?.onConnected(msg.optString("sessionId"))
-                "apdu_command" -> listener?.onApduCommand(msg.optString("data"))
+                "apdu_command" -> listener?.onApduCommand(msg.optString("data"), msg.optInt("seq", 0))
                 "session_end" -> listener?.onDisconnected(msg.optString("reason", "session_end"))
                 "ping" -> ws?.send(JSONObject().put("type", "pong").toString())
             }

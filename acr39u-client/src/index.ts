@@ -29,6 +29,7 @@ let activeReader: any = null;
 let activeProtocol: number = 0;
 let ws: WebSocket | null = null;
 let reconnectTimer: NodeJS.Timeout | null = null;
+let joinedSessionId = '';
 
 pcsc.on('reader', (reader: any) => {
   console.log(`📖 Reader detected: ${reader.name}`);
@@ -84,13 +85,20 @@ function connectWebSocket() {
   if (!activeReader) return;
   if (ws && (ws.readyState === WebSocket.OPEN || ws.readyState === WebSocket.CONNECTING)) return;
 
-  const url = `${opts.server}?token=${opts.token}&role=external`;
-  console.log(`🌐 Connecting to ${url}`);
-
-  ws = new WebSocket(url);
+  console.log(`🌐 Connecting to ${opts.server}`);
+  ws = new WebSocket(opts.server, {
+    headers: {
+      Authorization: 'Bearer' + ' ' + opts.token
+    }
+  });
 
   ws.on('open', () => {
     console.log('✅ WebSocket connected as external reader');
+    ws?.send(JSON.stringify({
+      type: 'session_join',
+      sessionId: opts.token,
+      role: 'external'
+    }));
   });
 
   ws.on('message', (data: Buffer) => {
@@ -158,14 +166,15 @@ async function configureReader() {
 function handleMessage(msg: any) {
   switch (msg.type) {
     case 'session_joined':
-      console.log(`🔗 Joined session: ${msg.sessionId}`);
+      joinedSessionId = typeof msg.sessionId === 'string' ? msg.sessionId : '';
+      console.log(`🔗 Joined session: ${joinedSessionId}`);
       break;
 
     case 'apdu_command':
       // Received APDU command from HCE → send to real card via reader
       const apdu = hexToBuffer(msg.data);
       console.log(`→ APDU CMD: ${msg.data}`);
-      transceive(apdu);
+      transceive(apdu, Number.isInteger(msg.seq) ? msg.seq : 0);
       break;
 
     case 'session_end':
@@ -179,30 +188,32 @@ function handleMessage(msg: any) {
   }
 }
 
-function transceive(apdu: Buffer) {
+function transceive(apdu: Buffer, seq: number) {
   if (!activeReader) {
     console.error('❌ No card connected');
-    sendResponse(Buffer.from([0x6F, 0x00]));
+    sendResponse(Buffer.from([0x6F, 0x00]), seq);
     return;
   }
 
   activeReader.transmit(apdu, 256, activeProtocol, (err: any, response: Buffer) => {
     if (err) {
       console.error('❌ Transmit error:', err.message);
-      sendResponse(Buffer.from([0x6F, 0x00]));
+      sendResponse(Buffer.from([0x6F, 0x00]), seq);
       return;
     }
 
     console.log(`← APDU RSP: ${response.toString('hex').toUpperCase()}`);
-    sendResponse(response);
+    sendResponse(response, seq);
   });
 }
 
-function sendResponse(response: Buffer) {
+function sendResponse(response: Buffer, seq: number) {
   if (!ws || ws.readyState !== WebSocket.OPEN) return;
 
   const msg = JSON.stringify({
     type: 'apdu_response',
+    sessionId: joinedSessionId || opts.token,
+    seq,
     data: response.toString('hex').toUpperCase()
   });
   ws.send(msg);

@@ -74,6 +74,7 @@ async def relay_loop(url: str, token: str, session_id: str):
                     payload = json.loads(raw)
                     if payload.get("type") != "apdu_command":
                         continue
+                    seq = int(payload.get("seq", 0) or 0)
                     try:
                         response_hex = bridge.transmit(payload.get("data", ""))
                     except NoCardException:
@@ -81,6 +82,7 @@ async def relay_loop(url: str, token: str, session_id: str):
                     await ws.send(json.dumps({
                         "type": "apdu_response",
                         "sessionId": payload.get("sessionId", session_id),
+                        "seq": seq,
                         "data": response_hex
                     }))
         except Exception as exc:

@@ -8,15 +8,17 @@ datasource db {
 }
 
 model Account {
-  id        String   @id @default(cuid())
-  name      String
-  createdAt DateTime @default(now())
-  updatedAt DateTime @updatedAt
+  id             String      @id @default(cuid())
+  name           String
+  encryptionSalt String      @default(uuid())
+  createdAt      DateTime    @default(now())
+  updatedAt      DateTime    @updatedAt
 
-  users   User[]
-  cards   Card[]
-  devices Device[]
-  logs    ApduLog[]
+  users         User[]
+  cards         Card[]
+  cloudCards    CloudCard[]
+  devices       Device[]
+  logs          ApduLog[]
   relaySessions RelaySession[]
 }
 
@@ -34,6 +36,7 @@ model User {
   lockedUntil        DateTime?
   passwordChangedAt  DateTime?
   mustChangePassword Boolean   @default(false)
+  authSessions       AuthSession[]
 
   @@index([accountId])
 }
@@ -89,6 +92,7 @@ model Device {
   type      String   @default("HCE") // HCE | READER | EXTERNAL_READER
   model     String?
   osVersion String?
+  fcmToken  String?
   online    Boolean  @default(false)
   lastSeen  DateTime @default(now())
   createdAt DateTime @default(now())
@@ -96,6 +100,48 @@ model Device {
 
   @@unique([accountId, deviceId], name: "accountId_deviceId")
   @@index([accountId])
+}
+
+model CloudCard {
+  id            String    @id @default(cuid())
+  accountId     String
+  account       Account   @relation(fields: [accountId], references: [id])
+  encryptedBlob String?
+  pan           String?
+  brand         String?
+  holder        String?
+  expiry        String?
+  track2        String?
+  note          String?
+  source        String    @default("cloud")
+  ackedAt       DateTime?
+  deletedAt     DateTime?
+  expiresAt     DateTime?
+  createdAt     DateTime  @default(now())
+  updatedAt     DateTime  @updatedAt
+
+  @@index([accountId, deletedAt, createdAt])
+  @@index([accountId, pan])
+}
+
+model AuthSession {
+  id               String    @id @default(cuid())
+  sessionId        String    @unique
+  userId           String
+  user             User      @relation(fields: [userId], references: [id])
+  refreshTokenHash String?
+  deviceId         String?
+  deviceName       String?
+  userAgent        String?
+  lastIp           String?
+  lastSeen         DateTime  @default(now())
+  revokedAt        DateTime?
+  revokeReason     String?
+  createdAt        DateTime  @default(now())
+  updatedAt        DateTime  @updatedAt
+
+  @@index([userId, revokedAt])
+  @@index([deviceId])
 }
 
 model ApduLog {

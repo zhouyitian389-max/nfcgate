@@ -1,4 +1,4 @@
-import type { Server } from 'http';
+import type { IncomingMessage, Server } from 'http';
 import { WebSocketServer, type WebSocket } from 'ws';
 import { v4 as uuidv4 } from 'uuid';
 import prisma from '../db.js';
@@ -7,11 +7,11 @@ import { sseHub } from './sseHub.js';
 type RelayRole = 'hce' | 'reader' | 'external';
 
 type RelayMessage =
-  | { type: 'session_join'; sessionId?: string; token?: string; role?: RelayRole }
-  | { type: 'session_paired'; sessionId: string }
-  | { type: 'session_joined'; sessionId: string }
-  | { type: 'apdu_command'; data: string }
-  | { type: 'apdu_response'; data: string }
+  | { type: 'session_join'; sessionId?: string; token?: string; role?: RelayRole; atr?: string }
+  | { type: 'session_paired'; sessionId: string; atr?: string }
+  | { type: 'session_joined'; sessionId: string; tokenPreview?: string }
+  | { type: 'apdu_command'; data: string; seq?: number }
+  | { type: 'apdu_response'; data: string; seq?: number }
   | { type: 'session_end'; reason: string }
   | { type: 'error'; message: string }
   | { type: 'ping' }
@@ -39,6 +39,9 @@ interface RelaySession {
   apduCount: number;
   startedAt: number;
   lastActivityAt: number;
+  lastCommandSeq: number;
+  lastResponseSeq: number;
+  readerAtr?: string;
   hce?: SocketWithState;
   reader?: SocketWithState;
   external?: SocketWithState;
@@ -48,17 +51,43 @@ const SESSION_TIMEOUT_MS = Number(process.env.RELAY_SESSION_TIMEOUT_MS || 20_000
 const HEARTBEAT_MS = Number(process.env.RELAY_HEARTBEAT_MS || 10_000);
 const HEX_REGEX = /^[0-9A-Fa-f]+$/;
 const MAX_APDU_LEN = 2000;
+const MAX_ATR_LEN = 128;
 
 const sessions = new Map<string, RelaySession>();
 const sessionTokens = new Map<string, SessionTokenMeta>();
 const wsConnectionByIp = new Map<string, number>();
 
-function isValidApduHex(data: unknown): data is string {
+function isValidHex(data: unknown, maxLength: number): data is string {
   return typeof data === 'string' &&
     data.length > 0 &&
-    data.length <= MAX_APDU_LEN &&
+    data.length <= maxLength &&
     data.length % 2 === 0 &&
     HEX_REGEX.test(data);
+}
+
+function isValidApduHex(data: unknown): data is string {
+  return isValidHex(data, MAX_APDU_LEN);
+}
+
+function isValidAtrHex(data: unknown): data is string {
+  return isValidHex(data, MAX_ATR_LEN);
+}
+
+function tokenPreview(token: string) {
+  return `${token.slice(0, 4)}…${token.slice(-4)}`;
+}
+
+function sequenceIsNext(lastSeen: number, seq: unknown): seq is number {
+  return typeof seq === 'number' && Number.isInteger(seq) && seq > lastSeen;
+}
+
+function extractBearerToken(request: IncomingMessage) {
+  const authHeader = request.headers.authorization;
+  if (!authHeader?.startsWith('Bearer ')) {
+    return undefined;
+  }
+  const token = authHeader.slice('Bearer '.length).trim();
+  return token || undefined;
 }
 
 export async function createSessionToken(accountId: string, cardId?: string, mode = 'NFC_RELAY') {
@@ -114,7 +143,6 @@ async function closeSession(token: string, reason: string) {
   if (session.accountId) {
     sseHub.sendToUser(session.accountId, 'relay_session_end', {
       sessionId: session.sessionId,
-      token,
       reason,
       apduCount: session.apduCount
     });
@@ -154,7 +182,9 @@ async function ensureSession(token: string): Promise<RelaySession> {
     mode: meta.mode,
     startedAt: Date.now(),
     lastActivityAt: Date.now(),
-    apduCount: 0
+    apduCount: 0,
+    lastCommandSeq: 0,
+    lastResponseSeq: 0
   };
 
   if (session.accountId) {
@@ -172,8 +202,7 @@ async function ensureSession(token: string): Promise<RelaySession> {
     session.logId = created?.id;
 
     sseHub.sendToUser(session.accountId, 'relay_session_start', {
-      sessionId: session.sessionId,
-      token
+      sessionId: session.sessionId
     });
   }
 
@@ -220,12 +249,13 @@ function parseMessage(raw: string): RelayMessage | null {
 
 export function getActiveSessions(accountId?: string) {
   const list = Array.from(sessions.values()).map((s) => ({
-    token: s.token,
+    tokenPreview: tokenPreview(s.token),
     sessionId: s.sessionId,
     accountId: s.accountId,
     cardId: s.cardId,
     mode: s.mode,
     apduCount: s.apduCount,
+    atr: s.readerAtr,
     connected: {
       hce: Boolean(s.hce),
       reader: Boolean(s.reader),
@@ -257,7 +287,7 @@ export function initWebSocket(server: Server) {
     }
     wsConnectionByIp.set(ip, now);
 
-    const token = url.searchParams.get('token') || undefined;
+    const token = extractBearerToken(request);
     const role = (url.searchParams.get('role') as RelayRole | null) || undefined;
 
     wss.handleUpgrade(request, socket, head, (ws) => {
@@ -270,11 +300,11 @@ export function initWebSocket(server: Server) {
     ws.isAlive = true;
     let token = initialToken;
     let role = initialRole;
-    let session: RelaySession | undefined;
 
-    const bindSession = async (joinToken: string, joinRole: RelayRole) => {
+    const bindSession = async (joinToken: string, joinRole: RelayRole, atr?: string) => {
       token = joinToken;
       role = joinRole;
+      let session: RelaySession;
       try {
         session = await ensureSession(joinToken);
       } catch {
@@ -283,12 +313,15 @@ export function initWebSocket(server: Server) {
         return false;
       }
       session.lastActivityAt = Date.now();
+      if (atr && isValidAtrHex(atr) && joinRole !== 'hce') {
+        session.readerAtr = atr.toUpperCase();
+      }
       setRoleSocket(session, joinRole, ws);
-      send(ws, { type: 'session_joined', sessionId: session.sessionId });
+      send(ws, { type: 'session_joined', sessionId: session.sessionId, tokenPreview: tokenPreview(joinToken) });
       if (session.hce && getReaderPeer(session)) {
-        send(session.hce, { type: 'session_paired', sessionId: session.sessionId });
-        send(session.reader, { type: 'session_paired', sessionId: session.sessionId });
-        send(session.external, { type: 'session_paired', sessionId: session.sessionId });
+        send(session.hce, { type: 'session_paired', sessionId: session.sessionId, atr: session.readerAtr });
+        send(session.reader, { type: 'session_paired', sessionId: session.sessionId, atr: session.readerAtr });
+        send(session.external, { type: 'session_paired', sessionId: session.sessionId, atr: session.readerAtr });
       }
       return true;
     };
@@ -317,7 +350,11 @@ export function initWebSocket(server: Server) {
           send(ws, { type: 'error', message: 'session_join requires token/sessionId and role' });
           return;
         }
-        await bindSession(joinToken, joinRole);
+        if (message.atr && !isValidAtrHex(message.atr)) {
+          send(ws, { type: 'error', message: 'Invalid ATR format' });
+          return;
+        }
+        await bindSession(joinToken, joinRole, message.atr);
         return;
       }
 
@@ -343,6 +380,11 @@ export function initWebSocket(server: Server) {
         return;
       }
 
+      if (message.type === 'session_end') {
+        await closeSession(token, message.reason || `${role} requested end`);
+        return;
+      }
+
       if (message.type === 'apdu_command') {
         if (role !== 'hce') {
           send(ws, { type: 'error', message: 'Only hce can send apdu_command' });
@@ -352,6 +394,10 @@ export function initWebSocket(server: Server) {
           send(ws, { type: 'error', message: 'Invalid APDU command format' });
           return;
         }
+        if (!sequenceIsNext(current.lastCommandSeq, message.seq)) {
+          send(ws, { type: 'error', message: 'Invalid APDU command sequence' });
+          return;
+        }
 
         const target = getReaderPeer(current);
         if (!target) {
@@ -359,9 +405,10 @@ export function initWebSocket(server: Server) {
           return;
         }
 
+        current.lastCommandSeq = message.seq;
         current.apduCount += 1;
         console.info(`[relay] APDU command ${current.sessionId} from hce`);
-        send(target, { type: 'apdu_command', data: message.data });
+        send(target, { type: 'apdu_command', data: message.data, seq: message.seq });
       }
 
       if (message.type === 'apdu_response') {
@@ -373,13 +420,22 @@ export function initWebSocket(server: Server) {
           send(ws, { type: 'error', message: 'Invalid APDU response format' });
           return;
         }
+        if (!sequenceIsNext(current.lastResponseSeq, message.seq)) {
+          send(ws, { type: 'error', message: 'Invalid APDU response sequence' });
+          return;
+        }
+        if (message.seq !== current.lastCommandSeq) {
+          send(ws, { type: 'error', message: 'APDU response sequence mismatch' });
+          return;
+        }
         if (!current.hce || current.hce.readyState !== current.hce.OPEN) {
           send(ws, { type: 'error', message: 'No hce connected' });
           console.warn(`[relay] Dropped APDU response ${current.sessionId}: no hce peer`);
           return;
         }
+        current.lastResponseSeq = message.seq;
         console.info(`[relay] APDU response ${current.sessionId} from ${role}`);
-        send(current.hce, { type: 'apdu_response', data: message.data });
+        send(current.hce, { type: 'apdu_response', data: message.data, seq: message.seq });
       }
 
       if (current.logId) {
@@ -433,6 +489,11 @@ export function initWebSocket(server: Server) {
     for (const [ip, ts] of wsConnectionByIp.entries()) {
       if (now - ts > 10_000) {
         wsConnectionByIp.delete(ip);
+      }
+    }
+    for (const [token, meta] of sessionTokens.entries()) {
+      if (meta.expiresAt.getTime() <= now) {
+        sessionTokens.delete(token);
       }
     }
   }, HEARTBEAT_MS).unref();

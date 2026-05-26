@@ -15,7 +15,7 @@ import okhttp3.WebSocketListener;
 
 public class WebSocketRelayClient {
     public interface Listener {
-        void onApduCommand(String sessionId, byte[] command);
+        void onApduCommand(String sessionId, byte[] command, int seq);
         void onSessionEnded();
     }
 
@@ -55,7 +55,7 @@ public class WebSocketRelayClient {
         }
     }
 
-    public synchronized boolean sendApduResponse(String currentSessionId, byte[] apduResponse) {
+    public synchronized boolean sendApduResponse(String currentSessionId, byte[] apduResponse, int seq) {
         if (webSocket == null) {
             return false;
         }
@@ -63,6 +63,7 @@ public class WebSocketRelayClient {
             JSONObject payload = new JSONObject()
                     .put("type", "apdu_response")
                     .put("sessionId", currentSessionId)
+                    .put("seq", seq)
                     .put("data", bytesToHex(apduResponse));
             return webSocket.send(payload.toString());
         } catch (JSONException e) {
@@ -108,7 +109,7 @@ public class WebSocketRelayClient {
                 JSONObject payload = new JSONObject(text);
                 String type = payload.optString("type");
                 if ("apdu_command".equals(type)) {
-                    listener.onApduCommand(payload.optString("sessionId", sessionId), hexToBytes(payload.optString("data")));
+                    listener.onApduCommand(payload.optString("sessionId", sessionId), hexToBytes(payload.optString("data")), payload.optInt("seq", 0));
                 } else if ("session_end".equals(type)) {
                     listener.onSessionEnded();
                 }

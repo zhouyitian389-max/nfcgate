@@ -27,8 +27,9 @@ const allowedOrigins = (process.env.CORS_ORIGIN || '')
   .split(',')
   .map(o => o.trim())
   .filter(Boolean);
+const trustProxy = process.env.TRUST_PROXY_HOPS ? Number(process.env.TRUST_PROXY_HOPS) : 1;
 
-app.set('trust proxy', 1);
+app.set('trust proxy', Number.isFinite(trustProxy) ? trustProxy : 1);
 app.use(helmet({
   contentSecurityPolicy: {
     directives: {
@@ -52,12 +53,15 @@ app.use(cors({
       if (process.env.NODE_ENV !== 'production') return callback(null, true);
       return callback(new Error('CORS not configured'), false);
     }
+    if (allowedOrigins.includes('*')) {
+      return callback(null, true);
+    }
     if (allowedOrigins.includes(origin)) return callback(null, true);
     return callback(new Error(`CORS blocked: ${origin}`), false);
   },
   credentials: true,
   methods: ['GET', 'POST', 'PUT', 'DELETE', 'PATCH', 'OPTIONS'],
-  allowedHeaders: ['Content-Type', 'Authorization'],
+  allowedHeaders: ['Content-Type', 'Authorization', 'X-Device-Id'],
 }));
 app.use(express.json({ limit: '10mb' }));
 app.use((req, res, next) => {
@@ -90,6 +94,14 @@ app.use('/api/logs', logsRoutes);
 app.use('/api/stats', statsRoutes);
 
 app.use('/api/admin', authMiddleware, adminOnly, adminRoutes);
+
+app.use((err: Error, _req: express.Request, res: express.Response, _next: express.NextFunction) => {
+  const status = err.message.includes('CORS') ? 403 : 500;
+  if (status >= 500) {
+    console.error(err);
+  }
+  res.status(status).json({ message: status === 403 ? err.message : 'Internal server error' });
+});
 
 initWebSocket(server);
 

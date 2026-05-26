@@ -12,6 +12,7 @@ import java.util.concurrent.Executors
 import java.util.concurrent.ScheduledExecutorService
 import java.util.concurrent.TimeUnit
 import java.util.concurrent.atomic.AtomicBoolean
+import java.util.concurrent.atomic.AtomicInteger
 
 class RelayClient(
     private val serverUrl: String,
@@ -47,6 +48,8 @@ class RelayClient(
     private var pendingResponse: String? = null
 
     private val manuallyClosed = AtomicBoolean(false)
+    private val nextCommandSeq = AtomicInteger(1)
+    private val pendingSeq = AtomicInteger(0)
 
     fun setListener(listener: RelayListener?) {
         this.listener = listener
@@ -54,8 +57,11 @@ class RelayClient(
 
     fun connect() {
         manuallyClosed.set(false)
-        val url = "$serverUrl?token=$token&role=$role"
-        ws = httpClient.newWebSocket(Request.Builder().url(url).build(), this)
+        val request = Request.Builder()
+            .url(serverUrl)
+            .header("Authorization", "Bearer " + token)
+            .build()
+        ws = httpClient.newWebSocket(request, this)
     }
 
     fun disconnect(reason: String = "client_close") {
@@ -68,7 +74,9 @@ class RelayClient(
 
     fun sendApduAndWait(apduHex: String): String? {
         val socket = ws ?: return null
-        if (socket.send(JSONObject().put("type", "apdu_command").put("data", apduHex).toString()).not()) {
+        val seq = nextCommandSeq.getAndIncrement()
+        pendingSeq.set(seq)
+        if (socket.send(JSONObject().put("type", "apdu_command").put("seq", seq).put("data", apduHex).toString()).not()) {
             return null
         }
 
@@ -103,8 +111,12 @@ class RelayClient(
                     listener?.onConnected(lastSessionId ?: "")
                 }
                 "apdu_response" -> {
-                    pendingResponse = msg.optString("data")
-                    pendingLatch?.countDown()
+                    val seq = msg.optInt("seq", 0)
+                    if (seq == 0 || seq == pendingSeq.get()) {
+                        pendingResponse = msg.optString("data")
+                        pendingLatch?.countDown()
+                        pendingSeq.set(0)
+                    }
                 }
                 "apdu_command" -> listener?.onApduCommand(msg.optString("data"))
                 "session_end" -> listener?.onDisconnected(msg.optString("reason", "session_end"))

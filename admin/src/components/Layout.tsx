@@ -1,7 +1,7 @@
 import Link from 'next/link';
 import { useRouter } from 'next/router';
 import { ReactNode } from 'react';
-import { clearToken } from '@/lib/api';
+import { api, clearToken } from '@/lib/api';
 
 interface LayoutProps {
   children: ReactNode;
@@ -19,7 +19,12 @@ const navItems = [
 export default function Layout({ children }: LayoutProps) {
   const router = useRouter();
 
-  const handleLogout = () => {
+  const handleLogout = async () => {
+    try {
+      await api.logout();
+    } catch {
+      // ignore logout transport failures; local cleanup still applies
+    }
     clearToken();
     router.push('/login');
   };

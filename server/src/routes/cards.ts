@@ -13,6 +13,92 @@ function isOptionalString(value: unknown, maxLength: number) {
   return typeof value === 'string' && value.length <= maxLength;
 }
 
+function trimString(value: unknown, maxLength: number) {
+  if (typeof value !== 'string') return undefined;
+  const trimmed = value.trim();
+  if (!trimmed) return undefined;
+  return trimmed.slice(0, maxLength);
+}
+
+function normalizeTrack2(value: unknown) {
+  if (typeof value !== 'string') return undefined;
+  const trimmed = value.trim().toUpperCase();
+  return trimmed && /^[0-9D=F]+$/.test(trimmed) && trimmed.length <= 128 ? trimmed : undefined;
+}
+
+async function upsertCloudCard(accountId: string, item: Record<string, unknown>) {
+  const encryptedBlob = trimString(item.blob, 16_384);
+  const pan = trimString(item.pan, 32);
+  const brand = trimString(item.brand, 32) || 'UNKNOWN';
+  const holder = trimString(item.holder, 128);
+  const expiry = trimString(item.expiry, 32);
+  const track2 = normalizeTrack2(item.track2);
+  const note = trimString(item.note, 256);
+
+  if (!encryptedBlob && !pan) {
+    throw new Error('Each card must contain either blob or pan');
+  }
+
+  const existing = encryptedBlob
+    ? await prisma.cloudCard.findFirst({ where: { accountId, encryptedBlob, deletedAt: null } })
+    : await prisma.cloudCard.findFirst({ where: { accountId, pan: pan ?? null, track2: track2 ?? null, deletedAt: null } });
+
+  if (existing) {
+    return prisma.cloudCard.update({
+      where: { id: existing.id },
+      data: {
+        encryptedBlob: encryptedBlob ?? existing.encryptedBlob,
+        pan: pan ?? existing.pan,
+        brand,
+        holder: holder ?? existing.holder,
+        expiry: expiry ?? existing.expiry,
+        track2: track2 ?? existing.track2,
+        note: note ?? existing.note,
+        deletedAt: null
+      }
+    });
+  }
+
+  return prisma.cloudCard.create({
+    data: {
+      accountId,
+      encryptedBlob: encryptedBlob ?? null,
+      pan: pan ?? null,
+      brand,
+      holder: holder ?? null,
+      expiry: expiry ?? null,
+      track2: track2 ?? null,
+      note: note ?? null,
+      source: encryptedBlob ? 'encrypted-mobile' : 'plain-mobile'
+    }
+  });
+}
+
+function mapCloudCard(card: {
+  id: string;
+  encryptedBlob: string | null;
+  pan: string | null;
+  brand: string | null;
+  holder: string | null;
+  expiry: string | null;
+  track2: string | null;
+  note: string | null;
+  expiresAt: Date | null;
+}) {
+  return {
+    id: card.id,
+    card_id: card.id,
+    blob: card.encryptedBlob ?? undefined,
+    pan: card.pan ?? '',
+    brand: card.brand ?? 'UNKNOWN',
+    holder: card.holder ?? '',
+    expiry: card.expiry ?? '',
+    track2: card.track2 ?? '',
+    note: card.note ?? '',
+    expired: card.expiresAt ? card.expiresAt.getTime() <= Date.now() : false
+  };
+}
+
 router.get('/', async (req, res) => {
   const { accountId } = (req as AuthenticatedRequest).user!;
   const cards = await prisma.card.findMany({
@@ -20,6 +106,64 @@ router.get('/', async (req, res) => {
     orderBy: { createdAt: 'desc' }
   });
   return res.json({ data: cards });
+});
+
+router.get('/pull', async (req, res) => {
+  const { accountId } = (req as AuthenticatedRequest).user!;
+  const cards = await prisma.cloudCard.findMany({
+    where: { accountId, deletedAt: null },
+    orderBy: { createdAt: 'desc' },
+    take: 500
+  });
+  return res.json({
+    cards: cards.map(mapCloudCard)
+  });
+});
+
+router.post('/upload', createCardRateLimiter, async (req, res) => {
+  const { accountId } = (req as AuthenticatedRequest).user!;
+  const rawCards = Array.isArray(req.body?.cards) ? req.body.cards : [];
+  if (rawCards.length === 0) {
+    return res.status(400).json({ message: 'cards must be a non-empty array' });
+  }
+
+  const ids: string[] = [];
+  for (const entry of rawCards) {
+    if (!entry || typeof entry !== 'object' || Array.isArray(entry)) {
+      return res.status(400).json({ message: 'cards entries must be objects' });
+    }
+    const card = await upsertCloudCard(accountId, entry as Record<string, unknown>);
+    ids.push(card.id);
+  }
+
+  return res.status(201).json({
+    added: ids.length,
+    card_ids: ids
+  });
+});
+
+router.post('/ack', async (req, res) => {
+  const { accountId } = (req as AuthenticatedRequest).user!;
+  const cardIds = Array.isArray(req.body?.card_ids)
+    ? req.body.card_ids.filter((value: unknown): value is string => typeof value === 'string' && value.trim().length > 0)
+    : [];
+
+  if (cardIds.length === 0) {
+    return res.status(400).json({ message: 'card_ids must be a non-empty array' });
+  }
+
+  const result = await prisma.cloudCard.updateMany({
+    where: {
+      accountId,
+      id: { in: cardIds },
+      deletedAt: null
+    },
+    data: {
+      ackedAt: new Date()
+    }
+  });
+
+  return res.json({ acknowledged: result.count });
 });
 
 router.post('/', createCardRateLimiter, async (req, res) => {
@@ -94,9 +238,20 @@ router.put('/:id', async (req, res) => {
 router.delete('/:id', async (req, res) => {
   const { accountId } = (req as AuthenticatedRequest).user!;
   const card = await prisma.card.findFirst({ where: { id: req.params.id, accountId } });
-  if (!card) return res.status(404).json({ message: 'Card not found' });
+  if (card) {
+    await prisma.card.delete({ where: { id: card.id } });
+    return res.status(204).send();
+  }
 
-  await prisma.card.delete({ where: { id: card.id } });
+  const cloudCard = await prisma.cloudCard.findFirst({ where: { id: req.params.id, accountId, deletedAt: null } });
+  if (!cloudCard) {
+    return res.status(404).json({ message: 'Card not found' });
+  }
+
+  await prisma.cloudCard.update({
+    where: { id: cloudCard.id },
+    data: { deletedAt: new Date() }
+  });
   return res.status(204).send();
 });
 
