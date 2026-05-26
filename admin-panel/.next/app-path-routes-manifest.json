@@ -1,0 +1,9 @@
+{
+  "/_not-found/page": "/_not-found",
+  "/cards/page": "/cards",
+  "/login/page": "/login",
+  "/devices/page": "/devices",
+  "/logs/page": "/logs",
+  "/page": "/",
+  "/sessions/page": "/sessions"
+}
