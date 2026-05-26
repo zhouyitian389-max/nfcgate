@@ -22,8 +22,8 @@ services:
     environment:
       PORT: ${SERVER_PORT:-8080}
       DATABASE_URL: ${DATABASE_URL:-postgresql://nfcgate:nfcgate@postgres:5432/nfcgate?schema=public}
-      JWT_SECRET: ${JWT_SECRET:-change-me}
-      JWT_REFRESH_SECRET: ${JWT_REFRESH_SECRET:-change-me-refresh}
+      JWT_SECRET: ${JWT_SECRET}
+      JWT_REFRESH_SECRET: ${JWT_REFRESH_SECRET}
       CORS_ORIGIN: '*'
     command: >
       sh -c "npm install && npx prisma generate && npx prisma db push && npm run dev"
