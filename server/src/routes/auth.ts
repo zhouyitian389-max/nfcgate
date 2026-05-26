@@ -7,7 +7,7 @@ import { authMiddleware, type AuthenticatedRequest } from '../middleware/auth.js
 import { loginRateLimiter, registerRateLimiter } from '../middleware/rateLimit.js';
 import { createSessionTokens, revokeSession, revokeUserSessions, rotateSessionTokens, tokenHashMatches } from '../services/authSessions.js';
 import { addToBlacklist } from '../services/tokenBlacklist.js';
-import { decodeToken, getTokenExpiresInSeconds, verifyAccessToken, verifyRefreshToken, type SessionTokenUser } from '../services/tokenService.js';
+import { decodeToken, getAccessTokenExpiresInMs, getRefreshTokenExpiresInMs, getTokenExpiresInSeconds, verifyAccessToken, verifyRefreshToken, type SessionTokenUser } from '../services/tokenService.js';
 import { isStrongPassword, isValidEmail, normalizeEmail } from '../utils/validators.js';
 import { closeSessionsByAccountId } from '../ws/relay.js';
 
@@ -103,11 +103,17 @@ function authPayloadResponse(user: {
   mustChangePassword?: boolean;
   account: { id: string; name: string; encryptionSalt: string };
 }, accessToken: string, refreshToken: string) {
+  const expiresInSeconds = getTokenExpiresInSeconds(accessToken);
+  const refreshTokenExpiresIn = Math.floor(getRefreshTokenExpiresInMs() / 1000);
   return {
     token: accessToken,
     accessToken,
     refreshToken,
-    expires_in: getTokenExpiresInSeconds(accessToken),
+    expiresAt: Date.now() + getAccessTokenExpiresInMs(),
+    expires_in: expiresInSeconds,
+    expiresIn: expiresInSeconds,
+    tokenType: 'Bearer',
+    refreshTokenExpiresIn,
     account_id: user.account.id,
     salt: user.account.encryptionSalt,
     mustChangePassword: Boolean(user.mustChangePassword),

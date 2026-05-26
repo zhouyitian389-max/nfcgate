@@ -27,7 +27,7 @@ export async function isBlacklisted(token: string): Promise<boolean> {
   const tokenHash = hashToken(token);
   const cachedExpiry = blacklist.get(tokenHash);
   if (cachedExpiry !== undefined) {
-    if (Date.now() <= cachedExpiry) {
+    if (Date.now() < cachedExpiry) {
       return true;
     }
     blacklist.delete(tokenHash);

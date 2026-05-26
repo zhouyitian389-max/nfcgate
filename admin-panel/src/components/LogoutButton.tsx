@@ -1,19 +1,10 @@
 'use client';
 
-import { useRouter } from 'next/navigation';
-import { apiFetch, clearAuthToken } from '@/lib/api';
+import { logout } from '@/lib/logoutHandler';
 
 export default function LogoutButton() {
-  const router = useRouter();
-
   const onLogout = async () => {
-    try {
-      await apiFetch('/auth/logout', { method: 'POST', body: JSON.stringify({}) });
-    } catch {
-      // ignore logout transport failures; local cleanup still applies
-    }
-    clearAuthToken();
-    router.push('/login');
+    await logout();
   };
 
   return (
