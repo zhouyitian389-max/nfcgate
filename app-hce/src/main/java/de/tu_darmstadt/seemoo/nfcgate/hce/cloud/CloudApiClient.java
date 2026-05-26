@@ -199,7 +199,8 @@ public class CloudApiClient {
     }
 
     public void requestDeleteCard(String serverCardId) throws Exception {
-        request("DELETE", "/api/cards/" + serverCardId, null, SessionManager.getToken(appContext), false);
+        String encoded = java.net.URLEncoder.encode(serverCardId, StandardCharsets.UTF_8.name());
+        request("DELETE", "/api/cards/" + encoded, null, SessionManager.getToken(appContext), false);
     }
 
     private JSONObject request(String method, String path, JSONObject requestJson, String bearerToken, boolean allowAuthFailure) throws Exception {

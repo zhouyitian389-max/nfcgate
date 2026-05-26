@@ -163,7 +163,8 @@ public class CloudApiClient {
     }
 
     public void deleteCard(String cardId) throws Exception {
-        request("DELETE", "/api/cards/" + cardId, null, SessionManager.getToken(appContext), false);
+        String encoded = java.net.URLEncoder.encode(cardId, StandardCharsets.UTF_8.name());
+        request("DELETE", "/api/cards/" + encoded, null, SessionManager.getToken(appContext), false);
     }
 
     public void registerFcmToken(String fcmToken) throws Exception {
