@@ -1,10 +1,12 @@
 import { Router } from 'express';
 import prisma from '../db.js';
 import { authMiddleware, type AuthenticatedRequest } from '../middleware/auth.js';
+import { apiRateLimiter } from '../middleware/rateLimit.js';
 import { getActiveSessions } from '../services/relay.js';
 import { asyncHandler } from '../utils/http.js';
 
 const router = Router();
+router.use(apiRateLimiter);
 router.use(authMiddleware);
 
 router.get('/', asyncHandler(async (req, res) => {

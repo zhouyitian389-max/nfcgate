@@ -1,11 +1,13 @@
 import { Router } from 'express';
 import prisma from '../db.js';
 import { authMiddleware, type AuthenticatedRequest } from '../middleware/auth.js';
+import { apiRateLimiter } from '../middleware/rateLimit.js';
 import { sseHub } from '../services/sseHub.js';
 import { asyncHandler, HttpError } from '../utils/http.js';
 import { optionalEnum, optionalString, requireObject, requireString } from '../utils/validation.js';
 
 const router = Router();
+router.use(apiRateLimiter);
 router.use(authMiddleware);
 const deviceTypes = ['HCE', 'READER', 'EXTERNAL_READER'] as const;
 

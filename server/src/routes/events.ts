@@ -1,10 +1,11 @@
 import { Router } from 'express';
 import { authenticateAccessToken, extractBearerToken } from '../middleware/auth.js';
+import { apiRateLimiter } from '../middleware/rateLimit.js';
 import { sseHub } from '../services/sseHub.js';
 import { asyncHandler, HttpError } from '../utils/http.js';
 
 const router = Router();
-router.get('/', asyncHandler(async (req, res) => {
+router.get('/', apiRateLimiter, asyncHandler(async (req, res) => {
   const token = typeof req.query.token === 'string' ? req.query.token : extractBearerToken(req.headers.authorization);
   if (!token) {
     throw new HttpError(401, 'Missing authorization token');

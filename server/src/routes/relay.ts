@@ -1,11 +1,13 @@
 import { Router } from 'express';
 import prisma from '../db.js';
 import { authMiddleware, type AuthenticatedRequest } from '../middleware/auth.js';
+import { apiRateLimiter } from '../middleware/rateLimit.js';
 import { createSessionToken, getActiveSessions } from '../services/relay.js';
 import { asyncHandler, HttpError } from '../utils/http.js';
 import { optionalEnum, optionalString, requireObject } from '../utils/validation.js';
 
 const router = Router();
+router.use(apiRateLimiter);
 router.use(authMiddleware);
 const relayModes = ['NFC_RELAY', 'EMV_EXTERNAL'] as const;
 

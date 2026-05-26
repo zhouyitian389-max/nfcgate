@@ -3,6 +3,7 @@ import { v4 as uuidv4 } from 'uuid';
 import prisma from '../db.js';
 import { RELAY_TOKEN_TTL_MINUTES } from '../config.js';
 import { authMiddleware, type AuthenticatedRequest } from '../middleware/auth.js';
+import { apiRateLimiter } from '../middleware/rateLimit.js';
 import { sseHub } from '../services/sseHub.js';
 import { asyncHandler, HttpError } from '../utils/http.js';
 import {
@@ -14,6 +15,7 @@ import {
 } from '../utils/validation.js';
 
 const router = Router();
+router.use(apiRateLimiter);
 router.use(authMiddleware);
 const cardTypes = ['MIFARE', 'EMV', 'FELICA', 'UNKNOWN'] as const;
 

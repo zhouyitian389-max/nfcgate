@@ -1,18 +1,13 @@
 import { Router } from 'express';
 import bcrypt from 'bcryptjs';
 import prisma from '../db.js';
-import { AUTH_RATE_LIMIT_MAX, AUTH_RATE_LIMIT_WINDOW_MS, BCRYPT_ROUNDS } from '../config.js';
-import { createRateLimiter } from '../middleware/rateLimit.js';
+import { BCRYPT_ROUNDS } from '../config.js';
+import { apiRateLimiter, authRateLimiter } from '../middleware/rateLimit.js';
 import { authMiddleware, createAccessToken, type AuthenticatedRequest } from '../middleware/auth.js';
 import { asyncHandler, HttpError } from '../utils/http.js';
 import { optionalString, requireEmail, requireObject, requireString } from '../utils/validation.js';
 
 const router = Router();
-const authRateLimiter = createRateLimiter({
-  windowMs: AUTH_RATE_LIMIT_WINDOW_MS,
-  max: AUTH_RATE_LIMIT_MAX,
-  keyGenerator: (req) => `${req.ip}:${String(req.body?.email || 'anonymous').toLowerCase()}`
-});
 
 router.post('/register', authRateLimiter, asyncHandler(async (req, res) => {
   const body = requireObject(req.body);
@@ -66,7 +61,7 @@ router.post('/login', authRateLimiter, asyncHandler(async (req, res) => {
   return res.json({ token, user: { id: user.id, email: user.email, role: user.role, name: user.name } });
 }));
 
-router.get('/me', authMiddleware, asyncHandler(async (req, res) => {
+router.get('/me', apiRateLimiter, authMiddleware, asyncHandler(async (req, res) => {
   const authReq = req as AuthenticatedRequest;
   if (!authReq.user) {
     throw new HttpError(401, 'Unauthorized');

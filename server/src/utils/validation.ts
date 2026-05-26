@@ -55,10 +55,19 @@ export function optionalHexString(value: unknown, field: string, maxLength: numb
 }
 
 export function requireEmail(value: unknown): string {
-  return requireString(value, 'email', {
-    maxLength: 254,
-    pattern: /^[^\s@]+@[^\s@]+\.[^\s@]+$/
-  }).toLowerCase();
+  const email = requireString(value, 'email', { maxLength: 254 }).toLowerCase();
+  const atIndex = email.indexOf('@');
+  const dotIndex = email.lastIndexOf('.');
+  if (
+    atIndex <= 0 ||
+    dotIndex <= atIndex + 1 ||
+    dotIndex === email.length - 1 ||
+    email.includes(' ') ||
+    email.includes('..')
+  ) {
+    throw new HttpError(400, 'email has an invalid format');
+  }
+  return email;
 }
 
 export function requireEnum<T extends string>(value: unknown, field: string, allowed: readonly T[]): T {

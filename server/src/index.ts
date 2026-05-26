@@ -5,12 +5,10 @@ import { createServer } from 'http';
 import { Prisma } from '@prisma/client';
 import prisma from './db.js';
 import {
-  API_RATE_LIMIT_MAX,
-  API_RATE_LIMIT_WINDOW_MS,
   getCorsOrigins
 } from './config.js';
 import { authMiddleware, adminOnly } from './middleware/auth.js';
-import { createRateLimiter } from './middleware/rateLimit.js';
+import { apiRateLimiter } from './middleware/rateLimit.js';
 import { initWebSocket } from './services/relay.js';
 import { HttpError } from './utils/http.js';
 
@@ -41,7 +39,7 @@ app.use(cors({
   methods: ['GET', 'POST', 'PUT', 'DELETE', 'OPTIONS']
 }));
 app.use(express.json({ limit: '10mb' }));
-app.use('/api', createRateLimiter({ windowMs: API_RATE_LIMIT_WINDOW_MS, max: API_RATE_LIMIT_MAX }));
+app.use('/api', apiRateLimiter);
 
 app.get('/health', (_req, res) => {
   res.json({ status: 'ok', timestamp: new Date().toISOString() });
@@ -55,7 +53,7 @@ app.use('/api/events', eventsRoutes);
 app.use('/api/logs', logsRoutes);
 app.use('/api/stats', statsRoutes);
 
-app.use('/api/admin', authMiddleware, adminOnly, adminRoutes);
+app.use('/api/admin', apiRateLimiter, authMiddleware, adminOnly, adminRoutes);
 
 initWebSocket(server);
 

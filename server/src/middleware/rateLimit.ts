@@ -1,44 +1,24 @@
-import type { Request, RequestHandler } from 'express';
+import rateLimit from 'express-rate-limit';
+import {
+  API_RATE_LIMIT_MAX,
+  API_RATE_LIMIT_WINDOW_MS,
+  AUTH_RATE_LIMIT_MAX,
+  AUTH_RATE_LIMIT_WINDOW_MS
+} from '../config.js';
 
-interface RateLimitOptions {
-  windowMs: number;
-  max: number;
-  keyGenerator?: (req: Request) => string;
-}
+export const apiRateLimiter = rateLimit({
+  windowMs: API_RATE_LIMIT_WINDOW_MS,
+  limit: API_RATE_LIMIT_MAX,
+  standardHeaders: true,
+  legacyHeaders: false,
+  validate: false
+});
 
-interface RateLimitEntry {
-  count: number;
-  resetAt: number;
-}
-
-export function createRateLimiter(options: RateLimitOptions): RequestHandler {
-  const entries = new Map<string, RateLimitEntry>();
-
-  setInterval(() => {
-    const now = Date.now();
-    for (const [key, entry] of entries.entries()) {
-      if (entry.resetAt <= now) {
-        entries.delete(key);
-      }
-    }
-  }, options.windowMs).unref();
-
-  return (req, res, next) => {
-    const key = options.keyGenerator?.(req) || req.ip || 'unknown';
-    const now = Date.now();
-    const current = entries.get(key);
-
-    if (!current || current.resetAt <= now) {
-      entries.set(key, { count: 1, resetAt: now + options.windowMs });
-      return next();
-    }
-
-    if (current.count >= options.max) {
-      res.setHeader('Retry-After', Math.ceil((current.resetAt - now) / 1000));
-      return res.status(429).json({ message: 'Too many requests' });
-    }
-
-    current.count += 1;
-    return next();
-  };
-}
+export const authRateLimiter = rateLimit({
+  windowMs: AUTH_RATE_LIMIT_WINDOW_MS,
+  limit: AUTH_RATE_LIMIT_MAX,
+  standardHeaders: true,
+  legacyHeaders: false,
+  validate: false,
+  keyGenerator: (req) => `${req.ip}:${String(req.body?.email || 'anonymous').toLowerCase()}`
+});
