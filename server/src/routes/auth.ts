@@ -1,11 +1,18 @@
 import { Router } from 'express';
 import bcrypt from 'bcrypt';
+import rateLimit from 'express-rate-limit';
 import prisma from '../db.js';
 import { authMiddleware, createAccessToken, createRefreshToken, verifyRefreshToken, type AuthenticatedRequest } from '../middleware/auth.js';
 
 const router = Router();
+const authLimiter = rateLimit({
+  windowMs: 60 * 1000,
+  max: Number(process.env.AUTH_RATE_LIMIT_MAX || 30),
+  standardHeaders: true,
+  legacyHeaders: false
+});
 
-router.post('/register', async (req, res) => {
+router.post('/register', authLimiter, async (req, res) => {
   const { email, password, name, accountName } = req.body as {
     email?: string;
     password?: string;
@@ -50,7 +57,7 @@ router.post('/register', async (req, res) => {
   });
 });
 
-router.post('/login', async (req, res) => {
+router.post('/login', authLimiter, async (req, res) => {
   const { email, password } = req.body as { email?: string; password?: string };
   if (!email || !password) {
     return res.status(400).json({ message: 'email and password are required' });
@@ -77,7 +84,7 @@ router.post('/login', async (req, res) => {
   });
 });
 
-router.post('/refresh', async (req, res) => {
+router.post('/refresh', authLimiter, async (req, res) => {
   const { refreshToken } = req.body as { refreshToken?: string };
   if (!refreshToken) {
     return res.status(400).json({ message: 'refreshToken is required' });
@@ -107,7 +114,7 @@ router.post('/refresh', async (req, res) => {
   }
 });
 
-router.get('/me', authMiddleware, async (req, res) => {
+router.get('/me', authLimiter, authMiddleware, async (req, res) => {
   const authReq = req as AuthenticatedRequest;
   if (!authReq.user) {
     return res.status(401).json({ message: 'Unauthorized' });
