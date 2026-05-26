@@ -1,24 +1,29 @@
-import { FastifyInstance } from 'fastify';
-import { prisma } from '../db.js';
-import { authenticate } from '../middleware/auth.js';
+import { Router } from 'express';
+import prisma from '../db.js';
+import { authMiddleware, type AuthenticatedRequest } from '../middleware/auth.js';
 
-export async function logsRoutes(app: FastifyInstance) {
-  app.addHook('preHandler', authenticate);
+const router = Router();
+router.use(authMiddleware);
 
-  // GET /api/logs
-  app.get('/', async (request) => {
-    const accountId = (request as any).accountId;
-    const logs = await prisma.operationLog.findMany({
-      where: { accountId },
-      orderBy: { createdAt: 'desc' },
-      take: 100,
-    });
-    return {
-      logs: logs.map((l) => ({
-        timestamp: l.createdAt.getTime(),
-        action: l.action,
-        details: l.details,
-      })),
-    };
+router.get('/', async (req, res) => {
+  const user = (req as AuthenticatedRequest).user!;
+  const logs = await prisma.apduLog.findMany({
+    where: user.role === 'ADMIN' ? undefined : { accountId: user.accountId },
+    orderBy: { createdAt: 'desc' },
+    take: 200
   });
-}
+  res.json({ data: logs });
+});
+
+router.get('/:id', async (req, res) => {
+  const user = (req as AuthenticatedRequest).user!;
+  const log = await prisma.apduLog.findUnique({ where: { id: req.params.id } });
+  if (!log) return res.status(404).json({ message: 'Log not found' });
+  if (user.role !== 'ADMIN' && log.accountId !== user.accountId) {
+    return res.status(403).json({ message: 'Forbidden' });
+  }
+
+  return res.json(log);
+});
+
+export default router;

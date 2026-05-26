@@ -1,28 +1,39 @@
-import { prisma } from './db';
 import bcrypt from 'bcryptjs';
+import prisma from './db.js';
 
 async function seed() {
-  const email = 'admin@nfcgate.app';
-  const existing = await prisma.account.findUnique({ where: { email } });
+  const email = process.env.SEED_ADMIN_EMAIL || 'admin@nfcgate.local';
+  const password = process.env.SEED_ADMIN_PASSWORD || 'admin12345';
 
-  if (existing) {
-    console.log('Admin account already exists.');
+  const exists = await prisma.user.findUnique({ where: { email } });
+  if (exists) {
+    console.log('Admin user already exists');
     return;
   }
 
-  const hashedPassword = await bcrypt.hash('admin123', 12);
-
+  const hash = await bcrypt.hash(password, 10);
   await prisma.account.create({
     data: {
-      email,
-      password: hashedPassword,
-      role: 'ADMIN',
-    },
+      name: 'Default Account',
+      users: {
+        create: {
+          email,
+          password: hash,
+          role: 'ADMIN',
+          name: 'Administrator'
+        }
+      }
+    }
   });
 
-  console.log('✅ Admin account created: admin@nfcgate.app / admin123');
+  console.log(`Seed admin created: ${email}`);
 }
 
 seed()
-  .catch(console.error)
-  .finally(() => prisma.$disconnect());
+  .catch((err) => {
+    console.error(err);
+    process.exitCode = 1;
+  })
+  .finally(async () => {
+    await prisma.$disconnect();
+  });
