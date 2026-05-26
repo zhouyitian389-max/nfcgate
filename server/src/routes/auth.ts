@@ -35,7 +35,7 @@ function trimValue(value: unknown, maxLength: number): string | undefined {
   return trimmed.slice(0, maxLength);
 }
 
-function validatePassword(password: string | undefined) {
+function validatePassword(password: unknown): password is string {
   return typeof password === 'string' && password.length >= 8 && password.length <= 256;
 }
 
@@ -145,26 +145,23 @@ router.post('/register', authLimiter, async (req, res) => {
   }
 
   const hashedPassword = await bcrypt.hash(password, 12);
-  const created = await prisma.account.create({
+  const account = await prisma.account.create({
     data: {
       name: trimValue(accountName, 120) || trimValue(name, 120) || normalizedEmail,
-      encryptionSalt: randomUUID(),
-      users: {
-        create: {
-          email: normalizedEmail,
-          password: hashedPassword,
-          name: trimValue(name, 120),
-          role: 'ADMIN',
-          passwordChangedAt: new Date()
-        }
-      }
-    },
-    include: {
-      users: true
+      encryptionSalt: randomUUID()
+    }
+  });
+  const user = await prisma.user.create({
+    data: {
+      email: normalizedEmail,
+      password: hashedPassword,
+      name: trimValue(name, 120),
+      role: 'ADMIN',
+      accountId: account.id,
+      passwordChangedAt: new Date()
     }
   });
 
-  const user = created.users[0];
   const { accessToken, refreshToken } = await createSessionTokens(buildSessionUser(user), {
     ip: req.ip,
     userAgent: req.headers['user-agent']
@@ -173,9 +170,9 @@ router.post('/register', authLimiter, async (req, res) => {
   return res.status(201).json(authPayloadResponse({
     ...user,
     account: {
-      id: created.id,
-      name: created.name,
-      encryptionSalt: created.encryptionSalt
+      id: account.id,
+      name: account.name,
+      encryptionSalt: account.encryptionSalt
     }
   }, accessToken, refreshToken));
 });

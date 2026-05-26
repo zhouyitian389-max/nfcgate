@@ -29,13 +29,11 @@ function streamEvents(req: AuthenticatedRequest, res: Response) {
 }
 
 router.get('/', (req, res) => {
-  const user = (req as AuthenticatedRequest).user!;
-  streamEvents({ ...(req as AuthenticatedRequest), user }, res);
+  streamEvents(req as AuthenticatedRequest, res);
 });
 
 router.get('/stream', (req, res) => {
-  const user = (req as AuthenticatedRequest).user!;
-  streamEvents({ ...(req as AuthenticatedRequest), user }, res);
+  streamEvents(req as AuthenticatedRequest, res);
 });
 
 export default router;
