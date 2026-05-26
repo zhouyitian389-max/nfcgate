@@ -47,8 +47,39 @@ function buildClaims(user: SessionTokenUser, sessionId: string, passwordChangedA
   };
 }
 
+/** Parse a JWT expiresIn string/number to milliseconds. Returns 0 on parse failure. */
+export function parseExpiresInMs(value: string | number): number {
+  if (typeof value === 'number') return value * 1000;
+  const m = value.match(/^(\d+)(s|m|h|d)?$/);
+  if (!m) return 0;
+  const n = parseInt(m[1], 10);
+  switch (m[2]) {
+    case 'm': return n * 60 * 1000;
+    case 'h': return n * 60 * 60 * 1000;
+    case 'd': return n * 24 * 60 * 60 * 1000;
+    default:  return n * 1000; // 's' or plain seconds
+  }
+}
+
+function resolveExpiresIn(envName: string, fallback: string): string {
+  const raw = process.env[envName] || fallback;
+  if (parseExpiresInMs(raw) === 0) {
+    console.error(`[tokenService] Invalid ${envName} format "${raw}", falling back to ${fallback}`);
+    return fallback;
+  }
+  return raw;
+}
+
+export function getAccessTokenExpiresInMs(): number {
+  return parseExpiresInMs(resolveExpiresIn('JWT_EXPIRES_IN', '15m'));
+}
+
+export function getRefreshTokenExpiresInMs(): number {
+  return parseExpiresInMs(resolveExpiresIn('JWT_REFRESH_EXPIRES_IN', '7d'));
+}
+
 export function createAccessToken(user: SessionTokenUser, sessionId: string, passwordChangedAtMs: number): string {
-  const expiresIn = (process.env.JWT_EXPIRES_IN || '15m') as jwt.SignOptions['expiresIn'];
+  const expiresIn = resolveExpiresIn('JWT_EXPIRES_IN', '15m') as jwt.SignOptions['expiresIn'];
   return jwt.sign(buildClaims(user, sessionId, passwordChangedAtMs, 'access'), JWT_SECRET, {
     expiresIn,
     subject: user.id
@@ -56,7 +87,7 @@ export function createAccessToken(user: SessionTokenUser, sessionId: string, pas
 }
 
 export function createRefreshToken(user: SessionTokenUser, sessionId: string, passwordChangedAtMs: number): string {
-  const expiresIn = (process.env.JWT_REFRESH_EXPIRES_IN || '7d') as jwt.SignOptions['expiresIn'];
+  const expiresIn = resolveExpiresIn('JWT_REFRESH_EXPIRES_IN', '7d') as jwt.SignOptions['expiresIn'];
   return jwt.sign(buildClaims(user, sessionId, passwordChangedAtMs, 'refresh'), JWT_REFRESH_SECRET, {
     expiresIn,
     subject: user.id
