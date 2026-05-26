@@ -1,5 +1,7 @@
 const HEX_RE = /^[0-9a-fA-F]+$/;
-const TRACK2_RE = /^[0-9D=Ff]+$/;
+const TRACK2_RE = /^[0-9D=F]+$/;
+const EMAIL_RE = /^[a-zA-Z0-9.!#$%&'*+/=?^_`{|}~-]+@[a-zA-Z0-9](?:[a-zA-Z0-9-]{0,61}[a-zA-Z0-9])?(?:\.[a-zA-Z0-9](?:[a-zA-Z0-9-]{0,61}[a-zA-Z0-9])?)+$/;
+const PASSWORD_RE = /^(?=.*[A-Z])(?=.*\d)(?=.*[^A-Za-z0-9]).{8,256}$/;
 
 export interface CardPayload {
   uid?: unknown;
@@ -19,6 +21,29 @@ export interface ValidationResult<T> {
   ok: boolean;
   errors: string[];
   value?: T;
+}
+
+export function normalizeEmail(value: unknown): string | undefined {
+  if (typeof value !== 'string') return undefined;
+  const normalized = value.trim().toLowerCase();
+  return normalized || undefined;
+}
+
+export function isValidEmail(email: string): boolean {
+  return EMAIL_RE.test(email);
+}
+
+export function isStrongPassword(password: unknown): password is string {
+  return typeof password === 'string' && PASSWORD_RE.test(password);
+}
+
+export function normalizeTrack2(value: unknown): string | undefined {
+  if (typeof value !== 'string') return undefined;
+  const normalized = value.trim().toUpperCase();
+  if (!normalized || normalized.length > 100 || !TRACK2_RE.test(normalized)) {
+    return undefined;
+  }
+  return normalized;
 }
 
 function optionalHex(value: unknown, field: string, minLen: number, maxLen: number, errors: string[]) {
@@ -95,10 +120,13 @@ export function validateCardPayload(input: CardPayload, isPatch = false): Valida
   if (input.track2 != null) {
     if (typeof input.track2 !== 'string') {
       errors.push('track2 must be a string');
-    } else if (input.track2.length > 100 || !TRACK2_RE.test(input.track2)) {
-      errors.push('track2 must be <= 100 chars and only contain digits with D/= separators');
     } else {
-      track2 = input.track2;
+      const normalized = normalizeTrack2(input.track2);
+      if (!normalized) {
+        errors.push('track2 must be <= 100 chars and only contain digits with D/= separators');
+      } else {
+        track2 = normalized;
+      }
     }
   }
 

@@ -3,7 +3,8 @@ import { v4 as uuidv4 } from 'uuid';
 import prisma from '../db.js';
 import { authMiddleware, type AuthenticatedRequest } from '../middleware/auth.js';
 import { createCardRateLimiter, relayTokenRateLimiter } from '../middleware/rateLimit.js';
-import { validateCardPayload } from '../utils/validators.js';
+import { decryptString, encryptString } from '../utils/crypto.js';
+import { normalizeTrack2, validateCardPayload } from '../utils/validators.js';
 
 const router = Router();
 router.use(authMiddleware);
@@ -20,10 +21,31 @@ function trimString(value: unknown, maxLength: number) {
   return trimmed.slice(0, maxLength);
 }
 
-function normalizeTrack2(value: unknown) {
-  if (typeof value !== 'string') return undefined;
-  const trimmed = value.trim().toUpperCase();
-  return trimmed && /^[0-9D=F]+$/.test(trimmed) && trimmed.length <= 128 ? trimmed : undefined;
+function maskPan(value: string) {
+  const digits = value.replace(/\s+/g, '');
+  const last4 = digits.slice(-4);
+  return last4 ? `**** **** **** ${last4}` : '****';
+}
+
+function decryptOptional(value: string | null) {
+  if (!value) return null;
+  try {
+    return decryptString(value);
+  } catch {
+    return null;
+  }
+}
+
+function resolveCardSecret(card: {
+  panEncrypted: string | null;
+  pan: string | null;
+  track2Encrypted: string | null;
+  track2: string | null;
+}) {
+  return {
+    pan: card.panEncrypted ? (decryptOptional(card.panEncrypted) ?? card.pan) : card.pan,
+    track2: card.track2Encrypted ? (decryptOptional(card.track2Encrypted) ?? card.track2) : card.track2
+  };
 }
 
 async function upsertCloudCard(accountId: string, item: Record<string, unknown>) {
@@ -39,20 +61,54 @@ async function upsertCloudCard(accountId: string, item: Record<string, unknown>)
     throw new Error('Each card must contain either blob or pan');
   }
 
-  const existing = encryptedBlob
+  let existing = encryptedBlob
     ? await prisma.cloudCard.findFirst({ where: { accountId, encryptedBlob, deletedAt: null } })
-    : await prisma.cloudCard.findFirst({ where: { accountId, pan: pan ?? null, track2: track2 ?? null, deletedAt: null } });
+    : null;
+
+  if (!existing && pan) {
+    const candidates = await prisma.cloudCard.findMany({
+      where: { accountId, deletedAt: null },
+      select: {
+        id: true,
+        encryptedBlob: true,
+        panEncrypted: true,
+        pan: true,
+        brand: true,
+        holder: true,
+        expiry: true,
+        track2Encrypted: true,
+        track2: true,
+        note: true,
+        source: true,
+        ackedAt: true,
+        deletedAt: true,
+        expiresAt: true,
+        createdAt: true,
+        updatedAt: true,
+        accountId: true
+      }
+    });
+    existing = candidates.find((candidate) => {
+      const decrypted = resolveCardSecret(candidate);
+      return decrypted.pan === pan && (track2 ? decrypted.track2 === track2 : true);
+    }) ?? null;
+  }
+
+  const panEncrypted = pan ? encryptString(pan) : null;
+  const track2Encrypted = track2 ? encryptString(track2) : null;
 
   if (existing) {
     return prisma.cloudCard.update({
       where: { id: existing.id },
       data: {
         encryptedBlob: encryptedBlob ?? existing.encryptedBlob,
-        pan: pan ?? existing.pan,
+        panEncrypted: panEncrypted ?? existing.panEncrypted,
+        pan: pan ? maskPan(pan) : existing.pan,
         brand,
         holder: holder ?? existing.holder,
         expiry: expiry ?? existing.expiry,
-        track2: track2 ?? existing.track2,
+        track2Encrypted: track2Encrypted ?? existing.track2Encrypted,
+        track2: track2 ? null : existing.track2,
         note: note ?? existing.note,
         deletedAt: null
       }
@@ -63,11 +119,13 @@ async function upsertCloudCard(accountId: string, item: Record<string, unknown>)
     data: {
       accountId,
       encryptedBlob: encryptedBlob ?? null,
-      pan: pan ?? null,
+      panEncrypted,
+      pan: pan ? maskPan(pan) : null,
       brand,
       holder: holder ?? null,
       expiry: expiry ?? null,
-      track2: track2 ?? null,
+      track2Encrypted,
+      track2: null,
       note: note ?? null,
       source: encryptedBlob ? 'encrypted-mobile' : 'plain-mobile'
     }
@@ -77,23 +135,26 @@ async function upsertCloudCard(accountId: string, item: Record<string, unknown>)
 function mapCloudCard(card: {
   id: string;
   encryptedBlob: string | null;
+  panEncrypted: string | null;
   pan: string | null;
   brand: string | null;
   holder: string | null;
   expiry: string | null;
+  track2Encrypted: string | null;
   track2: string | null;
   note: string | null;
   expiresAt: Date | null;
 }) {
+  const secrets = resolveCardSecret(card);
   return {
     id: card.id,
     card_id: card.id,
     blob: card.encryptedBlob ?? undefined,
-    pan: card.pan ?? '',
+    pan: secrets.pan ?? '',
     brand: card.brand ?? 'UNKNOWN',
     holder: card.holder ?? '',
     expiry: card.expiry ?? '',
-    track2: card.track2 ?? '',
+    track2: secrets.track2 ?? '',
     note: card.note ?? '',
     expired: card.expiresAt ? card.expiresAt.getTime() <= Date.now() : false
   };

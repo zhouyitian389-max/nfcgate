@@ -12,6 +12,14 @@ export default function LoginPage() {
   const [error, setError] = useState('');
   const router = useRouter();
 
+  const resolveErrorMessage = (status: number) => {
+    if (status === 401) return '认证失败，请检查邮箱和密码。';
+    if (status === 423) return '账户已被锁定，请稍后再试。';
+    if (status === 429) return '请求过于频繁，请稍后再试。';
+    if (status >= 500) return '服务器发生错误，请稍后重试。';
+    return '登录失败';
+  };
+
   const onSubmit = async (event: FormEvent) => {
     event.preventDefault();
     setError('');
@@ -21,7 +29,7 @@ export default function LoginPage() {
       body: JSON.stringify({ email, password })
     });
     if (!res.ok) {
-      setError('Login failed');
+      setError(resolveErrorMessage(res.status));
       return;
     }
     const payload = await res.json();

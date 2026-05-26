@@ -23,6 +23,15 @@ export const loginRateLimiter = rateLimit({
   message: { message: 'Too many login attempts' }
 });
 
+export const registerRateLimiter = rateLimit({
+  windowMs: 60 * 60 * 1000,
+  max: 5,
+  standardHeaders: true,
+  legacyHeaders: false,
+  keyGenerator,
+  message: { message: 'Too many registration attempts' }
+});
+
 export const createCardRateLimiter = rateLimit({
   windowMs: 60_000,
   max: 10,

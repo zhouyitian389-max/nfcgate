@@ -29,6 +29,10 @@ const allowedOrigins = (process.env.CORS_ORIGIN || '')
   .filter(Boolean);
 const trustProxy = process.env.TRUST_PROXY_HOPS ? Number(process.env.TRUST_PROXY_HOPS) : 1;
 
+if (process.env.NODE_ENV === 'production' && allowedOrigins.length === 0) {
+  console.warn('[security] CORS_ORIGIN is empty in production; cross-origin browser access will be rejected');
+}
+
 app.set('trust proxy', Number.isFinite(trustProxy) ? trustProxy : 1);
 app.use(helmet({
   contentSecurityPolicy: {

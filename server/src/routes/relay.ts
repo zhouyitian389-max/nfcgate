@@ -14,8 +14,15 @@ router.get('/sessions', async (req, res) => {
 router.post('/sessions', async (req, res) => {
   const user = (req as AuthenticatedRequest).user!;
   const { cardId, mode } = req.body as { cardId?: string; mode?: string };
-  const data = await createSessionToken(user.accountId, cardId, mode || 'NFC_RELAY');
-  return res.status(201).json(data);
+  try {
+    const data = await createSessionToken(user.accountId, cardId, mode || 'NFC_RELAY');
+    return res.status(201).json(data);
+  } catch (error) {
+    if (error instanceof Error && error.message === 'card_not_found') {
+      return res.status(404).json({ message: 'Card not found' });
+    }
+    throw error;
+  }
 });
 
 export default router;

@@ -107,10 +107,12 @@ model CloudCard {
   accountId     String
   account       Account   @relation(fields: [accountId], references: [id])
   encryptedBlob String?
+  panEncrypted  String?
   pan           String?
   brand         String?
   holder        String?
   expiry        String?
+  track2Encrypted String?
   track2        String?
   note          String?
   source        String    @default("cloud")
@@ -122,6 +124,16 @@ model CloudCard {
 
   @@index([accountId, deletedAt, createdAt])
   @@index([accountId, pan])
+}
+
+model RevokedToken {
+  id        String   @id @default(cuid())
+  tokenHash String   @unique
+  expiresAt DateTime
+  revokedAt DateTime @default(now())
+  createdAt DateTime @default(now())
+
+  @@index([expiresAt])
 }
 
 model AuthSession {

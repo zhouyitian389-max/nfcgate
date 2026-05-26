@@ -91,6 +91,16 @@ function extractBearerToken(request: IncomingMessage) {
 }
 
 export async function createSessionToken(accountId: string, cardId?: string, mode = 'NFC_RELAY') {
+  if (cardId) {
+    const card = await prisma.card.findFirst({
+      where: { id: cardId, accountId },
+      select: { id: true }
+    });
+    if (!card) {
+      throw new Error('card_not_found');
+    }
+  }
+
   const token = uuidv4();
   const expiresAt = new Date(Date.now() + 60 * 60 * 1000);
   sessionTokens.set(token, { token, accountId, cardId, mode, expiresAt });
