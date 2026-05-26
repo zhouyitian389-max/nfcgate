@@ -4,10 +4,11 @@ import bcrypt from 'bcrypt';
 import rateLimit from 'express-rate-limit';
 import prisma from '../db.js';
 import { authMiddleware, type AuthenticatedRequest } from '../middleware/auth.js';
-import { loginRateLimiter } from '../middleware/rateLimit.js';
+import { loginRateLimiter, registerRateLimiter } from '../middleware/rateLimit.js';
 import { createSessionTokens, revokeSession, revokeUserSessions, rotateSessionTokens, tokenHashMatches } from '../services/authSessions.js';
 import { addToBlacklist } from '../services/tokenBlacklist.js';
 import { decodeToken, getTokenExpiresInSeconds, verifyAccessToken, verifyRefreshToken, type SessionTokenUser } from '../services/tokenService.js';
+import { isStrongPassword, isValidEmail, normalizeEmail } from '../utils/validators.js';
 
 const router = Router();
 const authLimiter = rateLimit({
@@ -22,10 +23,6 @@ interface LoginBody {
   password?: string;
   deviceId?: string;
   deviceName?: string;
-}
-
-function normalizeEmail(email: string | undefined) {
-  return email?.trim().toLowerCase();
 }
 
 function trimValue(value: unknown, maxLength: number): string | undefined {
@@ -126,7 +123,7 @@ function authPayloadResponse(user: {
   };
 }
 
-router.post('/register', authLimiter, async (req, res) => {
+router.post('/register', registerRateLimiter, async (req, res) => {
   const { email, password, name, accountName } = req.body as {
     email?: string;
     password?: string;
@@ -135,8 +132,12 @@ router.post('/register', authLimiter, async (req, res) => {
   };
   const normalizedEmail = normalizeEmail(email);
 
-  if (!normalizedEmail || !validatePassword(password)) {
-    return res.status(400).json({ message: 'email and password are required (password >= 8 chars)' });
+  if (!normalizedEmail || !isValidEmail(normalizedEmail)) {
+    return res.status(400).json({ message: 'A valid email address is required' });
+  }
+
+  if (!isStrongPassword(password)) {
+    return res.status(400).json({ message: 'Password must be 8-256 chars and include an uppercase letter, number, and special character' });
   }
 
   const existing = await prisma.user.findUnique({ where: { email: normalizedEmail } });
@@ -216,7 +217,7 @@ router.post('/logout', authMiddleware, async (req: AuthenticatedRequest, res) =>
     const token = authHeader.slice('Bearer '.length);
     const decoded = decodeToken(token);
     const expiry = decoded?.exp ? decoded.exp * 1000 : Date.now() + 7 * 24 * 60 * 60 * 1000;
-    addToBlacklist(token, expiry);
+    await addToBlacklist(token, expiry);
   }
 
   if (req.user?.sessionId) {
@@ -308,8 +309,11 @@ router.post('/change-password', authLimiter, authMiddleware, async (req: Authent
 
   const currentPassword = trimValue(req.body?.currentPassword, 256);
   const nextPassword = trimValue(req.body?.newPassword, 256);
-  if (!currentPassword || !validatePassword(nextPassword)) {
+  if (!currentPassword || !nextPassword) {
     return res.status(400).json({ message: 'currentPassword and newPassword are required' });
+  }
+  if (!isStrongPassword(nextPassword)) {
+    return res.status(400).json({ message: 'newPassword must include an uppercase letter, number, and special character' });
   }
 
   const user = await prisma.user.findUnique({

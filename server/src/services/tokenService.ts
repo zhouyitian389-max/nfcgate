@@ -48,7 +48,7 @@ function buildClaims(user: SessionTokenUser, sessionId: string, passwordChangedA
 }
 
 export function createAccessToken(user: SessionTokenUser, sessionId: string, passwordChangedAtMs: number): string {
-  const expiresIn = (process.env.JWT_EXPIRES_IN || '7d') as jwt.SignOptions['expiresIn'];
+  const expiresIn = (process.env.JWT_EXPIRES_IN || '15m') as jwt.SignOptions['expiresIn'];
   return jwt.sign(buildClaims(user, sessionId, passwordChangedAtMs, 'access'), JWT_SECRET, {
     expiresIn,
     subject: user.id
@@ -56,7 +56,7 @@ export function createAccessToken(user: SessionTokenUser, sessionId: string, pas
 }
 
 export function createRefreshToken(user: SessionTokenUser, sessionId: string, passwordChangedAtMs: number): string {
-  const expiresIn = (process.env.JWT_REFRESH_EXPIRES_IN || '30d') as jwt.SignOptions['expiresIn'];
+  const expiresIn = (process.env.JWT_REFRESH_EXPIRES_IN || '7d') as jwt.SignOptions['expiresIn'];
   return jwt.sign(buildClaims(user, sessionId, passwordChangedAtMs, 'refresh'), JWT_REFRESH_SECRET, {
     expiresIn,
     subject: user.id

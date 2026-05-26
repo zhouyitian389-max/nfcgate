@@ -30,6 +30,10 @@ let activeProtocol: number = 0;
 let ws: WebSocket | null = null;
 let reconnectTimer: NodeJS.Timeout | null = null;
 let joinedSessionId = '';
+const ACR39U_IOCTL = 0x42000DAC;
+const APDU_BUFFER_SIZE = 4096;
+const SW_NO_CARD = Buffer.from([0x6A, 0x82]);
+const SW_TRANSMIT_ERROR = Buffer.from([0x6F, 0x00]);
 
 pcsc.on('reader', (reader: any) => {
   console.log(`📖 Reader detected: ${reader.name}`);
@@ -96,7 +100,7 @@ function connectWebSocket() {
     console.log('✅ WebSocket connected as external reader');
     ws?.send(JSON.stringify({
       type: 'session_join',
-      sessionId: opts.token,
+      token: opts.token,
       role: 'external'
     }));
   });
@@ -150,9 +154,8 @@ async function configureReader() {
 
   await new Promise<void>((resolve) => {
     // ACS escape command (best effort): set PICC polling/communication parameters for 9600-bps compatible cards.
-    const ioctl = 0x42000000 + 3500;
     const command = Buffer.from('FF00517F00', 'hex');
-    activeReader.control(command, ioctl, 256, (err: any) => {
+    activeReader.control(command, ACR39U_IOCTL, APDU_BUFFER_SIZE, (err: any) => {
       if (err) {
         console.warn(`⚠️ Unable to apply ACR39U 9600-bps profile: ${err.message}`);
       } else {
@@ -191,20 +194,19 @@ function handleMessage(msg: any) {
 function transceive(apdu: Buffer, seq: number) {
   if (!activeReader) {
     console.error('❌ No card connected');
-    sendResponse(Buffer.from([0x6F, 0x00]), seq);
+    sendResponse(SW_NO_CARD, seq);
     return;
   }
 
-  activeReader.transmit(apdu, 256, activeProtocol, (err: any, response: Buffer) => {
-    if (err) {
+  transmitWithGetResponse(apdu)
+    .then((response) => {
+      console.log(`← APDU RSP: ${response.toString('hex').toUpperCase()}`);
+      sendResponse(response, seq);
+    })
+    .catch((err: Error) => {
       console.error('❌ Transmit error:', err.message);
-      sendResponse(Buffer.from([0x6F, 0x00]), seq);
-      return;
-    }
-
-    console.log(`← APDU RSP: ${response.toString('hex').toUpperCase()}`);
-    sendResponse(response, seq);
-  });
+      sendResponse(SW_TRANSMIT_ERROR, seq);
+    });
 }
 
 function sendResponse(response: Buffer, seq: number) {
@@ -221,6 +223,39 @@ function sendResponse(response: Buffer, seq: number) {
 
 function hexToBuffer(hex: string): Buffer {
   return Buffer.from(hex, 'hex');
+}
+
+function transmitApdu(apdu: Buffer): Promise<Buffer> {
+  return new Promise((resolve, reject) => {
+    if (!activeReader) {
+      reject(new Error('No card connected'));
+      return;
+    }
+
+    activeReader.transmit(apdu, APDU_BUFFER_SIZE, activeProtocol, (err: any, response: Buffer) => {
+      if (err) {
+        reject(err);
+        return;
+      }
+      resolve(response);
+    });
+  });
+}
+
+async function transmitWithGetResponse(apdu: Buffer): Promise<Buffer> {
+  let response = await transmitApdu(apdu);
+  let parts = [response.slice(0, Math.max(0, response.length - 2))];
+  let guard = 0;
+
+  while (response.length >= 2 && response[response.length - 2] === 0x61 && guard < 16) {
+    const remaining = response[response.length - 1] || 0x00;
+    response = await transmitApdu(Buffer.from([0x00, 0xC0, 0x00, 0x00, remaining]));
+    parts.push(response.slice(0, Math.max(0, response.length - 2)));
+    guard += 1;
+  }
+
+  const statusWord = response.length >= 2 ? response.slice(-2) : SW_TRANSMIT_ERROR;
+  return Buffer.concat([...parts, statusWord]);
 }
 
 // Graceful shutdown

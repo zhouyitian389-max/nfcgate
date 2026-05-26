@@ -25,7 +25,7 @@ export async function authMiddleware(req: AuthenticatedRequest, res: Response, n
   }
 
   const token = authHeader.slice('Bearer '.length);
-  if (isBlacklisted(token)) {
+  if (await isBlacklisted(token)) {
     return res.status(401).json({ message: 'Token has been revoked' });
   }
 
