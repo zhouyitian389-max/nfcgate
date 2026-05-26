@@ -2,7 +2,7 @@
 
 import { FormEvent, useState } from 'react';
 import { useRouter } from 'next/navigation';
-import { setAuthToken } from '@/lib/api';
+import { setAuthToken, setRefreshToken } from '@/lib/api';
 
 const API_BASE = process.env.NEXT_PUBLIC_API_BASE || 'http://localhost:8080/api';
 
@@ -32,8 +32,9 @@ export default function LoginPage() {
       setError(resolveErrorMessage(res.status));
       return;
     }
-    const payload = await res.json();
-    setAuthToken(payload.accessToken || payload.token);
+    const payload = await res.json() as { accessToken?: string; token?: string; refreshToken?: string };
+    setAuthToken(payload.accessToken || payload.token || '');
+    if (payload.refreshToken) setRefreshToken(payload.refreshToken);
     router.push('/');
   };
 

@@ -176,7 +176,7 @@ function handleMessage(msg: any) {
     case 'apdu_command':
       // Received APDU command from HCE → send to real card via reader
       const apdu = hexToBuffer(msg.data);
-      console.log(`→ APDU CMD: ${msg.data}`);
+      console.log(`→ APDU CMD: ${msg.data.length > 8 ? msg.data.slice(0, 8) + '…' : msg.data} (${msg.data.length / 2} bytes)`);
       transceive(apdu, Number.isInteger(msg.seq) ? msg.seq : 0);
       break;
 
@@ -200,7 +200,8 @@ function transceive(apdu: Buffer, seq: number) {
 
   transmitWithGetResponse(apdu)
     .then((response) => {
-      console.log(`← APDU RSP: ${response.toString('hex').toUpperCase()}`);
+      const hex = response.toString('hex').toUpperCase();
+      console.log(`← APDU RSP: ${hex.length > 8 ? hex.slice(0, 8) + '…' : hex} (${response.length} bytes)`);
       sendResponse(response, seq);
     })
     .catch((err: Error) => {

@@ -109,6 +109,7 @@ model CloudCard {
   encryptedBlob String?
   panEncrypted  String?
   pan           String?
+  panHash       String?   // SHA-256 of raw PAN for O(1) dedup
   brand         String?
   holder        String?
   expiry        String?
@@ -124,6 +125,7 @@ model CloudCard {
 
   @@index([accountId, deletedAt, createdAt])
   @@index([accountId, pan])
+  @@index([accountId, panHash])
 }
 
 model RevokedToken {

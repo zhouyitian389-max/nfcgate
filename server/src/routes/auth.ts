@@ -9,6 +9,7 @@ import { createSessionTokens, revokeSession, revokeUserSessions, rotateSessionTo
 import { addToBlacklist } from '../services/tokenBlacklist.js';
 import { decodeToken, getTokenExpiresInSeconds, verifyAccessToken, verifyRefreshToken, type SessionTokenUser } from '../services/tokenService.js';
 import { isStrongPassword, isValidEmail, normalizeEmail } from '../utils/validators.js';
+import { closeSessionsByAccountId } from '../ws/relay.js';
 
 const router = Router();
 const authLimiter = rateLimit({
@@ -157,7 +158,7 @@ router.post('/register', registerRateLimiter, async (req, res) => {
       email: normalizedEmail,
       password: hashedPassword,
       name: trimValue(name, 120),
-      role: 'ADMIN',
+      role: 'USER',
       accountId: account.id,
       passwordChangedAt: new Date()
     }
@@ -222,6 +223,9 @@ router.post('/logout', authMiddleware, async (req: AuthenticatedRequest, res) =>
 
   if (req.user?.sessionId) {
     await revokeSession(req.user.sessionId, 'Logged out');
+  }
+  if (req.user?.accountId) {
+    void closeSessionsByAccountId(req.user.accountId, 'Auth session logged out').catch(() => undefined);
   }
   return res.json({ message: 'Logged out successfully' });
 });
@@ -342,6 +346,7 @@ router.post('/change-password', authLimiter, authMiddleware, async (req: Authent
     }
   });
   await revokeUserSessions(user.id, 'Password changed', req.user.sessionId);
+  void closeSessionsByAccountId(user.accountId, 'Password changed, relay sessions terminated').catch(() => undefined);
 
   const nextUser = { ...user, passwordChangedAt: changedAt };
   const { accessToken, refreshToken } = await rotateSessionTokens(req.user.sessionId, buildSessionUser(nextUser), {
