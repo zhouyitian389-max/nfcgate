@@ -20,7 +20,8 @@ public class NfcVReader extends NFCTagReader {
 
     @Override
     public ConfigBuilder getConfig() {
-        // TODO: V tags cannot be emulated (yet)
+        // NfcV (ISO 15693) emulation is not supported: Android HCE only supports ISO-DEP
+        // (ISO 14443-4), and the NCI stack has no Listen-V configuration parameters.
         return new ConfigBuilder();
     }
 }
