@@ -1,0 +1,81 @@
+generator client {
+  provider = "prisma-client-js"
+}
+
+datasource db {
+  provider = "postgresql"
+  url      = env("DATABASE_URL")
+}
+
+enum Role {
+  USER
+  ADMIN
+}
+
+model Account {
+  id            String   @id @default(uuid())
+  email         String   @unique
+  password      String
+  role          Role     @default(USER)
+  createdAt     DateTime @default(now())
+  updatedAt     DateTime @updatedAt
+  cards         Card[]
+  devices       Device[]
+  operationLogs OperationLog[]
+  relaySessions RelaySession[]
+}
+
+model Card {
+  id        String   @id @default(uuid())
+  uid       String
+  atqa      String?  @default("")
+  sak       String?  @default("")
+  ats       String?  @default("")
+  type      String?  @default("ISO-A")
+  label     String?  @default("")
+  token     String   @db.Text
+  accountId String
+  account   Account  @relation(fields: [accountId], references: [id], onDelete: Cascade)
+  createdAt DateTime @default(now())
+  updatedAt DateTime @updatedAt
+
+  @@index([accountId])
+}
+
+model Device {
+  id         String   @id @default(uuid())
+  name       String
+  platform   String   @default("android")
+  pushToken  String?  @default("")
+  accountId  String
+  account    Account  @relation(fields: [accountId], references: [id], onDelete: Cascade)
+  lastSeen   DateTime @default(now())
+  createdAt  DateTime @default(now())
+
+  @@index([accountId])
+}
+
+model OperationLog {
+  id        String   @id @default(uuid())
+  action    String
+  details   String?  @default("")
+  accountId String
+  account   Account  @relation(fields: [accountId], references: [id], onDelete: Cascade)
+  createdAt DateTime @default(now())
+
+  @@index([accountId])
+}
+
+model RelaySession {
+  id          String   @id @default(uuid())
+  accountId   String
+  account     Account  @relation(fields: [accountId], references: [id], onDelete: Cascade)
+  cardId      String?
+  status      String   @default("waiting")
+  readerData  String?  @db.Text
+  emulatorData String? @db.Text
+  createdAt   DateTime @default(now())
+  updatedAt   DateTime @updatedAt
+
+  @@index([accountId])
+}
