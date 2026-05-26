@@ -90,6 +90,8 @@
     <string name="dialog_delete_card_title">Delete card?</string>
     <string name="dialog_delete_card_message">Delete this card permanently?</string>
     <string name="dialog_edit_note_title">Edit note</string>
+    <string name="menu_search">Search</string>
+    <string name="menu_clear_expired">Clear expired</string>
     <string name="label_expired">Expired</string>
     <string name="label_expires_in">Expires in %1$d days</string>
     <string name="search_cards_hint">Search cards</string>

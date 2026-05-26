@@ -4,6 +4,10 @@ import android.nfc.Tag;
 import android.nfc.tech.IsoDep;
 import android.util.Log;
 
+import java.io.ByteArrayOutputStream;
+import java.util.Arrays;
+import java.util.List;
+
 /**
  * Performs a real EMV contactless payment card read using the ISO-DEP (ISO 7816) protocol.
  *
@@ -64,39 +68,54 @@ public class EMVReader {
                 throw new Exception("PPSE selection failed: " + statusWord(ppseResponse));
             }
 
-            // Step 2: Parse first AID from PPSE FCI
-            String aid = parseAIDFromPPSE(ppseResponse);
-            if (aid == null) {
+            // Step 2: Parse candidate AIDs from PPSE FCI and iterate until one succeeds
+            List<String> candidateAids = parseAIDsFromPPSE(ppseResponse);
+            if (candidateAids.isEmpty()) {
                 throw new Exception("No AID found in PPSE response");
             }
 
-            // Step 3: SELECT AID
-            byte[] aidResponse = isoDep.transceive(buildSelectAID(aid));
-            if (!isSuccess(aidResponse)) {
-                throw new Exception("AID selection failed: " + statusWord(aidResponse));
+            Exception lastError = null;
+            for (String aid : candidateAids) {
+                try {
+                    // Step 3: SELECT AID
+                    byte[] aidResponse = isoDep.transceive(buildSelectAID(aid));
+                    if (!isSuccess(aidResponse)) {
+                        lastError = new Exception("AID selection failed: " + statusWord(aidResponse));
+                        continue;
+                    }
+
+                    // Step 4: GET PROCESSING OPTIONS (PDOL-aware)
+                    byte[] pdol = parsePDOL(aidResponse);
+                    byte[] gpoResponse = isoDep.transceive(buildGPO(pdol));
+                    if (!isSuccess(gpoResponse)) {
+                        lastError = new Exception("GET PROCESSING OPTIONS failed: " + statusWord(gpoResponse));
+                        continue;
+                    }
+
+                    EMVCard card = new EMVCard();
+                    card.aid = aid;
+                    card.brand = getBrandFromAID(aid);
+
+                    // Step 5: Parse AFL and READ RECORDs
+                    byte[] afl = parseAFL(gpoResponse);
+                    if (afl != null && afl.length % 4 == 0) {
+                        readRecordsFromAFL(isoDep, afl, card);
+                    }
+
+                    if (card.pan != null) {
+                        return card;
+                    }
+                    lastError = new Exception("No PAN found after reading records for AID " + aid);
+                } catch (Exception e) {
+                    lastError = e;
+                    Log.d(TAG, "AID candidate failed: " + aid + " - " + e.getMessage());
+                }
             }
 
-            // Step 4: GET PROCESSING OPTIONS
-            byte[] gpoResponse = isoDep.transceive(buildGPO());
-            if (!isSuccess(gpoResponse)) {
-                throw new Exception("GET PROCESSING OPTIONS failed: " + statusWord(gpoResponse));
+            if (lastError != null) {
+                throw lastError;
             }
-
-            EMVCard card = new EMVCard();
-            card.aid = aid;
-            card.brand = getBrandFromAID(aid);
-
-            // Step 5: Parse AFL and READ RECORDs
-            byte[] afl = parseAFL(gpoResponse);
-            if (afl != null && afl.length % 4 == 0) {
-                readRecordsFromAFL(isoDep, afl, card);
-            }
-
-            if (card.pan == null) {
-                throw new Exception("No PAN found after reading all records");
-            }
-
-            return card;
+            throw new Exception("No readable EMV application found");
 
         } finally {
             try {
@@ -137,32 +156,95 @@ public class EMVReader {
         return cmd;
     }
 
-    /** GET PROCESSING OPTIONS with empty PDOL data (83 00). */
-    private static byte[] buildGPO() {
-        return new byte[]{
-            (byte) 0x80, (byte) 0xA8, 0x00, 0x00,
-            0x02, (byte) 0x83, 0x00, 0x00
-        };
+    /** GET PROCESSING OPTIONS with PDOL-aware data object list (tag 0x83). */
+    private static byte[] buildGPO(byte[] pdol) {
+        byte[] pdolData = buildPdolData(pdol);
+        int commandDataLength = 2 + pdolData.length; // 83 + len + data
+        byte[] cmd = new byte[5 + commandDataLength + 1];
+        cmd[0] = (byte) 0x80;
+        cmd[1] = (byte) 0xA8;
+        cmd[2] = 0x00;
+        cmd[3] = 0x00;
+        cmd[4] = (byte) commandDataLength;
+        cmd[5] = (byte) 0x83;
+        cmd[6] = (byte) pdolData.length;
+        if (pdolData.length > 0) {
+            System.arraycopy(pdolData, 0, cmd, 7, pdolData.length);
+        }
+        cmd[cmd.length - 1] = 0x00;
+        return cmd;
     }
 
     // -------------------------------------------------------------------------
     // TLV parsing of APDU responses
     // -------------------------------------------------------------------------
 
-    /** Extracts the first ADF Name (tag 0x4F) from the PPSE FCI. */
-    private static String parseAIDFromPPSE(byte[] ppseResponse) {
+    /** Extracts all ADF Names (tag 0x4F) from the PPSE FCI. */
+    private static List<String> parseAIDsFromPPSE(byte[] ppseResponse) {
         // Strip 90 00 status bytes before parsing
         byte[] data = stripStatus(ppseResponse);
         TLVParser parser = new TLVParser(data);
-        byte[] aidBytes = parser.find(0x4F);
-        return aidBytes != null ? bytesToHex(aidBytes) : null;
+        List<byte[]> aidValues = parser.findAll(0x4F);
+        java.util.ArrayList<String> out = new java.util.ArrayList<>(aidValues.size());
+        for (byte[] aid : aidValues) {
+            String hex = bytesToHex(aid);
+            if (!hex.isEmpty()) {
+                out.add(hex);
+            }
+        }
+        return out;
     }
 
     /** Extracts the Application File Locator (tag 0x94) from the GPO response. */
     private static byte[] parseAFL(byte[] gpoResponse) {
         byte[] data = stripStatus(gpoResponse);
         TLVParser parser = new TLVParser(data);
-        return parser.find(0x94);
+        byte[] afl = parser.find(0x94);
+        if (afl != null) {
+            return afl;
+        }
+        // Response Message Template Format 1 (tag 0x80): value = AIP(2) || AFL(n)
+        if (data.length >= 4 && (data[0] & 0xFF) == 0x80) {
+            int len = data[1] & 0xFF;
+            if (len >= 2 && data.length >= 2 + len) {
+                int aflLen = len - 2;
+                if (aflLen > 0) {
+                    return Arrays.copyOfRange(data, 4, 4 + aflLen);
+                }
+            }
+        }
+        return null;
+    }
+
+    /** Extracts PDOL definition (tag 0x9F38) from selected AID FCI. */
+    private static byte[] parsePDOL(byte[] aidResponse) {
+        byte[] data = stripStatus(aidResponse);
+        TLVParser parser = new TLVParser(data);
+        return parser.find(0x9F38);
+    }
+
+    /** Builds zero-filled PDOL values honoring each DOL entry's requested length. */
+    private static byte[] buildPdolData(byte[] pdol) {
+        if (pdol == null || pdol.length == 0) {
+            return new byte[0];
+        }
+        ByteArrayOutputStream out = new ByteArrayOutputStream();
+        int offset = 0;
+        while (offset < pdol.length) {
+            int first = pdol[offset++] & 0xFF;
+            if ((first & 0x1F) == 0x1F) {
+                while (offset < pdol.length) {
+                    int next = pdol[offset++] & 0xFF;
+                    if ((next & 0x80) == 0) break;
+                }
+            }
+            if (offset >= pdol.length) break;
+            int fieldLen = pdol[offset++] & 0xFF;
+            for (int i = 0; i < fieldLen; i++) {
+                out.write(0x00);
+            }
+        }
+        return out.toByteArray();
     }
 
     /**

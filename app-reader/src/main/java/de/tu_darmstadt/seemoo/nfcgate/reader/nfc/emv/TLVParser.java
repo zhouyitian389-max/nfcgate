@@ -1,5 +1,8 @@
 package de.tu_darmstadt.seemoo.nfcgate.reader.nfc.emv;
 
+import java.util.ArrayList;
+import java.util.List;
+
 /**
  * Lightweight TLV (Tag-Length-Value) parser for EMV card data.
  * Supports both single-byte and two-byte tags, as well as constructed (nested) tags.
@@ -22,6 +25,16 @@ public class TLVParser {
     public byte[] find(int targetTag) {
         if (data == null || data.length == 0) return null;
         return findIn(data, 0, data.length, targetTag, 0);
+    }
+
+    /**
+     * Recursively searches the TLV data and returns all values with the given tag.
+     */
+    public List<byte[]> findAll(int targetTag) {
+        List<byte[]> out = new ArrayList<>();
+        if (data == null || data.length == 0) return out;
+        collectIn(data, 0, data.length, targetTag, 0, out);
+        return out;
     }
 
     private static byte[] findIn(byte[] buf, int start, int end, int targetTag, int depth) {
@@ -81,5 +94,60 @@ public class TLVParser {
             offset += length;
         }
         return null;
+    }
+
+    private static void collectIn(byte[] buf, int start, int end, int targetTag, int depth,
+                                  List<byte[]> out) {
+        if (depth > MAX_DEPTH) return;
+        int offset = start;
+        while (offset < end) {
+            int firstByte = buf[offset] & 0xFF;
+            if (firstByte == 0x00 || firstByte == 0xFF) {
+                offset++;
+                continue;
+            }
+
+            boolean constructed = (firstByte & 0x20) != 0;
+            int tag = firstByte;
+            offset++;
+
+            if ((firstByte & 0x1F) == 0x1F) {
+                if (offset >= end) return;
+                int nextByte = buf[offset++] & 0xFF;
+                tag = (tag << 8) | nextByte;
+                while ((nextByte & 0x80) != 0) {
+                    if (offset >= end) return;
+                    nextByte = buf[offset++] & 0xFF;
+                    tag = (tag << 8) | nextByte;
+                }
+            }
+
+            if (offset >= end) return;
+            int lenByte = buf[offset++] & 0xFF;
+            int length;
+            if ((lenByte & 0x80) == 0) {
+                length = lenByte;
+            } else {
+                int numBytes = lenByte & 0x7F;
+                if (numBytes == 0 || numBytes > 3 || offset + numBytes > end) return;
+                length = 0;
+                for (int i = 0; i < numBytes; i++) {
+                    length = (length << 8) | (buf[offset++] & 0xFF);
+                }
+            }
+            if (length < 0 || offset + length > end) return;
+
+            if (tag == targetTag) {
+                byte[] value = new byte[length];
+                System.arraycopy(buf, offset, value, 0, length);
+                out.add(value);
+            }
+
+            if (constructed) {
+                collectIn(buf, offset, offset + length, targetTag, depth + 1, out);
+            }
+
+            offset += length;
+        }
     }
 }
