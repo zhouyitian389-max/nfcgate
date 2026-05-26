@@ -1,7 +1,7 @@
 import { Router } from 'express';
-import bcrypt from 'bcryptjs';
+import bcrypt from 'bcrypt';
 import prisma from '../db.js';
-import { authMiddleware, createAccessToken, type AuthenticatedRequest } from '../middleware/auth.js';
+import { authMiddleware, createAccessToken, createRefreshToken, type AuthenticatedRequest } from '../middleware/auth.js';
 
 const router = Router();
 
@@ -39,8 +39,15 @@ router.post('/register', async (req, res) => {
   });
 
   const user = created.users[0];
-  const token = createAccessToken({ id: user.id, accountId: user.accountId, role: user.role, email: user.email });
-  return res.status(201).json({ token, user: { id: user.id, email: user.email, role: user.role, name: user.name } });
+  const authUser = { id: user.id, accountId: user.accountId, role: user.role, email: user.email };
+  const accessToken = createAccessToken(authUser);
+  const refreshToken = createRefreshToken(authUser);
+  return res.status(201).json({
+    token: accessToken,
+    accessToken,
+    refreshToken,
+    user: { id: user.id, email: user.email, role: user.role, name: user.name }
+  });
 });
 
 router.post('/login', async (req, res) => {
@@ -59,8 +66,15 @@ router.post('/login', async (req, res) => {
     return res.status(401).json({ message: 'Invalid credentials' });
   }
 
-  const token = createAccessToken({ id: user.id, accountId: user.accountId, role: user.role, email: user.email });
-  return res.json({ token, user: { id: user.id, email: user.email, role: user.role, name: user.name } });
+  const authUser = { id: user.id, accountId: user.accountId, role: user.role, email: user.email };
+  const accessToken = createAccessToken(authUser);
+  const refreshToken = createRefreshToken(authUser);
+  return res.json({
+    token: accessToken,
+    accessToken,
+    refreshToken,
+    user: { id: user.id, email: user.email, role: user.role, name: user.name }
+  });
 });
 
 router.get('/me', authMiddleware, async (req, res) => {

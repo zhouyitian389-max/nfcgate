@@ -11,6 +11,13 @@ router.get('/', async (req, res) => {
   return res.json({ data: devices });
 });
 
+router.get('/:id', async (req, res) => {
+  const { accountId } = (req as AuthenticatedRequest).user!;
+  const device = await prisma.device.findFirst({ where: { id: req.params.id, accountId } });
+  if (!device) return res.status(404).json({ message: 'Device not found' });
+  return res.json(device);
+});
+
 router.post('/register', async (req, res) => {
   const { accountId } = (req as AuthenticatedRequest).user!;
   const { deviceId, name, type, model, osVersion } = req.body as {
@@ -27,6 +34,25 @@ router.post('/register', async (req, res) => {
     where: { accountId_deviceId: { accountId, deviceId } },
     update: { name, type, model, osVersion, online: true, lastSeen: new Date() },
     create: { accountId, deviceId, name, type: type || 'HCE', model, osVersion, online: true, lastSeen: new Date() }
+  });
+
+  router.put('/:id', async (req, res) => {
+    const { accountId } = (req as AuthenticatedRequest).user!;
+    const device = await prisma.device.findFirst({ where: { id: req.params.id, accountId } });
+    if (!device) return res.status(404).json({ message: 'Device not found' });
+
+    const updated = await prisma.device.update({
+      where: { id: device.id },
+      data: {
+        name: req.body.name ?? device.name,
+        type: req.body.type ?? device.type,
+        model: req.body.model ?? device.model,
+        osVersion: req.body.osVersion ?? device.osVersion,
+        online: req.body.online ?? device.online
+      }
+    });
+
+    return res.json(updated);
   });
 
   return res.status(201).json(device);

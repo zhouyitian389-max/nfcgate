@@ -20,16 +20,33 @@ services:
     volumes:
       - ./server:/app
     environment:
-      PORT: 8080
-      DATABASE_URL: postgresql://nfcgate:nfcgate@postgres:5432/nfcgate?schema=public
-      JWT_SECRET: change-me
+      PORT: ${SERVER_PORT:-8080}
+      DATABASE_URL: ${DATABASE_URL:-postgresql://nfcgate:nfcgate@postgres:5432/nfcgate?schema=public}
+      JWT_SECRET: ${JWT_SECRET:-change-me}
+      JWT_REFRESH_SECRET: ${JWT_REFRESH_SECRET:-change-me-refresh}
       CORS_ORIGIN: '*'
     command: >
       sh -c "npm install && npx prisma generate && npx prisma db push && npm run dev"
     ports:
-      - '8080:8080'
+      - '${SERVER_PORT:-8080}:${SERVER_PORT:-8080}'
     depends_on:
       - postgres
+
+  admin-panel:
+    image: node:20-alpine
+    container_name: nfcgate-admin-panel
+    working_dir: /app
+    volumes:
+      - ./admin-panel:/app
+    environment:
+      NEXT_PUBLIC_API_BASE: http://server:${SERVER_PORT:-8080}/api
+      PORT: ${ADMIN_PORT:-3001}
+    command: >
+      sh -c "npm install && npm run dev -- -H 0.0.0.0 -p ${ADMIN_PORT:-3001}"
+    ports:
+      - '${ADMIN_PORT:-3001}:${ADMIN_PORT:-3001}'
+    depends_on:
+      - server
 
 volumes:
   postgres_data:
