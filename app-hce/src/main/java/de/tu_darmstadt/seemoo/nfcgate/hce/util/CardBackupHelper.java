@@ -48,6 +48,9 @@ public final class CardBackupHelper {
                 item.put("track2", card.track2);
                 item.put("receivedAt", card.receivedAt);
                 item.put("isSelected", card.isSelected);
+                item.put("note", card.note == null ? JSONObject.NULL : card.note);
+                item.put("expired", card.expired);
+                item.put("serverCardId", card.serverCardId == null ? JSONObject.NULL : card.serverCardId);
                 array.put(item);
             }
 
@@ -134,6 +137,9 @@ public final class CardBackupHelper {
             card.track2 = item.optString("track2", "");
             card.receivedAt = item.optLong("receivedAt", System.currentTimeMillis());
             card.isSelected = item.optBoolean("isSelected", false);
+            card.note = item.isNull("note") ? null : item.optString("note", null);
+            card.expired = item.optBoolean("expired", false);
+            card.serverCardId = item.isNull("serverCardId") ? null : item.optString("serverCardId", null);
             entities.add(card);
         }
 

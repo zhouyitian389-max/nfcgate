@@ -109,8 +109,14 @@ public class NFCManager {
     }
 
     private boolean isPN532(UsbDevice device) {
-        return (device.getVendorId() == 0x067B && device.getProductId() == 0x2303)
-                || (device.getVendorId() == 0x10C4 && device.getProductId() == 0xEA60);
+        int vid = device.getVendorId();
+        int pid = device.getProductId();
+        return (vid == 0x067B && pid == 0x2303)   // Prolific PL2303
+                || (vid == 0x10C4 && pid == 0xEA60) // Silicon Labs CP210x
+                || (vid == 0x0403 && pid == 0x6001) // FTDI FT232R
+                || (vid == 0x0403 && pid == 0x6015) // FTDI FT230X
+                || (vid == 0x1A86 && pid == 0x7523) // CH340
+                || (vid == 0x1A86 && pid == 0x55D4); // CH9102
     }
 
     private boolean isACR122U(UsbDevice device) {
