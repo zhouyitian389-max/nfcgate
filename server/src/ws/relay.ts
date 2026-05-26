@@ -1,1 +1,1 @@
-export { createSessionToken, endSessionById, getActiveSessions, initWebSocket } from '../services/relay.js';
+export { closeSessionsByAccountId, createSessionToken, endSessionById, getActiveSessions, initWebSocket } from '../services/relay.js';

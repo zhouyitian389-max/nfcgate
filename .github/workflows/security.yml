@@ -39,7 +39,7 @@ jobs:
       - name: Run admin-panel npm audit
         working-directory: admin-panel
         run: npm audit --audit-level=high
-        continue-on-error: true
+        continue-on-error: false
 
   lint:
     name: TypeScript Type Check

@@ -32,6 +32,9 @@ const trustProxy = process.env.TRUST_PROXY_HOPS ? Number(process.env.TRUST_PROXY
 if (process.env.NODE_ENV === 'production' && allowedOrigins.length === 0) {
   console.warn('[security] CORS_ORIGIN is empty in production; cross-origin browser access will be rejected');
 }
+if (process.env.NODE_ENV === 'production' && allowedOrigins.includes('*')) {
+  console.warn('[security] CORS_ORIGIN contains wildcard "*" in production; all cross-origin requests will be allowed');
+}
 
 app.set('trust proxy', Number.isFinite(trustProxy) ? trustProxy : 1);
 app.use(helmet({

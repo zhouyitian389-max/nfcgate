@@ -11,7 +11,7 @@ async function seed() {
     return;
   }
 
-  const hash = await bcrypt.hash(password, 10);
+  const hash = await bcrypt.hash(password, 12);
   await prisma.account.create({
     data: {
       name: 'Default Account',

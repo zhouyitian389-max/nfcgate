@@ -1,4 +1,5 @@
 import { Router } from 'express';
+import { createHash } from 'crypto';
 import { v4 as uuidv4 } from 'uuid';
 import prisma from '../db.js';
 import { authMiddleware, type AuthenticatedRequest } from '../middleware/auth.js';
@@ -8,6 +9,10 @@ import { normalizeTrack2, validateCardPayload } from '../utils/validators.js';
 
 const router = Router();
 router.use(authMiddleware);
+
+function hashPan(pan: string): string {
+  return createHash('sha256').update(pan).digest('hex');
+}
 
 function isOptionalString(value: unknown, maxLength: number) {
   if (value == null) return true;
@@ -66,36 +71,16 @@ async function upsertCloudCard(accountId: string, item: Record<string, unknown>)
     : null;
 
   if (!existing && pan) {
-    const candidates = await prisma.cloudCard.findMany({
-      where: { accountId, deletedAt: null },
-      select: {
-        id: true,
-        encryptedBlob: true,
-        panEncrypted: true,
-        pan: true,
-        brand: true,
-        holder: true,
-        expiry: true,
-        track2Encrypted: true,
-        track2: true,
-        note: true,
-        source: true,
-        ackedAt: true,
-        deletedAt: true,
-        expiresAt: true,
-        createdAt: true,
-        updatedAt: true,
-        accountId: true
-      }
-    });
-    existing = candidates.find((candidate) => {
-      const decrypted = resolveCardSecret(candidate);
-      return decrypted.pan === pan && (track2 ? decrypted.track2 === track2 : true);
+    const ph = hashPan(pan);
+    existing = await prisma.cloudCard.findFirst({
+      where: { accountId, panHash: ph, deletedAt: null }
     }) ?? null;
   }
 
   const panEncrypted = pan ? encryptString(pan) : null;
   const track2Encrypted = track2 ? encryptString(track2) : null;
+
+  const panHashValue = pan ? hashPan(pan) : null;
 
   if (existing) {
     return prisma.cloudCard.update({
@@ -104,6 +89,7 @@ async function upsertCloudCard(accountId: string, item: Record<string, unknown>)
         encryptedBlob: encryptedBlob ?? existing.encryptedBlob,
         panEncrypted: panEncrypted ?? existing.panEncrypted,
         pan: pan ? maskPan(pan) : existing.pan,
+        panHash: panHashValue ?? existing.panHash,
         brand,
         holder: holder ?? existing.holder,
         expiry: expiry ?? existing.expiry,
@@ -121,6 +107,7 @@ async function upsertCloudCard(accountId: string, item: Record<string, unknown>)
       encryptedBlob: encryptedBlob ?? null,
       panEncrypted,
       pan: pan ? maskPan(pan) : null,
+      panHash: panHashValue,
       brand,
       holder: holder ?? null,
       expiry: expiry ?? null,

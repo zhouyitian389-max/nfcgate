@@ -176,6 +176,11 @@ export async function endSessionById(sessionId: string, accountId?: string, reas
   return true;
 }
 
+export async function closeSessionsByAccountId(accountId: string, reason: string) {
+  const matching = Array.from(sessions.values()).filter((s) => s.accountId === accountId);
+  await Promise.all(matching.map((s) => closeSession(s.token, reason)));
+}
+
 async function ensureSession(token: string): Promise<RelaySession> {
   const existing = sessions.get(token);
   if (existing) return existing;
