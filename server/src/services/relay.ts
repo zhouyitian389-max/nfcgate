@@ -80,7 +80,7 @@ function tokenPreview(token: string) {
   return `${token.slice(0, 4)}…${token.slice(-4)}`;
 }
 
-function sequenceIsNext(lastSeen: number, seq: unknown): seq is number {
+export function sequenceIsNext(lastSeen: number, seq: unknown): seq is number {
   return typeof seq === 'number' && Number.isInteger(seq) && seq > lastSeen;
 }
 
@@ -266,16 +266,20 @@ async function ensureAutoSession(accountId: string): Promise<RelaySession> {
   return session;
 }
 
-function setRoleSocket(session: RelaySession, role: RelayRole, ws: SocketWithState) {
+export function setRoleSocket(session: RelaySession, role: RelayRole, ws: SocketWithState) {
   if (role === 'hce') {
     if (session.hce && session.hce !== ws) session.hce.close(1000, 'Replaced by new hce connection');
     session.hce = ws;
+    session.lastCommandSeq = 0;
+    session.lastResponseSeq = 0;
   } else if (role === 'reader') {
     if (session.reader && session.reader !== ws) session.reader.close(1000, 'Replaced by new reader connection');
     session.reader = ws;
+    session.lastResponseSeq = 0;
   } else {
     if (session.external && session.external !== ws) session.external.close(1000, 'Replaced by new external connection');
     session.external = ws;
+    session.lastResponseSeq = 0;
   }
 }
 
@@ -539,13 +543,6 @@ export function initWebSocket(server: Server) {
         current.lastResponseSeq = message.seq;
         console.info(`[relay] APDU response ${current.sessionId} from ${role}`);
         send(current.hce, { type: 'apdu_response', data: message.data, seq: message.seq });
-      }
-
-      if (current.logId) {
-        await prisma.apduLog.update({
-          where: { id: current.logId },
-          data: { apduCount: current.apduCount, duration: Date.now() - current.startedAt }
-        }).catch(() => undefined);
       }
     });
 
