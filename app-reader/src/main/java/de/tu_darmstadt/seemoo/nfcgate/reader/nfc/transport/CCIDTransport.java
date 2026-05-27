@@ -14,8 +14,11 @@ public class CCIDTransport {
     private static final String TAG = "CCIDTransport";
     private static final int CCID_INTERFACE_CLASS = 0x0B;
     private static final int MSG_ICC_POWER_ON = 0x62;
+    private static final int MSG_ICC_POWER_OFF = 0x63;
+    private static final int MSG_GET_SLOT_STATUS = 0x65;
     private static final int MSG_XFR_BLOCK = 0x6F;
     private static final int MSG_DATA_BLOCK = 0x80;
+    private static final int MSG_SLOT_STATUS = 0x81;
     private static final int SLOT = 0x00;
     private static final int TIMEOUT_MS = 5000;
     private static final int DEFAULT_BAUD_RATE = 9600; // Use reader default.
@@ -77,6 +80,27 @@ public class CCIDTransport {
         return readDataBlock(seq);
     }
 
+    public boolean powerOff() {
+        int seq = nextSequence();
+        sendCommand(buildPowerOffCommand(seq));
+        return readSlotStatus(seq).length > 0;
+    }
+
+    public int getSlotStatus() {
+        int seq = nextSequence();
+        sendCommand(buildGetSlotStatusCommand(seq));
+        byte[] response = readSlotStatus(seq);
+        if (response.length == 0) {
+            return -1;
+        }
+        return response[0] & 0x03;
+    }
+
+    public boolean isCardPresent() {
+        int status = getSlotStatus();
+        return status >= 0 && status <= 1;
+    }
+
     private int nextSequence() {
         int current = sequence & 0xFF;
         sequence = (sequence + 1) & 0xFF;
@@ -129,6 +153,21 @@ public class CCIDTransport {
         return out.toByteArray();
     }
 
+    private byte[] readSlotStatus(int expectedSequence) {
+        if (inEndpoint == null) {
+            return new byte[0];
+        }
+        byte[] response = usb.bulkTransfer(inEndpoint, new byte[Math.max(inEndpoint.getMaxPacketSize(), 512)], TIMEOUT_MS);
+        if (response.length < 10 || (response[0] & 0xFF) != MSG_SLOT_STATUS) {
+            return new byte[0];
+        }
+        int responseSeq = response[6] & 0xFF;
+        if (responseSeq != expectedSequence) {
+            Log.w(TAG, "CCID slot status sequence mismatch exp=" + expectedSequence + " got=" + responseSeq);
+        }
+        return new byte[]{response[7]};
+    }
+
     static byte[] buildPowerOnCommand(int sequence) {
         byte[] command = new byte[10];
         command[0] = (byte) MSG_ICC_POWER_ON;
@@ -154,6 +193,22 @@ public class CCIDTransport {
         if (payload.length > 0) {
             System.arraycopy(payload, 0, command, 10, payload.length);
         }
+        return command;
+    }
+
+    static byte[] buildPowerOffCommand(int sequence) {
+        byte[] command = new byte[10];
+        command[0] = (byte) MSG_ICC_POWER_OFF;
+        command[5] = (byte) SLOT;
+        command[6] = (byte) (sequence & 0xFF);
+        return command;
+    }
+
+    static byte[] buildGetSlotStatusCommand(int sequence) {
+        byte[] command = new byte[10];
+        command[0] = (byte) MSG_GET_SLOT_STATUS;
+        command[5] = (byte) SLOT;
+        command[6] = (byte) (sequence & 0xFF);
         return command;
     }
 

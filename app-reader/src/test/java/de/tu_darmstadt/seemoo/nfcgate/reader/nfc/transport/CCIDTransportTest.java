@@ -27,4 +27,22 @@ public class CCIDTransportTest {
         assertEquals(0x34, command[6] & 0xFF);
         assertArrayEquals(apdu, new byte[]{command[10], command[11], command[12], command[13]});
     }
+
+    @Test
+    public void buildPowerOffCommandHasExpectedHeader() {
+        byte[] command = CCIDTransport.buildPowerOffCommand(0x56);
+        assertEquals(10, command.length);
+        assertEquals(0x63, command[0] & 0xFF);
+        assertEquals(0x00, command[5] & 0xFF);
+        assertEquals(0x56, command[6] & 0xFF);
+    }
+
+    @Test
+    public void buildGetSlotStatusCommandHasExpectedHeader() {
+        byte[] command = CCIDTransport.buildGetSlotStatusCommand(0x78);
+        assertEquals(10, command.length);
+        assertEquals(0x65, command[0] & 0xFF);
+        assertEquals(0x00, command[5] & 0xFF);
+        assertEquals(0x78, command[6] & 0xFF);
+    }
 }
