@@ -3,6 +3,7 @@ package de.tu_darmstadt.seemoo.nfcgate.reader;
 import android.animation.ValueAnimator;
 import android.content.Context;
 import android.content.Intent;
+import android.nfc.NfcAdapter;
 import android.net.Uri;
 import android.os.Build;
 import android.os.Bundle;
@@ -67,6 +68,7 @@ import de.tu_darmstadt.seemoo.nfcgate.reader.nfc.NFCDevice;
 import de.tu_darmstadt.seemoo.nfcgate.reader.nfc.NFCEvent;
 import de.tu_darmstadt.seemoo.nfcgate.reader.nfc.NFCManager;
 import de.tu_darmstadt.seemoo.nfcgate.reader.nfc.emv.EMVReader;
+import de.tu_darmstadt.seemoo.nfcgate.reader.relay.RelayReaderService;
 import de.tu_darmstadt.seemoo.nfcgate.reader.settings.SettingsManager;
 import de.tu_darmstadt.seemoo.nfcgate.reader.ui.CardPagerAdapter;
 import de.tu_darmstadt.seemoo.nfcgate.reader.ui.DeviceSelector;
@@ -108,6 +110,7 @@ public class MainActivity extends AppCompatActivity {
     private String backupPassword;
     private boolean captureActive;
     private boolean resumeCaptureOnResume;
+    private RelayReaderService relayReaderService;
 
     @Override
     protected void onCreate(Bundle savedInstanceState) {
@@ -283,6 +286,7 @@ public class MainActivity extends AppCompatActivity {
 
     private void startNfcCapture() {
         if (selectedDevice == null || nfcManager == null) return;
+        stopRelayReaderMode();
         captureActive = true;
         tvNfcStatus.setText(getString(R.string.nfc_status_scanning));
 
@@ -708,6 +712,8 @@ public class MainActivity extends AppCompatActivity {
         if (resumeCaptureOnResume) {
             resumeCaptureOnResume = false;
             startNfcCapture();
+        } else {
+            startRelayReaderMode();
         }
         refreshTokenCount();
     }
@@ -719,6 +725,7 @@ public class MainActivity extends AppCompatActivity {
         if (nfcManager != null) {
             nfcManager.stopCapture();
         }
+        stopRelayReaderMode();
         captureActive = false;
         if (stopCaptureRunnable != null) {
             mainHandler.removeCallbacks(stopCaptureRunnable);
@@ -735,11 +742,36 @@ public class MainActivity extends AppCompatActivity {
             nfcManager.stopCapture();
             nfcManager = null;
         }
+        stopRelayReaderMode();
         captureActive = false;
         resumeCaptureOnResume = false;
         if (stopCaptureRunnable != null) {
             mainHandler.removeCallbacks(stopCaptureRunnable);
         }
         ioExecutor.shutdownNow();
+    }
+
+    private void startRelayReaderMode() {
+        if (relayReaderService != null || captureActive) {
+            return;
+        }
+        String jwt = SessionManager.getToken(this);
+        if (jwt == null || jwt.trim().isEmpty()) {
+            return;
+        }
+        NfcAdapter nfcAdapter = NfcAdapter.getDefaultAdapter(this);
+        if (nfcAdapter == null) {
+            return;
+        }
+        relayReaderService = new RelayReaderService(nfcAdapter, BuildConfig.WS_URL, jwt.trim(), "");
+        relayReaderService.start(this);
+    }
+
+    private void stopRelayReaderMode() {
+        if (relayReaderService == null) {
+            return;
+        }
+        relayReaderService.stop(this);
+        relayReaderService = null;
     }
 }

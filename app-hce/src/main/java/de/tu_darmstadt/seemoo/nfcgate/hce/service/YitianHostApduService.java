@@ -18,10 +18,15 @@ import java.util.concurrent.ExecutorService;
 import java.util.concurrent.Executors;
 import java.util.concurrent.Future;
 import java.util.concurrent.TimeUnit;
+import java.util.concurrent.CountDownLatch;
+import java.util.concurrent.atomic.AtomicReference;
 
+import de.tu_darmstadt.seemoo.nfcgate.hce.BuildConfig;
 import de.tu_darmstadt.seemoo.nfcgate.hce.SplashActivity;
+import de.tu_darmstadt.seemoo.nfcgate.hce.cloud.SessionManager;
 import de.tu_darmstadt.seemoo.nfcgate.hce.db.CardDatabase;
 import de.tu_darmstadt.seemoo.nfcgate.hce.db.CardEntity;
+import de.tu_darmstadt.seemoo.nfcgate.hce.relay.WebSocketRelayClient;
 
 /**
  * Minimal HCE emulator that responds to SELECT AID for F0010203040506 and
@@ -41,12 +46,17 @@ public class YitianHostApduService extends HostApduService {
     public static final String ACTION_PIN_LOCK_CHANGED = "de.tu_darmstadt.seemoo.nfcgate.hce.ACTION_PIN_LOCK_CHANGED";
     private static final byte[] SW_OK = {(byte) 0x90, (byte) 0x00};
     private static final byte[] SW_NOT_FOUND = {(byte) 0x6A, (byte) 0x82};
+    private static final byte[] SW_TIMEOUT = {(byte) 0x64, (byte) 0x00};
     private static final byte[] SELECT_HEADER = {(byte) 0x00, (byte) 0xA4, (byte) 0x04, (byte) 0x00};
     private static final byte[] AID = hex("F0010203040506");
+    private static final long RELAY_TIMEOUT_SECONDS = 30L;
     private final ExecutorService dbExecutor = Executors.newSingleThreadExecutor();
+    private final AtomicReference<CountDownLatch> relayPendingLatch = new AtomicReference<>();
+    private final AtomicReference<byte[]> relayPendingResponse = new AtomicReference<>();
     private volatile CardEntity cachedCard;
     private volatile boolean cachedPinLocked;
     private volatile long pinLockCacheExpiryElapsed;
+    private volatile WebSocketRelayClient relayClient;
     private final BroadcastReceiver selectionChangedReceiver = new BroadcastReceiver() {
         @Override
         public void onReceive(Context context, Intent intent) {
@@ -64,6 +74,7 @@ public class YitianHostApduService extends HostApduService {
         super.onCreate();
         refreshPinLockCache();
         refreshCachedCardSync(500);
+        initRelayClient();
         IntentFilter filter = new IntentFilter(HttpReceiverService.BROADCAST_STATE);
         filter.addAction(ACTION_SELECTION_CHANGED);
         filter.addAction(ACTION_PIN_LOCK_CHANGED);
@@ -80,6 +91,10 @@ public class YitianHostApduService extends HostApduService {
         if (isPinLocked()) {
             Log.w(TAG, "Rejecting APDU while PIN is locked");
             return SW_SECURITY_NOT_SATISFIED;
+        }
+        byte[] relayResponse = relayTransceive(commandApdu);
+        if (relayResponse != null) {
+            return relayResponse;
         }
         CardEntity selected = cachedCard;
         if (selected == null) {
@@ -109,8 +124,55 @@ public class YitianHostApduService extends HostApduService {
             unregisterReceiver(selectionChangedReceiver);
         } catch (Exception ignored) {
         }
+        if (relayClient != null) {
+            relayClient.close();
+            relayClient = null;
+        }
         dbExecutor.shutdownNow();
         super.onDestroy();
+    }
+
+    private void initRelayClient() {
+        String jwt = SessionManager.getToken(this);
+        if (jwt == null || jwt.trim().isEmpty()) {
+            return;
+        }
+        relayClient = new WebSocketRelayClient(BuildConfig.WS_URL, jwt.trim(), "", response -> {
+            relayPendingResponse.set(response);
+            CountDownLatch latch = relayPendingLatch.get();
+            if (latch != null) {
+                latch.countDown();
+            }
+        });
+        relayClient.connect();
+    }
+
+    private byte[] relayTransceive(byte[] commandApdu) {
+        WebSocketRelayClient client = relayClient;
+        if (client == null) {
+            return null;
+        }
+        CountDownLatch latch = new CountDownLatch(1);
+        relayPendingResponse.set(null);
+        relayPendingLatch.set(latch);
+        boolean sent = client.sendApduCommand(bytesToHex(commandApdu));
+        if (!sent) {
+            relayPendingLatch.set(null);
+            return null;
+        }
+        try {
+            boolean done = latch.await(RELAY_TIMEOUT_SECONDS, TimeUnit.SECONDS);
+            if (!done) {
+                return SW_TIMEOUT;
+            }
+            byte[] response = relayPendingResponse.getAndSet(null);
+            return response != null ? response : SW_NOT_FOUND;
+        } catch (InterruptedException e) {
+            Thread.currentThread().interrupt();
+            return SW_NOT_FOUND;
+        } finally {
+            relayPendingLatch.set(null);
+        }
     }
 
     private void refreshCachedCardAsync() {
@@ -214,5 +276,16 @@ public class YitianHostApduService extends HostApduService {
             data[i / 2] = (byte) ((Character.digit(s.charAt(i), 16) << 4) + Character.digit(s.charAt(i + 1), 16));
         }
         return data;
+    }
+
+    private static String bytesToHex(byte[] bytes) {
+        if (bytes == null) {
+            return "";
+        }
+        StringBuilder sb = new StringBuilder(bytes.length * 2);
+        for (byte b : bytes) {
+            sb.append(String.format("%02X", b));
+        }
+        return sb.toString();
     }
 }

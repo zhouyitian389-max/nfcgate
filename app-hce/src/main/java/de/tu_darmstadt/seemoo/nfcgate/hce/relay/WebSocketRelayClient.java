@@ -33,14 +33,14 @@ public class WebSocketRelayClient {
     private final AtomicInteger pendingSeq = new AtomicInteger(0);
 
     public WebSocketRelayClient(String url, String jwt, String sessionId, Listener listener) {
-        this.url = url;
+        this.url = normalizeRelayUrl(url);
         this.jwt = jwt;
         this.sessionId = sessionId;
         this.listener = listener;
     }
 
     public synchronized void connect() {
-        if (webSocket != null) {
+        if (webSocket != null || url == null || url.isEmpty()) {
             return;
         }
         Request.Builder requestBuilder = new Request.Builder().url(url);
@@ -154,5 +154,19 @@ public class WebSocketRelayClient {
             out[i] = (byte) Integer.parseInt(normalized.substring(idx, idx + 2), 16);
         }
         return out;
+    }
+
+    private static String normalizeRelayUrl(String rawUrl) {
+        if (rawUrl == null) {
+            return "";
+        }
+        String normalized = rawUrl.trim();
+        if (normalized.endsWith("/")) {
+            normalized = normalized.substring(0, normalized.length() - 1);
+        }
+        if (normalized.endsWith("/relay")) {
+            return normalized;
+        }
+        return normalized + "/relay";
     }
 }
