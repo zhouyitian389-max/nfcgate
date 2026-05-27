@@ -19,7 +19,6 @@ import java.util.ArrayList;
 import java.util.List;
 
 import de.tu_darmstadt.seemoo.nfcgate.reader.BuildConfig;
-import de.tu_darmstadt.seemoo.nfcgate.reader.settings.SettingsManager;
 
 public class CloudApiClient {
     private static final Object REFRESH_LOCK = new Object();
@@ -92,10 +91,9 @@ public class CloudApiClient {
         this.appContext = context.getApplicationContext();
     }
 
-    public LoginResult login(String password) throws Exception {
-        String email = SettingsManager.getCloudEmail(appContext);
+    public LoginResult login(String email, String password) throws Exception {
         JSONObject req = new JSONObject()
-                .put("email", email)
+                .put("email", email == null ? "" : email.trim())
                 .put("password", password);
         JSONObject json = request("POST", "/api/auth/login", req, null, true);
         String token = json.optString("token", "");
@@ -285,15 +283,15 @@ public class CloudApiClient {
     }
 
     private String getBaseUrl() {
-        String raw = SettingsManager.getCloudBaseUrl(appContext);
+        String raw = BuildConfig.API_BASE_URL;
         String normalized = raw == null ? "" : raw.trim();
-        if (normalized.isEmpty()) {
-            normalized = SettingsManager.DEFAULT_CLOUD_API_BASE;
-        }
         if (!BuildConfig.DEBUG && normalized.startsWith("http://")) {
             normalized = "https://" + normalized.substring("http://".length());
         }
+        if (normalized.endsWith("/api")) {
+            normalized = normalized.substring(0, normalized.length() - 4);
+        }
         if (normalized.endsWith("/")) return normalized.substring(0, normalized.length() - 1);
-        return normalized;
+        return normalized.isEmpty() ? "https://api.yitian.shop" : normalized;
     }
 }

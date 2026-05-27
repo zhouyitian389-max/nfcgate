@@ -16,10 +16,20 @@
         android:textSize="26sp" />
 
     <EditText
-        android:id="@+id/et_password"
+        android:id="@+id/et_email"
         android:layout_width="match_parent"
         android:layout_height="wrap_content"
         android:layout_marginTop="20dp"
+        android:hint="@string/hint_email"
+        android:inputType="textEmailAddress"
+        android:textColor="@color/white"
+        android:textColorHint="@color/secondary_text" />
+
+    <EditText
+        android:id="@+id/et_password"
+        android:layout_width="match_parent"
+        android:layout_height="wrap_content"
+        android:layout_marginTop="12dp"
         android:hint="@string/hint_password"
         android:inputType="textPassword"
         android:textColor="@color/white"

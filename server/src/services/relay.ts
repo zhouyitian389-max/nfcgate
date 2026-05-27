@@ -3,6 +3,7 @@ import { WebSocketServer, type WebSocket } from 'ws';
 import { v4 as uuidv4 } from 'uuid';
 import prisma from '../db.js';
 import { sseHub } from './sseHub.js';
+import { verifyAccessToken } from './tokenService.js';
 
 type RelayRole = 'hce' | 'reader' | 'external';
 
@@ -227,6 +228,44 @@ async function ensureSession(token: string): Promise<RelaySession> {
   return session;
 }
 
+async function ensureAutoSession(accountId: string): Promise<RelaySession> {
+  const existing = Array.from(sessions.values()).find((item) => item.accountId === accountId && item.mode === 'AUTO_ACCOUNT');
+  if (existing) return existing;
+
+  const token = `auto:${uuidv4()}`;
+  const session: RelaySession = {
+    token,
+    sessionId: uuidv4(),
+    accountId,
+    mode: 'AUTO_ACCOUNT',
+    startedAt: Date.now(),
+    lastActivityAt: Date.now(),
+    apduCount: 0,
+    lastCommandSeq: 0,
+    lastResponseSeq: 0
+  };
+
+  const created = await prisma.apduLog.create({
+    data: {
+      accountId: session.accountId!,
+      cardId: session.cardId,
+      sessionId: session.sessionId,
+      mode: session.mode,
+      apduCount: 0,
+      duration: 0
+    },
+    select: { id: true }
+  }).catch(() => null);
+  session.logId = created?.id;
+
+  sseHub.sendToUser(accountId, 'relay_session_start', {
+    sessionId: session.sessionId
+  });
+
+  sessions.set(token, session);
+  return session;
+}
+
 function setRoleSocket(session: RelaySession, role: RelayRole, ws: SocketWithState) {
   if (role === 'hce') {
     if (session.hce && session.hce !== ws) session.hce.close(1000, 'Replaced by new hce connection');
@@ -315,28 +354,57 @@ export function initWebSocket(server: Server) {
   wss.on('connection', async (rawWs: WebSocket, initialToken?: string, initialRole?: RelayRole) => {
     const ws = rawWs as SocketWithState;
     ws.isAlive = true;
-    let token = initialToken;
+    const bearerToken = initialToken;
+    let token: string | undefined;
     let role = initialRole;
     let messageWindowStartedAt = Date.now();
     let messageCountInWindow = 0;
+    let resolvedBearer = false;
+    let bearerAccountId: string | undefined;
 
-    const bindSession = async (joinToken: string, joinRole: RelayRole, atr?: string) => {
-      token = joinToken;
+    const resolveBearerAccountId = () => {
+      if (resolvedBearer) {
+        return bearerAccountId;
+      }
+      resolvedBearer = true;
+      if (!bearerToken) {
+        return undefined;
+      }
+      try {
+        bearerAccountId = verifyAccessToken(bearerToken).accountId;
+      } catch {
+        bearerAccountId = undefined;
+      }
+      return bearerAccountId;
+    };
+
+    const bindSession = async (joinRole: RelayRole, joinToken?: string, atr?: string) => {
       role = joinRole;
       let session: RelaySession;
       try {
-        session = await ensureSession(joinToken);
+        if (joinToken && joinToken.trim()) {
+          session = await ensureSession(joinToken.trim());
+        } else {
+          const accountId = resolveBearerAccountId();
+          if (!accountId) {
+            send(ws, { type: 'error', message: 'unauthorized' });
+            ws.close(4003, 'unauthorized');
+            return false;
+          }
+          session = await ensureAutoSession(accountId);
+        }
       } catch {
         send(ws, { type: 'error', message: 'token_expired' });
         ws.close(4001, 'token_expired');
         return false;
       }
+      token = session.token;
       session.lastActivityAt = Date.now();
       if (atr && isValidAtrHex(atr) && joinRole !== 'hce') {
         session.readerAtr = atr.toUpperCase();
       }
       setRoleSocket(session, joinRole, ws);
-      send(ws, { type: 'session_joined', sessionId: session.sessionId, tokenPreview: tokenPreview(joinToken) });
+      send(ws, { type: 'session_joined', sessionId: session.sessionId, tokenPreview: tokenPreview(session.token) });
       if (session.hce && getReaderPeer(session)) {
         send(session.hce, { type: 'session_paired', sessionId: session.sessionId, atr: session.readerAtr });
         send(session.reader, { type: 'session_paired', sessionId: session.sessionId, atr: session.readerAtr });
@@ -345,8 +413,8 @@ export function initWebSocket(server: Server) {
       return true;
     };
 
-    if (token && role && ['hce', 'reader', 'external'].includes(role)) {
-      await bindSession(token, role);
+    if (role && ['hce', 'reader', 'external'].includes(role)) {
+      await bindSession(role);
     }
 
     ws.on('pong', () => {
@@ -377,15 +445,19 @@ export function initWebSocket(server: Server) {
       if (message.type === 'session_join') {
         const joinToken = message.token || message.sessionId;
         const joinRole = message.role;
-        if (!joinToken || !joinRole || !['hce', 'reader', 'external'].includes(joinRole)) {
-          send(ws, { type: 'error', message: 'session_join requires token/sessionId and role' });
+        if (!joinRole || !['hce', 'reader', 'external'].includes(joinRole)) {
+          send(ws, { type: 'error', message: 'session_join requires role' });
+          return;
+        }
+        if ((!joinToken || !joinToken.trim()) && !resolveBearerAccountId()) {
+          send(ws, { type: 'error', message: 'session_join requires token/sessionId or bearer auth' });
           return;
         }
         if (message.atr && !isValidAtrHex(message.atr)) {
           send(ws, { type: 'error', message: 'Invalid ATR format' });
           return;
         }
-        await bindSession(joinToken, joinRole, message.atr);
+        await bindSession(joinRole, joinToken, message.atr);
         return;
       }
 

@@ -1,15 +1,16 @@
 package de.tu_darmstadt.seemoo.nfcgate.hce.relay;
 
-import android.content.SharedPreferences;
 import android.nfc.cardemulation.HostApduService;
 import android.os.Bundle;
-import android.preference.PreferenceManager;
 import android.util.Log;
 
 import java.util.Locale;
 import java.util.concurrent.CountDownLatch;
 import java.util.concurrent.TimeUnit;
 import java.util.concurrent.atomic.AtomicReference;
+
+import de.tu_darmstadt.seemoo.nfcgate.hce.BuildConfig;
+import de.tu_darmstadt.seemoo.nfcgate.hce.cloud.SessionManager;
 
 public class RelayHceService extends HostApduService implements WebSocketRelayClient.Listener {
     private static final String TAG = "RelayHceService";
@@ -24,11 +25,12 @@ public class RelayHceService extends HostApduService implements WebSocketRelayCl
     @Override
     public void onCreate() {
         super.onCreate();
-        SharedPreferences preferences = PreferenceManager.getDefaultSharedPreferences(this);
-        String wsUrl = preferences.getString("relay_ws_url", "");
-        String jwt = preferences.getString("relay_jwt", "");
-        String sessionId = preferences.getString("relay_session_id", "");
-        relayClient = new WebSocketRelayClient(wsUrl, jwt, sessionId, this);
+        String jwt = SessionManager.getToken(this);
+        if (jwt == null || jwt.trim().isEmpty()) {
+            Log.w(TAG, "Relay skipped: missing login token");
+            return;
+        }
+        relayClient = new WebSocketRelayClient(BuildConfig.WS_URL, jwt, "", this);
         relayClient.connect();
     }
 

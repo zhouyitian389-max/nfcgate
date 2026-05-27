@@ -1,14 +1,12 @@
 package de.tu_darmstadt.seemoo.nfcgate.hce;
 
 import android.content.Intent;
-import android.content.SharedPreferences;
 import android.os.Bundle;
 import android.os.Handler;
 import android.os.Looper;
 import android.util.Log;
 
 import androidx.appcompat.app.AppCompatActivity;
-import androidx.preference.PreferenceManager;
 import androidx.security.crypto.EncryptedSharedPreferences;
 import androidx.security.crypto.MasterKey;
 
@@ -27,12 +25,6 @@ public class SplashActivity extends AppCompatActivity {
         super.onCreate(savedInstanceState);
         setContentView(R.layout.activity_splash);
         new Handler(Looper.getMainLooper()).postDelayed(() -> {
-            SharedPreferences prefs = PreferenceManager.getDefaultSharedPreferences(this);
-            if (!prefs.getBoolean(OnboardingActivity.PREF_ONBOARDING_DONE, false)) {
-                startActivity(new Intent(this, OnboardingActivity.class));
-                finish();
-                return;
-            }
             if (!SessionManager.isLoggedIn(this)) {
                 startActivity(new Intent(this, LoginActivity.class));
                 finish();

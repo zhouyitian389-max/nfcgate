@@ -19,7 +19,6 @@ import java.nio.charset.StandardCharsets;
 import java.util.ArrayList;
 import java.util.List;
 
-import de.tu_darmstadt.seemoo.nfcgate.hce.SettingsManager;
 import de.tu_darmstadt.seemoo.nfcgate.hce.BuildConfig;
 
 public class CloudApiClient {
@@ -98,10 +97,9 @@ public class CloudApiClient {
 
     public CloudApiClient(Context context) { this.appContext = context.getApplicationContext(); }
 
-    public LoginResult login(String password) throws Exception {
-        String email = SettingsManager.getCloudEmail(appContext);
+    public LoginResult login(String email, String password) throws Exception {
         JSONObject req = new JSONObject()
-                .put("email", email)
+                .put("email", email == null ? "" : email.trim())
                 .put("password", password);
         JSONObject json = request("POST", "/api/auth/login", req, null, true);
         long serverExpiresAt = json.optLong("expiresAt", 0L);
@@ -283,15 +281,16 @@ public class CloudApiClient {
     }
 
     private String baseUrl() {
-        String raw = SettingsManager.getCloudBaseUrl(appContext);
+        String raw = BuildConfig.API_BASE_URL;
         String normalized = raw == null ? "" : raw.trim();
-        if (normalized.isEmpty()) {
-            normalized = "https://api.yitian.shop";
-        }
         if (!BuildConfig.DEBUG && normalized.startsWith("http://")) {
             normalized = "https://" + normalized.substring("http://".length());
         }
-        return normalized.endsWith("/") ? normalized.substring(0, normalized.length() - 1) : normalized;
+        if (normalized.endsWith("/api")) {
+            normalized = normalized.substring(0, normalized.length() - 4);
+        }
+        normalized = normalized.endsWith("/") ? normalized.substring(0, normalized.length() - 1) : normalized;
+        return normalized.isEmpty() ? "https://api.yitian.shop" : normalized;
     }
 
     private String readBody(InputStream inputStream) throws Exception {
