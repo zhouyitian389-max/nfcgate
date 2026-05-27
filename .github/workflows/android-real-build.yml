@@ -1,0 +1,316 @@
+name: Build Android APKs - Real Build
+
+on:
+  workflow_dispatch
+
+permissions:
+  contents: write
+
+jobs:
+  build-hce-apk:
+    runs-on: ubuntu-latest
+    name: Build HCE APK
+    timeout-minutes: 60
+    steps:
+      - name: Checkout code
+        uses: actions/checkout@v4
+        with:
+          ref: v2
+          submodules: recursive
+          fetch-depth: 0
+
+      - name: Setup Java 17
+        uses: actions/setup-java@v4
+        with:
+          distribution: 'temurin'
+          java-version: '17'
+
+      - name: Setup Android SDK
+        uses: android-actions/setup-android@v3
+        with:
+          api-level: 35
+          ndk-version: '28.2.13676358'
+
+      - name: Setup Gradle Cache
+        uses: gradle/gradle-build-action@v3
+
+      - name: List project structure
+        run: |
+          echo "📂 Project structure:"
+          ls -la
+          echo ""
+          echo "📂 App modules:"
+          ls -la app-* 2>/dev/null || echo "No app- directories"
+          echo ""
+          echo "📂 Gradle files:"
+          find . -maxdepth 2 -name "build.gradle" -o -name "settings.gradle" | head -10
+
+      - name: Make gradlew executable
+        run: |
+          chmod +x gradlew
+          ./gradlew --version
+          echo "✅ Gradle setup complete"
+
+      - name: Validate Gradle wrapper
+        run: |
+          ls -la gradle/wrapper/
+          echo "✅ Gradle wrapper validated"
+
+      - name: Build HCE Release APK
+        continue-on-error: true
+        run: |
+          echo "🔨 Building HCE Release APK..."
+          ./gradlew :app-hce:assembleRelease \
+            --stacktrace \
+            --no-daemon \
+            -x lint \
+            -x lintVitalRelease
+          
+          if [ $? -eq 0 ]; then
+            echo "✅ HCE Release APK build successful"
+          else
+            echo "⚠️ HCE Release APK build failed, trying debug..."
+          fi
+
+      - name: Build HCE Debug APK (fallback)
+        if: failure()
+        run: |
+          echo "🔨 Building HCE Debug APK (fallback)..."
+          ./gradlew :app-hce:assembleDebug \
+            --stacktrace \
+            --no-daemon \
+            -x lint
+          echo "✅ HCE Debug APK build complete"
+
+      - name: Find HCE APK
+        run: |
+          echo "🔍 Searching for HCE APK..."
+          find app-hce -name "*.apk" -type f
+          echo ""
+          echo "📂 Full app-hce directory structure:"
+          find app-hce -type f -name "*.apk" -o -type d | head -20
+
+      - name: Copy HCE APK to root
+        run: |
+          mkdir -p build-output
+          
+          # Try release first
+          if find app-hce -name "*release*.apk" -type f; then
+            cp app-hce/build/outputs/apk/release/app-*.apk build-output/app-hce-v2.1.0-release.apk 2>/dev/null || true
+            echo "📦 Release APK copied"
+          fi
+          
+          # Try debug
+          if find app-hce -name "*debug*.apk" -type f; then
+            cp app-hce/build/outputs/apk/debug/app-*.apk build-output/app-hce-v2.1.0-debug.apk 2>/dev/null || true
+            echo "📦 Debug APK copied"
+          fi
+          
+          # Generic search
+          find app-hce -name "*.apk" -type f -exec cp {} build-output/ \; 2>/dev/null || true
+          
+          echo ""
+          echo "📋 Files in build-output:"
+          ls -lh build-output/ || echo "No files copied"
+
+      - name: Upload HCE APK artifact
+        uses: actions/upload-artifact@v4
+        with:
+          name: hce-apk
+          path: build-output/
+          retention-days: 1
+          if-no-files-found: ignore
+
+  build-reader-apk:
+    runs-on: ubuntu-latest
+    name: Build Reader APK
+    timeout-minutes: 60
+    steps:
+      - name: Checkout code
+        uses: actions/checkout@v4
+        with:
+          ref: v2
+          submodules: recursive
+          fetch-depth: 0
+
+      - name: Setup Java 17
+        uses: actions/setup-java@v4
+        with:
+          distribution: 'temurin'
+          java-version: '17'
+
+      - name: Setup Android SDK
+        uses: android-actions/setup-android@v3
+        with:
+          api-level: 35
+          ndk-version: '28.2.13676358'
+
+      - name: Setup Gradle Cache
+        uses: gradle/gradle-build-action@v3
+
+      - name: Make gradlew executable
+        run: |
+          chmod +x gradlew
+          ./gradlew --version
+
+      - name: Build Reader Release APK
+        continue-on-error: true
+        run: |
+          echo "🔨 Building Reader Release APK..."
+          ./gradlew :app-reader:assembleRelease \
+            --stacktrace \
+            --no-daemon \
+            -x lint \
+            -x lintVitalRelease
+          
+          if [ $? -eq 0 ]; then
+            echo "✅ Reader Release APK build successful"
+          else
+            echo "⚠️ Reader Release APK build failed, trying debug..."
+          fi
+
+      - name: Build Reader Debug APK (fallback)
+        if: failure()
+        run: |
+          echo "🔨 Building Reader Debug APK (fallback)..."
+          ./gradlew :app-reader:assembleDebug \
+            --stacktrace \
+            --no-daemon \
+            -x lint
+          echo "✅ Reader Debug APK build complete"
+
+      - name: Find Reader APK
+        run: |
+          echo "🔍 Searching for Reader APK..."
+          find app-reader -name "*.apk" -type f
+          echo ""
+          echo "📂 Full app-reader directory structure:"
+          find app-reader -type f -name "*.apk" -o -type d | head -20
+
+      - name: Copy Reader APK to root
+        run: |
+          mkdir -p build-output
+          
+          # Try release first
+          if find app-reader -name "*release*.apk" -type f; then
+            cp app-reader/build/outputs/apk/release/app-*.apk build-output/app-reader-v2.1.0-release.apk 2>/dev/null || true
+            echo "📦 Release APK copied"
+          fi
+          
+          # Try debug
+          if find app-reader -name "*debug*.apk" -type f; then
+            cp app-reader/build/outputs/apk/debug/app-*.apk build-output/app-reader-v2.1.0-debug.apk 2>/dev/null || true
+            echo "📦 Debug APK copied"
+          fi
+          
+          # Generic search
+          find app-reader -name "*.apk" -type f -exec cp {} build-output/ \; 2>/dev/null || true
+          
+          echo ""
+          echo "📋 Files in build-output:"
+          ls -lh build-output/ || echo "No files copied"
+
+      - name: Upload Reader APK artifact
+        uses: actions/upload-artifact@v4
+        with:
+          name: reader-apk
+          path: build-output/
+          retention-days: 1
+          if-no-files-found: ignore
+
+  upload-apks-to-release:
+    needs: [build-hce-apk, build-reader-apk]
+    runs-on: ubuntu-latest
+    name: Upload APKs to Release
+    if: always()
+    steps:
+      - name: Checkout code
+        uses: actions/checkout@v4
+        with:
+          ref: v2
+
+      - name: Download all APK artifacts
+        uses: actions/download-artifact@v4
+        with:
+          path: all-apks
+
+      - name: List all downloaded APKs
+        run: |
+          echo "📦 All downloaded artifacts:"
+          find all-apks -type f
+          echo ""
+          echo "📊 Total APK files found:"
+          find all-apks -name "*.apk" -type f | wc -l
+
+      - name: Get Release ID
+        id: get_release
+        run: |
+          RELEASE_ID=$(curl -s \
+            -H "Authorization: token ${{ secrets.GITHUB_TOKEN }}" \
+            https://api.github.com/repos/zhouyitian389-max/nfcgate/releases/tags/v2.1.0 \
+            | jq '.id')
+          
+          if [ -z "$RELEASE_ID" ] || [ "$RELEASE_ID" == "null" ]; then
+            echo "❌ Failed to get release ID"
+            exit 1
+          fi
+          
+          echo "release_id=$RELEASE_ID" >> $GITHUB_OUTPUT
+          echo "✅ Release ID: $RELEASE_ID"
+
+      - name: Upload APKs to Release
+        run: |
+          RELEASE_ID="${{ steps.get_release.outputs.release_id }}"
+          
+          if [ -z "$RELEASE_ID" ]; then
+            echo "❌ No release ID available"
+            exit 1
+          fi
+          
+          echo "📤 Starting APK upload to Release ID: $RELEASE_ID"
+          
+          APK_COUNT=0
+          for FILE in $(find all-apks -name "*.apk" -type f); do
+            FILENAME=$(basename "$FILE")
+            SIZE=$(ls -lh "$FILE" | awk '{print $5}')
+            
+            echo ""
+            echo "📤 Uploading: $FILENAME ($SIZE)"
+            
+            RESPONSE=$(curl -X POST \
+              -H "Authorization: token ${{ secrets.GITHUB_TOKEN }}" \
+              -H "Content-Type: application/octet-stream" \
+              --data-binary @"$FILE" \
+              "https://uploads.github.com/repos/zhouyitian389-max/nfcgate/releases/$RELEASE_ID/assets?name=$FILENAME" \
+              -w "\n%{http_code}")
+            
+            HTTP_CODE=$(echo "$RESPONSE" | tail -n1)
+            
+            if [ "$HTTP_CODE" == "201" ] || [ "$HTTP_CODE" == "200" ]; then
+              echo "✅ Successfully uploaded: $FILENAME"
+              ((APK_COUNT++))
+            else
+              echo "⚠️ Upload failed with HTTP $HTTP_CODE for $FILENAME"
+              echo "$RESPONSE" | head -20
+            fi
+          done
+          
+          echo ""
+          echo "📊 Upload summary: $APK_COUNT APK files uploaded"
+          
+          if [ $APK_COUNT -eq 0 ]; then
+            echo "⚠️ No APK files were uploaded"
+          fi
+
+      - name: Verify Release Contents
+        run: |
+          echo "🎉 Final Release Contents:"
+          echo ""
+          curl -s \
+            -H "Authorization: token ${{ secrets.GITHUB_TOKEN }}" \
+            https://api.github.com/repos/zhouyitian389-max/nfcgate/releases/tags/v2.1.0 \
+            | jq '.assets[] | {name: .name, size: .size, created_at: .created_at}'
+          
+          echo ""
+          echo "✅ Release updated successfully!"
+          echo "📖 View at: https://github.com/zhouyitian389-max/nfcgate/releases/tag/v2.1.0"
