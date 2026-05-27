@@ -1,0 +1,181 @@
+name: Manual APK Fix - Direct Upload
+
+on:
+  workflow_dispatch
+
+permissions:
+  contents: write
+
+jobs:
+  fix-apk-manually:
+    runs-on: ubuntu-latest
+    name: Manual APK Fix
+    steps:
+      - name: Checkout
+        uses: actions/checkout@v4
+        with:
+          ref: v2
+          submodules: recursive
+
+      - name: Setup Java 17
+        uses: actions/setup-java@v4
+        with:
+          distribution: 'temurin'
+          java-version: '17'
+
+      - name: Setup Android SDK
+        uses: android-actions/setup-android@v3
+        with:
+          api-level: 35
+          ndk-version: '28.2.13676358'
+
+      - name: Setup Gradle Cache
+        uses: gradle/gradle-build-action@v3
+
+      - name: Build HCE APK
+        run: |
+          chmod +x gradlew
+          echo "🔨 Building HCE APK..."
+          ./gradlew :app-hce:assembleRelease \
+            --stacktrace \
+            --no-daemon \
+            -x lint \
+            -x lintVitalRelease || ./gradlew :app-hce:assembleDebug --stacktrace --no-daemon -x lint
+          
+          echo "✅ Build complete"
+
+      - name: Build Reader APK
+        run: |
+          echo "🔨 Building Reader APK..."
+          ./gradlew :app-reader:assembleRelease \
+            --stacktrace \
+            --no-daemon \
+            -x lint \
+            -x lintVitalRelease || ./gradlew :app-reader:assembleDebug --stacktrace --no-daemon -x lint
+          
+          echo "✅ Build complete"
+
+      - name: Find and prepare APKs
+        run: |
+          mkdir -p apks-to-upload
+          
+          echo "🔍 Finding APK files..."
+          find . -name "*.apk" -type f | while read f; do
+            echo "Found: $f"
+            cp "$f" apks-to-upload/ 2>/dev/null || true
+          done
+          
+          echo ""
+          echo "📦 APK files ready:"
+          ls -lh apks-to-upload/
+          
+          # Count APKs
+          APK_COUNT=$(find apks-to-upload -name "*.apk" | wc -l)
+          echo ""
+          echo "📊 Total APK files: $APK_COUNT"
+
+      - name: Delete existing APKs from Release
+        run: |
+          RELEASE_ID="329876845"
+          
+          echo "🗑️ Deleting existing APK assets..."
+          
+          # Get all assets
+          ASSETS=$(curl -s \
+            -H "Authorization: token ${{ secrets.GITHUB_TOKEN }}" \
+            https://api.github.com/repos/zhouyitian389-max/nfcgate/releases/$RELEASE_ID/assets)
+          
+          # Extract APK asset IDs
+          APK_ASSET_IDS=$(echo "$ASSETS" | jq -r '.[] | select(.name | endswith(".apk")) | .id')
+          
+          if [ -z "$APK_ASSET_IDS" ]; then
+            echo "ℹ️ No APK assets to delete"
+          else
+            echo "$APK_ASSET_IDS" | while read ASSET_ID; do
+              if [ ! -z "$ASSET_ID" ]; then
+                echo "🗑️ Deleting asset $ASSET_ID..."
+                curl -X DELETE \
+                  -H "Authorization: token ${{ secrets.GITHUB_TOKEN }}" \
+                  https://api.github.com/repos/zhouyitian389-max/nfcgate/releases/assets/$ASSET_ID \
+                  -w "\nHTTP Status: %{http_code}\n"
+                sleep 1
+              fi
+            done
+          fi
+          
+          echo ""
+          echo "✅ Cleanup complete"
+
+      - name: Upload clean APKs
+        run: |
+          RELEASE_ID="329876845"
+          
+          echo "📤 Starting clean APK upload..."
+          
+          SUCCESS=0
+          FAILED=0
+          
+          for APK_FILE in apks-to-upload/*.apk; do
+            if [ -f "$APK_FILE" ]; then
+              BASENAME=$(basename "$APK_FILE")
+              
+              # Generate clean name
+              if [[ "$BASENAME" == *"hce"* ]]; then
+                CLEAN_NAME="app-hce-v2.1.0.apk"
+              elif [[ "$BASENAME" == *"reader"* ]]; then
+                CLEAN_NAME="app-reader-v2.1.0.apk"
+              else
+                CLEAN_NAME="$BASENAME"
+              fi
+              
+              SIZE=$(ls -lh "$APK_FILE" | awk '{print $5}')
+              echo ""
+              echo "📤 Uploading: $CLEAN_NAME ($SIZE)"
+              
+              RESPONSE=$(curl -X POST \
+                -H "Authorization: token ${{ secrets.GITHUB_TOKEN }}" \
+                -H "Content-Type: application/octet-stream" \
+                --data-binary @"$APK_FILE" \
+                "https://uploads.github.com/repos/zhouyitian389-max/nfcgate/releases/$RELEASE_ID/assets?name=$CLEAN_NAME" \
+                -w "\n%{http_code}")
+              
+              HTTP_CODE=$(echo "$RESPONSE" | tail -n1)
+              BODY=$(echo "$RESPONSE" | head -n -1)
+              
+              if [[ "$HTTP_CODE" == "201" || "$HTTP_CODE" == "200" ]]; then
+                echo "✅ Successfully uploaded: $CLEAN_NAME"
+                ((SUCCESS++))
+              else
+                echo "❌ Failed with HTTP $HTTP_CODE"
+                echo "$BODY" | jq . 2>/dev/null || echo "$BODY"
+                ((FAILED++))
+              fi
+              
+              sleep 2
+            fi
+          done
+          
+          echo ""
+          echo "━━━━━━━━━━━━━━━━━━━━━━━━━━━━━"
+          echo "📊 Upload Report"
+          echo "━━━━━━━━━━━━━━━━━━━━━━━━━━━━━"
+          echo "✅ Successful: $SUCCESS"
+          echo "❌ Failed: $FAILED"
+          echo "━━━━━━━━━━━━━━━━━━━━━━━━━━━━━"
+
+      - name: Verify Final Release
+        run: |
+          echo "🎉 Final Release Status"
+          echo ""
+          curl -s \
+            -H "Authorization: token ${{ secrets.GITHUB_TOKEN }}" \
+            https://api.github.com/repos/zhouyitian389-max/nfcgate/releases/tags/v2.1.0 \
+            | jq '{
+              name: .name,
+              tag: .tag_name,
+              assets: [.assets[] | {
+                name: .name,
+                size: .size,
+                download_count: .download_count
+              }]
+            }'
