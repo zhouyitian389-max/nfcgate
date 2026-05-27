@@ -1,11 +1,14 @@
 package de.tu_darmstadt.seemoo.nfcgate.hce;
 
 import android.Manifest;
+import android.app.PendingIntent;
 import android.content.pm.PackageManager;
 import android.content.BroadcastReceiver;
 import android.content.Context;
 import android.content.Intent;
 import android.content.IntentFilter;
+import android.hardware.usb.UsbDevice;
+import android.hardware.usb.UsbManager;
 import android.os.Build;
 import android.os.Bundle;
 import android.os.Handler;
@@ -33,6 +36,7 @@ import de.tu_darmstadt.seemoo.nfcgate.hce.service.CloudSyncService;
 import de.tu_darmstadt.seemoo.nfcgate.hce.service.HttpReceiverService;
 
 public class MainActivity extends AppCompatActivity {
+    private static final String ACTION_USB_PERMISSION = "de.tu_darmstadt.seemoo.nfcgate.hce.USB_PERMISSION";
     private TextView tvHttpStatus, tvCardCount, tvSelected, tvAuthor;
     private TextView tvLastSync;
     private View viewSyncDot;
@@ -119,6 +123,9 @@ public class MainActivity extends AppCompatActivity {
         }
         refreshFromDb();
         refreshCloudStats();
+        if (SettingsManager.isUsbOutputEnabled(this)) {
+            requestUsbPermissionIfNeeded();
+        }
     }
 
     @Override
@@ -238,6 +245,28 @@ public class MainActivity extends AppCompatActivity {
             ActivityCompat.requestPermissions(this,
                     new String[]{Manifest.permission.POST_NOTIFICATIONS},
                     REQUEST_POST_NOTIFICATIONS);
+        }
+    }
+
+    private void requestUsbPermissionIfNeeded() {
+        UsbManager usbManager = (UsbManager) getSystemService(Context.USB_SERVICE);
+        if (usbManager == null) {
+            return;
+        }
+        PendingIntent permissionIntent = PendingIntent.getBroadcast(
+                this,
+                0,
+                new Intent(ACTION_USB_PERMISSION).setPackage(getPackageName()),
+                PendingIntent.FLAG_IMMUTABLE | PendingIntent.FLAG_UPDATE_CURRENT
+        );
+        for (UsbDevice device : usbManager.getDeviceList().values()) {
+            if (device.getVendorId() != 0x072F) {
+                continue;
+            }
+            int pid = device.getProductId() & 0xFFFF;
+            if ((pid == 0x8234 || pid == 0x8235) && !usbManager.hasPermission(device)) {
+                usbManager.requestPermission(device, permissionIntent);
+            }
         }
     }
 }

@@ -84,6 +84,8 @@
     <string name="settings_auto_scan">Auto scan on home open</string>
     <string name="settings_scan_timeout">Scan timeout</string>
     <string name="settings_auto_sync">Auto sync</string>
+    <string name="settings_usb_reader_mode">USB reader mode</string>
+    <string name="settings_usb_reader_mode_summary">Enable ACS ACR39U contact card reader over USB</string>
     <string name="settings_timeout_summary">%1$d seconds</string>
     <string name="settings_theme">Theme</string>
     <string name="settings_language">Language</string>

@@ -53,6 +53,8 @@
     <string name="settings_cloud_base">Cloud API base URL</string>
     <string name="settings_cloud_email">Cloud account email</string>
     <string name="settings_auto_sync">Auto sync</string>
+    <string name="settings_usb_output_mode">USB output mode</string>
+    <string name="settings_usb_output_mode_summary">Forward APDU to ACS ACR39U contact card over USB first</string>
     <string name="settings_api_server">API server</string>
     <string name="settings_language">Language</string>
     <string name="settings_port_summary">Default 8080</string>

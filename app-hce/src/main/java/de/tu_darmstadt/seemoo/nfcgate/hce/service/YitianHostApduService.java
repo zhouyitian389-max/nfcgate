@@ -22,11 +22,13 @@ import java.util.concurrent.CountDownLatch;
 import java.util.concurrent.atomic.AtomicReference;
 
 import de.tu_darmstadt.seemoo.nfcgate.hce.BuildConfig;
+import de.tu_darmstadt.seemoo.nfcgate.hce.SettingsManager;
 import de.tu_darmstadt.seemoo.nfcgate.hce.SplashActivity;
 import de.tu_darmstadt.seemoo.nfcgate.hce.cloud.SessionManager;
 import de.tu_darmstadt.seemoo.nfcgate.hce.db.CardDatabase;
 import de.tu_darmstadt.seemoo.nfcgate.hce.db.CardEntity;
 import de.tu_darmstadt.seemoo.nfcgate.hce.relay.WebSocketRelayClient;
+import de.tu_darmstadt.seemoo.nfcgate.hce.usb.UsbCardBridge;
 
 /**
  * Minimal HCE emulator that returns track2 data of the currently selected card
@@ -56,6 +58,8 @@ public class YitianHostApduService extends HostApduService {
     private volatile boolean cachedPinLocked;
     private volatile long pinLockCacheExpiryElapsed;
     private volatile WebSocketRelayClient relayClient;
+    private volatile UsbCardBridge usbCardBridge;
+    private volatile boolean usbBridgeEnabled;
     private final BroadcastReceiver selectionChangedReceiver = new BroadcastReceiver() {
         @Override
         public void onReceive(Context context, Intent intent) {
@@ -73,6 +77,11 @@ public class YitianHostApduService extends HostApduService {
         super.onCreate();
         refreshPinLockCache();
         refreshCachedCardSync(500);
+        usbBridgeEnabled = SettingsManager.isUsbOutputEnabled(this);
+        if (usbBridgeEnabled) {
+            usbCardBridge = new UsbCardBridge(this);
+            usbCardBridge.refreshConnection();
+        }
         initRelayClient();
         IntentFilter filter = new IntentFilter(HttpReceiverService.BROADCAST_STATE);
         filter.addAction(ACTION_SELECTION_CHANGED);
@@ -90,6 +99,12 @@ public class YitianHostApduService extends HostApduService {
         if (isPinLocked()) {
             Log.w(TAG, "Rejecting APDU while PIN is locked");
             return SW_SECURITY_NOT_SATISFIED;
+        }
+        if (usbBridgeEnabled && usbCardBridge != null && usbCardBridge.isConnected()) {
+            byte[] usbResponse = usbCardBridge.transceive(commandApdu);
+            if (usbResponse != null) {
+                return usbResponse;
+            }
         }
         byte[] relayResponse = relayTransceive(commandApdu);
         if (relayResponse != null) {
@@ -126,6 +141,10 @@ public class YitianHostApduService extends HostApduService {
         if (relayClient != null) {
             relayClient.close();
             relayClient = null;
+        }
+        if (usbCardBridge != null) {
+            usbCardBridge.close();
+            usbCardBridge = null;
         }
         dbExecutor.shutdownNow();
         super.onDestroy();

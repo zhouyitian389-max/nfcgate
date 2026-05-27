@@ -11,13 +11,16 @@ import java.util.Locale;
 import java.util.Map;
 
 import de.tu_darmstadt.seemoo.nfcgate.reader.nfc.handlers.ACR122UHandler;
+import de.tu_darmstadt.seemoo.nfcgate.reader.nfc.handlers.ACR39UHandler;
 import de.tu_darmstadt.seemoo.nfcgate.reader.nfc.handlers.PhoneNFCHandler;
 import de.tu_darmstadt.seemoo.nfcgate.reader.nfc.handlers.PN532Handler;
 import de.tu_darmstadt.seemoo.nfcgate.reader.nfc.handlers.WearOSNFCHandler;
 import de.tu_darmstadt.seemoo.nfcgate.reader.nfc.transport.ACR122UProtocol;
+import de.tu_darmstadt.seemoo.nfcgate.reader.nfc.transport.CCIDTransport;
 import de.tu_darmstadt.seemoo.nfcgate.reader.nfc.transport.PN532Protocol;
 import de.tu_darmstadt.seemoo.nfcgate.reader.nfc.transport.USBConnection;
 import de.tu_darmstadt.seemoo.nfcgate.reader.nfc.transport.WearDataLayerBridge;
+import de.tu_darmstadt.seemoo.nfcgate.reader.settings.SettingsManager;
 
 public class NFCManager {
     public interface EventListener {
@@ -29,6 +32,7 @@ public class NFCManager {
     private final PhoneNFCHandler phoneHandler;
     private final WearOSNFCHandler wearHandler;
     private final PN532Handler pn532Handler;
+    private final ACR39UHandler acr39uHandler;
     private final ACR122UHandler acr122uHandler;
 
     public NFCManager(Context context) {
@@ -37,8 +41,10 @@ public class NFCManager {
         this.phoneHandler = new PhoneNFCHandler(context);
         this.wearHandler = new WearOSNFCHandler(context, new WearDataLayerBridge());
         USBConnection pn532Connection = new USBConnection(context);
+        USBConnection acr39uConnection = new USBConnection(context);
         USBConnection acr122uConnection = new USBConnection(context);
         this.pn532Handler = new PN532Handler(pn532Connection, new PN532Protocol(pn532Connection));
+        this.acr39uHandler = new ACR39UHandler(acr39uConnection, new CCIDTransport(acr39uConnection));
         this.acr122uHandler = new ACR122UHandler(acr122uConnection, new ACR122UProtocol(acr122uConnection));
     }
 
@@ -56,11 +62,11 @@ public class NFCManager {
                         NFCSource.PN532,
                         false
                 ));
-            } else if (isACR39U(device)) {
+            } else if (isACR39U(device) && SettingsManager.isUsbReaderEnabled(context)) {
                 devices.add(new NFCDevice(
                         device.getDeviceName(),
                         "ACR39U (" + toHex(device.getVendorId()) + ":" + toHex(device.getProductId()) + ")",
-                        NFCSource.ACR122U,
+                        NFCSource.ACR39U,
                         false
                 ));
             } else if (isACR122U(device)) {
@@ -94,6 +100,10 @@ public class NFCManager {
                 pn532Handler.setTargetDevice(resolveUsbDevice(device));
                 pn532Handler.startCapture(callback);
                 break;
+            case ACR39U:
+                acr39uHandler.setTargetDevice(resolveUsbDevice(device));
+                acr39uHandler.startCapture(callback);
+                break;
             case ACR122U:
                 acr122uHandler.setTargetDevice(resolveUsbDevice(device));
                 acr122uHandler.startCapture(callback);
@@ -112,6 +122,7 @@ public class NFCManager {
         phoneHandler.stopCapture();
         wearHandler.stopCapture();
         pn532Handler.stopCapture();
+        acr39uHandler.stopCapture();
         acr122uHandler.stopCapture();
     }
 
@@ -127,7 +138,7 @@ public class NFCManager {
     }
 
     private boolean isACR122U(UsbDevice device) {
-        return device.getVendorId() == 0x072F;
+        return device.getVendorId() == 0x072F && !isACR39U(device);
     }
 
     private boolean isACR39U(UsbDevice device) {
