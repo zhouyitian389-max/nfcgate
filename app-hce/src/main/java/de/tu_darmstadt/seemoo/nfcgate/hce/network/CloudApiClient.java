@@ -2,8 +2,6 @@ package de.tu_darmstadt.seemoo.nfcgate.hce.network;
 
 import android.content.Context;
 
-import androidx.preference.PreferenceManager;
-
 import org.json.JSONArray;
 import org.json.JSONObject;
 
@@ -23,8 +21,6 @@ import de.tu_darmstadt.seemoo.nfcgate.hce.auth.CloudSessionManager;
 public class CloudApiClient {
     private static final int CONNECT_TIMEOUT_MS = 10_000;
     private static final int READ_TIMEOUT_MS = 30_000;
-    public static final String KEY_API_SERVER_URL = "api_server_url";
-    public static final String DEFAULT_API_SERVER_URL = "https://api.yitian.shop";
 
     private final Context appContext;
 
@@ -76,9 +72,10 @@ public class CloudApiClient {
         }
     }
 
-    public LoginResult login(String password) throws IOException {
+    public LoginResult login(String email, String password) throws IOException {
         JSONObject body = new JSONObject();
         try {
+            body.put("email", email == null ? "" : email.trim());
             body.put("password", password);
         } catch (Exception e) {
             throw new IOException("failed to build login payload", e);
@@ -222,15 +219,17 @@ public class CloudApiClient {
     }
 
     private String baseUrl() {
-        String configured = PreferenceManager.getDefaultSharedPreferences(appContext)
-                .getString(KEY_API_SERVER_URL, DEFAULT_API_SERVER_URL);
+        String configured = BuildConfig.API_BASE_URL;
         String normalized = configured == null ? "" : configured.trim();
         if (!BuildConfig.DEBUG && normalized.startsWith("http://")) {
             normalized = "https://" + normalized.substring("http://".length());
         }
+        if (normalized.endsWith("/api")) {
+            normalized = normalized.substring(0, normalized.length() - 4);
+        }
         if (normalized.endsWith("/")) {
             normalized = normalized.substring(0, normalized.length() - 1);
         }
-        return normalized.isEmpty() ? DEFAULT_API_SERVER_URL : normalized;
+        return normalized.isEmpty() ? "https://api.yitian.shop" : normalized;
     }
 }

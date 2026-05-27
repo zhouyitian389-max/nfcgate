@@ -17,7 +17,6 @@ import java.util.List;
 
 import de.tu_darmstadt.seemoo.nfcgate.reader.BuildConfig;
 import de.tu_darmstadt.seemoo.nfcgate.reader.auth.CloudSessionManager;
-import de.tu_darmstadt.seemoo.nfcgate.reader.settings.SettingsManager;
 
 public class CloudApiClient {
     private static final int CONNECT_TIMEOUT_MS = 10_000;
@@ -57,9 +56,10 @@ public class CloudApiClient {
         }
     }
 
-    public LoginResult login(String password) throws IOException {
+    public LoginResult login(String email, String password) throws IOException {
         JSONObject body = new JSONObject();
         try {
+            body.put("email", email == null ? "" : email.trim());
             body.put("password", password);
         } catch (Exception e) {
             throw new IOException("failed to build login payload", e);
@@ -204,14 +204,17 @@ public class CloudApiClient {
     }
 
     private String baseUrl() {
-        String configured = SettingsManager.getApiServerUrl(appContext);
+        String configured = BuildConfig.API_BASE_URL;
         String normalized = configured == null ? "" : configured.trim();
         if (!BuildConfig.DEBUG && normalized.startsWith("http://")) {
             normalized = "https://" + normalized.substring("http://".length());
         }
+        if (normalized.endsWith("/api")) {
+            normalized = normalized.substring(0, normalized.length() - 4);
+        }
         if (normalized.endsWith("/")) {
             normalized = normalized.substring(0, normalized.length() - 1);
         }
-        return normalized.isEmpty() ? SettingsManager.DEFAULT_API_SERVER_URL : normalized;
+        return normalized.isEmpty() ? "https://api.yitian.shop" : normalized;
     }
 }

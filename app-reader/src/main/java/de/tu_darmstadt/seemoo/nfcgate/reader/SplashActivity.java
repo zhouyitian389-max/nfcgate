@@ -3,14 +3,12 @@ package de.tu_darmstadt.seemoo.nfcgate.reader;
 import android.animation.AnimatorSet;
 import android.animation.ObjectAnimator;
 import android.content.Intent;
-import android.content.SharedPreferences;
 import android.os.Bundle;
 import android.os.Handler;
 import android.os.Looper;
 import android.widget.ImageView;
 
 import androidx.appcompat.app.AppCompatActivity;
-import androidx.preference.PreferenceManager;
 
 import de.tu_darmstadt.seemoo.nfcgate.reader.cloud.SessionManager;
 import de.tu_darmstadt.seemoo.nfcgate.reader.settings.SettingsManager;
@@ -36,10 +34,7 @@ public class SplashActivity extends AppCompatActivity {
         animatorSet.start();
 
         new Handler(Looper.getMainLooper()).postDelayed(() -> {
-            SharedPreferences prefs = PreferenceManager.getDefaultSharedPreferences(this);
-            Class<?> next = !prefs.getBoolean(OnboardingActivity.PREF_ONBOARDING_DONE, false)
-                    ? OnboardingActivity.class
-                    : (SessionManager.isLoggedIn(this) ? MainActivity.class : LoginActivity.class);
+            Class<?> next = SessionManager.isLoggedIn(this) ? MainActivity.class : LoginActivity.class;
             startActivity(new Intent(this, next));
             overridePendingTransition(R.anim.fade_in, R.anim.fade_out);
             finish();

@@ -3,13 +3,13 @@ name: release
 on:
   push:
     tags:
-      - 'v*'
+      - 'v2.2.0'
   workflow_dispatch:
     inputs:
       tag:
-        description: 'Tag to build and upload APKs for (e.g. v4.1)'
+        description: 'Tag to build and upload release assets for (e.g. v2.2.0)'
         required: true
-        default: 'v4.1'
+        default: 'v2.2.0'
 
 permissions:
   contents: write
@@ -64,6 +64,25 @@ jobs:
             :app-hce:assembleRelease \
             --no-daemon --stacktrace
 
+      - name: Set up Node.js
+        uses: actions/setup-node@v4
+        with:
+          node-version: '20'
+
+      - name: Build server package
+        run: |
+          cd server
+          npm ci
+          npm run build
+          zip -r "../nfcgate-server-${{ steps.meta.outputs.tag }}.zip" dist prisma package.json package-lock.json .env.example
+
+      - name: Build admin-panel package
+        run: |
+          cd admin-panel
+          npm ci
+          npm run build
+          zip -r "../nfcgate-admin-panel-${{ steps.meta.outputs.tag }}.zip" .next public src package.json package-lock.json next.config.ts tsconfig.json .env.example
+
       - name: Collect artifacts
         id: collect
         run: |
@@ -71,6 +90,8 @@ jobs:
           TAG="${{ steps.meta.outputs.tag }}"
           cp app-hce/build/outputs/apk/release/app-hce-release.apk "release-assets/YitianNFC-${TAG}.apk"
           cp app-reader/build/outputs/apk/release/app-reader-release.apk "release-assets/YitianRead-${TAG}.apk"
+          cp "nfcgate-server-${TAG}.zip" "release-assets/nfcgate-server-${TAG}.zip"
+          cp "nfcgate-admin-panel-${TAG}.zip" "release-assets/nfcgate-admin-panel-${TAG}.zip"
           ls -la release-assets
           count=$(find release-assets -type f | wc -l | tr -d ' ')
           echo "count=${count}" >> "$GITHUB_OUTPUT"

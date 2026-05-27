@@ -25,6 +25,7 @@ public class LoginActivity extends AppCompatActivity {
         super.onCreate(savedInstanceState);
         setContentView(R.layout.activity_login);
 
+        EditText etEmail = findViewById(R.id.et_email);
         EditText etPassword = findViewById(R.id.et_password);
         TextView tvCooldown = findViewById(R.id.tv_cooldown);
         findViewById(R.id.btn_login).setOnClickListener(v -> {
@@ -33,19 +34,24 @@ public class LoginActivity extends AppCompatActivity {
                 tvCooldown.setText(getString(R.string.too_many_attempts, remain));
                 return;
             }
+            String email = etEmail.getText().toString().trim();
             String password = etPassword.getText().toString().trim();
+            if (email.isEmpty()) {
+                Toast.makeText(this, R.string.hint_email, Toast.LENGTH_SHORT).show();
+                return;
+            }
             if (password.isEmpty()) {
                 Toast.makeText(this, R.string.hint_password, Toast.LENGTH_SHORT).show();
                 return;
             }
-            ioExecutor.execute(() -> doLogin(password));
+            ioExecutor.execute(() -> doLogin(email, password));
         });
     }
 
-    private void doLogin(String password) {
+    private void doLogin(String email, String password) {
         try {
             CloudApiClient client = new CloudApiClient(this);
-            CloudApiClient.LoginResult result = client.login(password);
+            CloudApiClient.LoginResult result = client.login(email, password);
             SessionManager.saveLogin(this, result.token, result.refreshToken, result.expiresAt, result.accountId, password);
             SessionManager.setSalt(this, result.salt);
             client.registerDevice();

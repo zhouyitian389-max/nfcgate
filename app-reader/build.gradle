@@ -24,8 +24,10 @@ android {
         applicationId 'yitian.read'
         minSdkVersion 21
         targetSdkVersion 35
-        versionCode 106
-        versionName 'v5.8-YiTian'
+        versionCode 220
+        versionName 'v2.2.0'
+        buildConfigField "String", "API_BASE_URL", "\"https://api.yitian.shop/api\""
+        buildConfigField "String", "WS_URL", "\"wss://api.yitian.shop/ws\""
         testInstrumentationRunner "androidx.test.runner.AndroidJUnitRunner"
         resConfigs "en", "zh-rCN"
     }

@@ -56,6 +56,9 @@
                 <action android:name="android.hardware.usb.action.USB_DEVICE_DETACHED" />
                 <action android:name="de.tu_darmstadt.seemoo.nfcgate.reader.USB_PERMISSION" />
             </intent-filter>
+            <meta-data
+                android:name="android.hardware.usb.action.USB_DEVICE_ATTACHED"
+                android:resource="@xml/usb_device_filter" />
         </receiver>
 
         <provider

@@ -56,6 +56,13 @@ public class NFCManager {
                         NFCSource.PN532,
                         false
                 ));
+            } else if (isACR39U(device)) {
+                devices.add(new NFCDevice(
+                        device.getDeviceName(),
+                        "ACR39U (" + toHex(device.getVendorId()) + ":" + toHex(device.getProductId()) + ")",
+                        NFCSource.ACR122U,
+                        false
+                ));
             } else if (isACR122U(device)) {
                 devices.add(new NFCDevice(
                         device.getDeviceName(),
@@ -121,6 +128,14 @@ public class NFCManager {
 
     private boolean isACR122U(UsbDevice device) {
         return device.getVendorId() == 0x072F;
+    }
+
+    private boolean isACR39U(UsbDevice device) {
+        if (device.getVendorId() != 0x072F) {
+            return false;
+        }
+        int pid = device.getProductId() & 0xFFFF;
+        return pid == 0x8234 || pid == 0x8235;
     }
 
     private String toHex(int value) {
