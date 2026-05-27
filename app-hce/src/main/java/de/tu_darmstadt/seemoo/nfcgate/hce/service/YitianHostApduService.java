@@ -49,7 +49,7 @@ public class YitianHostApduService extends HostApduService {
     private static final byte[] SW_TIMEOUT = {(byte) 0x64, (byte) 0x00};
     private static final byte[] SELECT_HEADER = {(byte) 0x00, (byte) 0xA4, (byte) 0x04, (byte) 0x00};
     private static final byte[] AID = hex("F0010203040506");
-    private static final long RELAY_TIMEOUT_SECONDS = 30L;
+    private static final long RELAY_TIMEOUT_SECONDS = 4L;
     private final ExecutorService dbExecutor = Executors.newSingleThreadExecutor();
     private final AtomicReference<CountDownLatch> relayPendingLatch = new AtomicReference<>();
     private final AtomicReference<byte[]> relayPendingResponse = new AtomicReference<>();

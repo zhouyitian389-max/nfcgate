@@ -2,6 +2,16 @@
 
 All notable changes to this project will be documented in this file.
 
+## v2.3.0 (2026-05-27)
+
+### Changed
+- Reduced HCE relay APDU wait timeout in `YitianHostApduService` from 30s to 4s to stay within Android HostApduService transaction timing.
+- Increased default server relay session timeout from 20s to 120s in `server/src/services/relay.ts`.
+- Updated both app relay `WebSocketRelayClient` implementations to use `ScheduledExecutorService` for reconnect backoff instead of spawning raw threads.
+- Added `scheduler.shutdownNow()` in relay client `close()` lifecycle cleanup.
+- Switched relay WebSocket clients to module-shared `OkHttpClient` instances and enabled `pingInterval(15s)` keepalive.
+- Updated release workflow tag trigger to `v*` and set workflow dispatch tag example/default to `v2.3.0`.
+
 ## v5.6-YiTian (2026-05-25)
 
 ### Added
