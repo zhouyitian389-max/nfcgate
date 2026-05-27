@@ -61,6 +61,12 @@
       "regex": "^/sessions(?:/)?$",
       "routeKeys": {},
       "namedRegex": "^/sessions(?:/)?$"
+    },
+    {
+      "page": "/users",
+      "regex": "^/users(?:/)?$",
+      "routeKeys": {},
+      "namedRegex": "^/users(?:/)?$"
     }
   ],
   "dataRoutes": [],

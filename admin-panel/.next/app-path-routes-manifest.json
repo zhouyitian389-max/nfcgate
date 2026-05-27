@@ -3,7 +3,8 @@
   "/cards/page": "/cards",
   "/devices/page": "/devices",
   "/login/page": "/login",
-  "/logs/page": "/logs",
   "/page": "/",
-  "/sessions/page": "/sessions"
+  "/sessions/page": "/sessions",
+  "/logs/page": "/logs",
+  "/users/page": "/users"
 }
