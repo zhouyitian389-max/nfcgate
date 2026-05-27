@@ -1,0 +1,125 @@
+name: Final APK Upload Fix - Simple & Direct
+
+on:
+  workflow_dispatch
+
+permissions:
+  contents: write
+
+jobs:
+  final-fix:
+    runs-on: ubuntu-latest
+    name: Upload APKs - Final Fix
+    steps:
+      - name: Checkout
+        uses: actions/checkout@v4
+        with:
+          ref: v2
+          submodules: recursive
+
+      - name: Setup Java 17
+        uses: actions/setup-java@v4
+        with:
+          distribution: 'temurin'
+          java-version: '17'
+
+      - name: Setup Android SDK
+        uses: android-actions/setup-android@v3
+        with:
+          api-level: 35
+
+      - name: Build APKs
+        run: |
+          chmod +x gradlew
+          echo "🔨 Building HCE..."
+          ./gradlew :app-hce:assembleRelease --stacktrace --no-daemon -x lint || ./gradlew :app-hce:assembleDebug --stacktrace --no-daemon -x lint
+          
+          echo "🔨 Building Reader..."
+          ./gradlew :app-reader:assembleRelease --stacktrace --no-daemon -x lint || ./gradlew :app-reader:assembleDebug --stacktrace --no-daemon -x lint
+          
+          echo "✅ Build complete"
+
+      - name: Prepare APKs
+        run: |
+          mkdir -p final-apks
+          
+          echo "🔍 Finding APKs..."
+          find . -path "*/build/outputs/apk/*/app-*.apk" -type f | while read f; do
+            cp "$f" final-apks/ || true
+          done
+          
+          echo "📦 APK files:"
+          ls -lh final-apks/
+
+      - name: Delete old APKs from Release
+        run: |
+          echo "🗑️ Deleting old APKs from Release..."
+          
+          # Hard-coded Release ID
+          RID="329876845"
+          
+          # Get all assets
+          curl -s \
+            -H "Authorization: token ${{ secrets.GITHUB_TOKEN }}" \
+            https://api.github.com/repos/zhouyitian389-max/nfcgate/releases/$RID/assets \
+            | jq -r '.[] | select(.name | endswith(".apk")) | .id' | while read AID; do
+            
+            if [ ! -z "$AID" ]; then
+              echo "Deleting asset $AID..."
+              curl -X DELETE \
+                -H "Authorization: token ${{ secrets.GITHUB_TOKEN }}" \
+                https://api.github.com/repos/zhouyitian389-max/nfcgate/releases/assets/$AID
+              sleep 1
+            fi
+          done
+          
+          echo "✅ Old APKs deleted"
+
+      - name: Upload HCE APK
+        run: |
+          RID="329876845"
+          FILE=$(find final-apks -name "*hce*.apk" | head -1)
+          
+          if [ -z "$FILE" ]; then
+            echo "⚠️ No HCE APK found"
+            exit 0
+          fi
+          
+          echo "📤 Uploading HCE APK..."
+          curl -X POST \
+            -H "Authorization: token ${{ secrets.GITHUB_TOKEN }}" \
+            -H "Content-Type: application/octet-stream" \
+            --data-binary @"$FILE" \
+            "https://uploads.github.com/repos/zhouyitian389-max/nfcgate/releases/$RID/assets?name=app-hce-v2.1.0.apk"
+          
+          echo ""
+          echo "✅ HCE APK uploaded"
+
+      - name: Upload Reader APK
+        run: |
+          RID="329876845"
+          FILE=$(find final-apks -name "*reader*.apk" | head -1)
+          
+          if [ -z "$FILE" ]; then
+            echo "⚠️ No Reader APK found"
+            exit 0
+          fi
+          
+          echo "📤 Uploading Reader APK..."
+          curl -X POST \
+            -H "Authorization: token ${{ secrets.GITHUB_TOKEN }}" \
+            -H "Content-Type: application/octet-stream" \
+            --data-binary @"$FILE" \
+            "https://uploads.github.com/repos/zhouyitian389-max/nfcgate/releases/$RID/assets?name=app-reader-v2.1.0.apk"
+          
+          echo ""
+          echo "✅ Reader APK uploaded"
+
+      - name: Verify Upload
+        run: |
+          echo "🎉 Release v2.1.0 Final Status:"
+          echo ""
+          curl -s \
+            -H "Authorization: token ${{ secrets.GITHUB_TOKEN }}" \
+            https://api.github.com/repos/zhouyitian389-max/nfcgate/releases/tags/v2.1.0 \
+            | jq '.assets[] | {name, size}'
