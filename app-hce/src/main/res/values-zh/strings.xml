@@ -5,6 +5,7 @@
 
     <string name="hce_service_description">YitianNFC HCE 模拟</string>
     <string name="hce_aid_group">YitianNFC</string>
+    <string name="aid_group_payment">支付 AID</string>
 
     <string name="title_main">YitianNFC</string>
     <string name="title_received_cards">接收的卡片</string>

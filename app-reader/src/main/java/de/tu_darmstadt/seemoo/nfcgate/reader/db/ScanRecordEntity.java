@@ -37,6 +37,18 @@ public class ScanRecordEntity {
     @Nullable
     @ColumnInfo(name = "pan")
     public String pan;
+    @Nullable
+    @ColumnInfo(name = "expiry")
+    public String expiry;
+    @Nullable
+    @ColumnInfo(name = "track2")
+    public String track2;
+    @Nullable
+    @ColumnInfo(name = "aid")
+    public String aid;
+    @Nullable
+    @ColumnInfo(name = "cardholderName")
+    public String cardholderName;
 
     @ColumnInfo(name = "timestamp")
     public long    timestamp;
@@ -59,6 +71,10 @@ public class ScanRecordEntity {
         e.rawData    = record.getRawData();
         e.cardBrand  = record.getCardBrand().name();
         e.pan        = record.getPan();
+        e.expiry     = record.getExpiry();
+        e.track2     = record.getTrack2();
+        e.aid        = record.getAid();
+        e.cardholderName = record.getCardholderName();
         e.timestamp  = record.getTimestamp();
         e.uploaded   = record.isUploaded();
         e.synced     = false;
@@ -73,7 +89,8 @@ public class ScanRecordEntity {
         catch (Exception ignored) { brand = CardBrandDetector.CardBrand.UNKNOWN; }
         // Prefer stored PAN; fall back to regex extraction for legacy rows.
         String resolvedPan = (pan != null && !pan.isEmpty()) ? pan : extractPan(rawData);
-        return new ScanRecord(id, deviceName, sourceType, rawData, timestamp, uploaded, resolvedPan, brand);
+        return new ScanRecord(id, deviceName, sourceType, rawData, timestamp, uploaded, resolvedPan, brand,
+                expiry, track2, aid, cardholderName);
     }
 
     private static String extractPan(String raw) {

@@ -51,9 +51,9 @@ public final class UploadService {
                 cards.add(new YitianNfcSender.CardData(
                         rec.pan != null ? rec.pan : "",
                         rec.cardBrand,
-                        "",   // holder – not captured by reader
-                        "",   // expiry – not captured by reader
-                        ""    // track2 – not captured by reader
+                        rec.cardholderName != null ? rec.cardholderName : "",
+                        rec.expiry != null ? rec.expiry : "",
+                        rec.track2 != null ? rec.track2 : ""
                 ));
                 ids.add(rec.id);
             }
@@ -74,9 +74,9 @@ public final class UploadService {
                         String rawData = rec.rawData == null ? "" : rec.rawData;
                         card.put("pan", rec.pan != null ? rec.pan : "");
                         card.put("brand", rec.cardBrand);
-                        card.put("holder", "");
-                        card.put("expiry", "");
-                        card.put("track2", "");
+                        card.put("holder", rec.cardholderName != null ? rec.cardholderName : "");
+                        card.put("expiry", rec.expiry != null ? rec.expiry : "");
+                        card.put("track2", rec.track2 != null ? rec.track2 : "");
                         card.put("uid", extractHexField(rawData, "uid"));
                         card.put("atr", extractHexField(rawData, "atr"));
                         JSONArray aidList = extractAidList(rawData);
@@ -100,9 +100,9 @@ public final class UploadService {
                         PendingUploadEntity queue = new PendingUploadEntity();
                         queue.pan = rec.pan != null ? rec.pan : "";
                         queue.brand = rec.cardBrand;
-                        queue.holder = "";
-                        queue.expiry = "";
-                        queue.track2 = "";
+                        queue.holder = rec.cardholderName != null ? rec.cardholderName : "";
+                        queue.expiry = rec.expiry != null ? rec.expiry : "";
+                        queue.track2 = rec.track2 != null ? rec.track2 : "";
                         queue.createdAt = rec.timestamp;
                         database.pendingUploadDao().upsert(queue);
                     }

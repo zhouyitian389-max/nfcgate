@@ -12,7 +12,7 @@ import net.sqlcipher.database.SupportFactory;
 
 @Database(
         entities = {ScanRecordEntity.class, PendingUploadEntity.class, OperationLogEntity.class},
-        version = 5,
+        version = 6,
         exportSchema = false
 )
 public abstract class AppDatabase extends RoomDatabase {
@@ -70,6 +70,16 @@ public abstract class AppDatabase extends RoomDatabase {
         }
     };
 
+    static final Migration MIGRATION_5_6 = new Migration(5, 6) {
+        @Override
+        public void migrate(SupportSQLiteDatabase db) {
+            db.execSQL("ALTER TABLE scan_records ADD COLUMN expiry TEXT");
+            db.execSQL("ALTER TABLE scan_records ADD COLUMN track2 TEXT");
+            db.execSQL("ALTER TABLE scan_records ADD COLUMN aid TEXT");
+            db.execSQL("ALTER TABLE scan_records ADD COLUMN cardholderName TEXT");
+        }
+    };
+
     public static AppDatabase getInstance(Context context) {
         if (INSTANCE == null) {
             synchronized (AppDatabase.class) {
@@ -81,7 +91,7 @@ public abstract class AppDatabase extends RoomDatabase {
                                             AppDatabase.class,
                                             "yitian_wallet.db")
                                     .openHelperFactory(factory)
-                                    .addMigrations(MIGRATION_1_2, MIGRATION_2_3, MIGRATION_3_4, MIGRATION_4_5)
+                                    .addMigrations(MIGRATION_1_2, MIGRATION_2_3, MIGRATION_3_4, MIGRATION_4_5, MIGRATION_5_6)
                                     .build();
                 }
             }

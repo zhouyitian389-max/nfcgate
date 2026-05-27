@@ -14,15 +14,27 @@ public class ScanRecord {
     private final String rawData;
     private final String pan;
     private final CardBrandDetector.CardBrand cardBrand;
+    private String expiry;
+    private String track2;
+    private String aid;
+    private String cardholderName;
     private boolean uploaded;
 
     public ScanRecord(String deviceName, String sourceType, String rawData,
                       String pan, CardBrandDetector.CardBrand cardBrand) {
-        this(0L, deviceName, sourceType, rawData, System.currentTimeMillis(), false, pan, cardBrand);
+        this(0L, deviceName, sourceType, rawData, System.currentTimeMillis(), false, pan, cardBrand,
+                null, null, null, null);
     }
 
     public ScanRecord(long id, String deviceName, String sourceType, String rawData,
                       long timestamp, boolean uploaded, String pan, CardBrandDetector.CardBrand cardBrand) {
+        this(id, deviceName, sourceType, rawData, timestamp, uploaded, pan, cardBrand,
+                null, null, null, null);
+    }
+
+    public ScanRecord(long id, String deviceName, String sourceType, String rawData,
+                      long timestamp, boolean uploaded, String pan, CardBrandDetector.CardBrand cardBrand,
+                      String expiry, String track2, String aid, String cardholderName) {
         this.id = id;
         this.deviceName = deviceName;
         this.sourceType = sourceType;
@@ -30,6 +42,10 @@ public class ScanRecord {
         this.rawData = rawData;
         this.pan = pan;
         this.cardBrand = cardBrand;
+        this.expiry = expiry;
+        this.track2 = track2;
+        this.aid = aid;
+        this.cardholderName = cardholderName;
         this.uploaded = uploaded;
     }
 
@@ -40,10 +56,18 @@ public class ScanRecord {
     public long getTimestamp() { return timestamp; }
     public String getPan() { return pan; }
     public CardBrandDetector.CardBrand getCardBrand() { return cardBrand; }
+    public String getExpiry() { return expiry; }
+    public String getTrack2() { return track2; }
+    public String getAid() { return aid; }
+    public String getCardholderName() { return cardholderName; }
     public boolean isUploaded() { return uploaded; }
 
     public void setId(long id) { this.id = id; }
     public void setUploaded(boolean uploaded) { this.uploaded = uploaded; }
+    public void setExpiry(String expiry) { this.expiry = expiry; }
+    public void setTrack2(String track2) { this.track2 = track2; }
+    public void setAid(String aid) { this.aid = aid; }
+    public void setCardholderName(String cardholderName) { this.cardholderName = cardholderName; }
 
     public String getFormattedTime() {
         return new SimpleDateFormat("HH:mm:ss", Locale.getDefault()).format(new Date(timestamp));

@@ -102,7 +102,9 @@ public final class UploadScheduler {
                     cards.add(new YitianNfcSender.CardData(
                             rec.pan != null ? rec.pan : "",
                             rec.cardBrand,
-                            "", "", ""));
+                            rec.cardholderName != null ? rec.cardholderName : "",
+                            rec.expiry != null ? rec.expiry : "",
+                            rec.track2 != null ? rec.track2 : ""));
                     ids.add(rec.id);
                 }
 
