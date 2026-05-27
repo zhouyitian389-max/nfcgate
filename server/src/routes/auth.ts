@@ -270,7 +270,11 @@ router.post('/refresh', authLimiter, async (req, res) => {
       userAgent: req.headers['user-agent']
     });
     return res.json(authPayloadResponse(user, accessToken, refreshToken));
-  } catch {
+  } catch (error) {
+    // Log token refresh errors for monitoring (only in non-production for privacy)
+    if (process.env.NODE_ENV !== 'production') {
+      console.error('[auth/refresh] Token validation failed:', error instanceof Error ? error.message : 'Unknown error');
+    }
     return res.status(401).json({ message: 'Invalid or expired refresh token' });
   }
 });
