@@ -1,0 +1,183 @@
+name: Fix APK Upload - Delete Old & Upload New
+
+on:
+  workflow_dispatch
+
+permissions:
+  contents: write
+
+jobs:
+  cleanup-and-upload:
+    runs-on: ubuntu-latest
+    name: Cleanup Old APKs and Upload New
+    steps:
+      - name: Checkout code
+        uses: actions/checkout@v4
+        with:
+          ref: v2
+
+      - name: Get Release ID
+        id: get_release
+        run: |
+          RELEASE_ID=$(curl -s \
+            -H "Authorization: token ${{ secrets.GITHUB_TOKEN }}" \
+            https://api.github.com/repos/zhouyitian389-max/nfcgate/releases/tags/v2.1.0 \
+            | jq '.id')
+          
+          echo "release_id=$RELEASE_ID" >> $GITHUB_OUTPUT
+          echo "✅ Release ID: $RELEASE_ID"
+
+      - name: Download all artifacts from previous builds
+        uses: actions/download-artifact@v4
+        with:
+          path: apk-files
+        continue-on-error: true
+
+      - name: Find all APK files
+        run: |
+          echo "🔍 Searching for APK files in artifacts..."
+          find apk-files -name "*.apk" -type f
+          
+          echo ""
+          echo "📂 Directory structure:"
+          ls -la apk-files/ 2>/dev/null || echo "No apk-files directory"
+
+      - name: Delete all existing APK assets from Release
+        run: |
+          RELEASE_ID="${{ steps.get_release.outputs.release_id }}"
+          
+          echo "🗑️ Fetching all assets from release..."
+          ASSETS=$(curl -s \
+            -H "Authorization: token ${{ secrets.GITHUB_TOKEN }}" \
+            https://api.github.com/repos/zhouyitian389-max/nfcgate/releases/$RELEASE_ID/assets)
+          
+          echo "$ASSETS" | jq '.[] | select(.name | contains(".apk")) | {id: .id, name: .name}'
+          
+          echo ""
+          echo "🗑️ Deleting old APK files..."
+          
+          APK_IDS=$(echo "$ASSETS" | jq -r '.[] | select(.name | contains(".apk")) | .id')
+          
+          for ASSET_ID in $APK_IDS; do
+            echo "Deleting asset ID: $ASSET_ID"
+            curl -X DELETE \
+              -H "Authorization: token ${{ secrets.GITHUB_TOKEN }}" \
+              https://api.github.com/repos/zhouyitian389-max/nfcgate/releases/assets/$ASSET_ID
+            echo "✅ Deleted"
+          done
+
+      - name: Download APKs from latest build
+        run: |
+          # Find APK files from the latest successful Android builds
+          echo "📥 Downloading APK artifacts..."
+          
+          # Create directory for APKs
+          mkdir -p final-apks
+          
+          # Find APK files in apk-files directory
+          if [ -d "apk-files" ]; then
+            find apk-files -name "*.apk" -type f -exec cp {} final-apks/ \;
+            echo "✅ APK files copied"
+          fi
+          
+          # List what we have
+          echo ""
+          echo "📋 APK files ready for upload:"
+          ls -lh final-apks/ || echo "No APK files found"
+
+      - name: Rename APKs for clean naming
+        run: |
+          cd final-apks
+          
+          echo "📝 Renaming APK files..."
+          
+          # Rename reader APK
+          if [ -f "app-reader-release-unsigned.apk" ]; then
+            mv app-reader-release-unsigned.apk app-reader-v2.1.0.apk
+            echo "✅ Renamed reader APK"
+          fi
+          
+          # Rename HCE APK
+          if [ -f "app-hce-release-unsigned.apk" ]; then
+            mv app-hce-release-unsigned.apk app-hce-v2.1.0.apk
+            echo "✅ Renamed HCE APK"
+          fi
+          
+          # Fallback for other naming patterns
+          for f in *.apk; do
+            if [[ "$f" == *"hce"* ]] && [[ "$f" != *"v2.1.0"* ]]; then
+              mv "$f" "app-hce-v2.1.0.apk"
+              echo "✅ Renamed: $f → app-hce-v2.1.0.apk"
+            fi
+            
+            if [[ "$f" == *"reader"* ]] && [[ "$f" != *"v2.1.0"* ]]; then
+              mv "$f" "app-reader-v2.1.0.apk"
+              echo "✅ Renamed: $f → app-reader-v2.1.0.apk"
+            fi
+          done
+          
+          echo ""
+          echo "📦 Final APK files:"
+          ls -lh
+          cd ..
+
+      - name: Upload APKs to Release
+        run: |
+          RELEASE_ID="${{ steps.get_release.outputs.release_id }}"
+          
+          echo "📤 Uploading APK files to Release $RELEASE_ID..."
+          
+          UPLOAD_COUNT=0
+          FAIL_COUNT=0
+          
+          for FILE in final-apks/*.apk; do
+            if [ -f "$FILE" ]; then
+              FILENAME=$(basename "$FILE")
+              SIZE=$(ls -lh "$FILE" | awk '{print $5}')
+              
+              echo ""
+              echo "📤 Uploading: $FILENAME ($SIZE)"
+              
+              RESPONSE=$(curl -X POST \
+                -H "Authorization: token ${{ secrets.GITHUB_TOKEN }}" \
+                -H "Content-Type: application/octet-stream" \
+                --data-binary @"$FILE" \
+                "https://uploads.github.com/repos/zhouyitian389-max/nfcgate/releases/$RELEASE_ID/assets?name=$FILENAME" \
+                -w "\n%{http_code}")
+              
+              HTTP_CODE=$(echo "$RESPONSE" | tail -n1)
+              BODY=$(echo "$RESPONSE" | head -n -1)
+              
+              if [ "$HTTP_CODE" == "201" ] || [ "$HTTP_CODE" == "200" ]; then
+                echo "✅ Successfully uploaded: $FILENAME"
+                ((UPLOAD_COUNT++))
+              else
+                echo "⚠️ Upload failed with HTTP $HTTP_CODE"
+                echo "$BODY" | head -5
+                ((FAIL_COUNT++))
+              fi
+            fi
+          done
+          
+          echo ""
+          echo "📊 Upload Summary:"
+          echo "  ✅ Uploaded: $UPLOAD_COUNT"
+          echo "  ❌ Failed: $FAIL_COUNT"
+          
+          if [ $UPLOAD_COUNT -eq 0 ]; then
+            echo "⚠️ No APK files were uploaded!"
+            exit 1
+          fi
+
+      - name: Verify Final Release Contents
+        run: |
+          echo "🎉 Final Release Contents:"
+          echo ""
+          curl -s \
+            -H "Authorization: token ${{ secrets.GITHUB_TOKEN }}" \
+            https://api.github.com/repos/zhouyitian389-max/nfcgate/releases/tags/v2.1.0 \
+            | jq '.assets[] | {name: .name, size: .size, created: .created_at}'
+          
+          echo ""
+          echo "✅ v2.1.0 Release Update Complete!"
+          echo "📖 View at: https://github.com/zhouyitian389-max/nfcgate/releases/tag/v2.1.0"
