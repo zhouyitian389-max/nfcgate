@@ -52,6 +52,8 @@ const HEARTBEAT_MS = Number(process.env.RELAY_HEARTBEAT_MS || 10_000);
 const HEX_REGEX = /^[0-9A-Fa-f]+$/;
 const MAX_APDU_LEN = 2000;
 const MAX_ATR_LEN = 128;
+const MESSAGE_RATE_WINDOW_MS = 1000;
+const MAX_MESSAGES_PER_WINDOW = Number(process.env.RELAY_MAX_MESSAGES_PER_SECOND || 120);
 
 const sessions = new Map<string, RelaySession>();
 const sessionTokens = new Map<string, SessionTokenMeta>();
@@ -315,6 +317,8 @@ export function initWebSocket(server: Server) {
     ws.isAlive = true;
     let token = initialToken;
     let role = initialRole;
+    let messageWindowStartedAt = Date.now();
+    let messageCountInWindow = 0;
 
     const bindSession = async (joinToken: string, joinRole: RelayRole, atr?: string) => {
       token = joinToken;
@@ -352,6 +356,18 @@ export function initWebSocket(server: Server) {
     });
 
     ws.on('message', async (buf) => {
+      const now = Date.now();
+      if (now - messageWindowStartedAt >= MESSAGE_RATE_WINDOW_MS) {
+        messageWindowStartedAt = now;
+        messageCountInWindow = 0;
+      }
+      messageCountInWindow += 1;
+      if (messageCountInWindow > MAX_MESSAGES_PER_WINDOW) {
+        send(ws, { type: 'error', message: 'Too many messages' });
+        ws.close(4008, 'rate_limit');
+        return;
+      }
+
       const message = parseMessage(buf.toString());
       if (!message) {
         send(ws, { type: 'error', message: 'Invalid JSON message' });

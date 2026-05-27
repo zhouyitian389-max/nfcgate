@@ -76,6 +76,7 @@
     <string name="settings_api_server">API Server URL</string>
     <string name="settings_logout">Log Out</string>
     <string name="settings_cloud_base">Cloud API base URL</string>
+    <string name="settings_cloud_email">Cloud account email</string>
     <string name="settings_yitian_nfc_host">YitianNFC Host</string>
     <string name="settings_yitian_nfc_host_summary">IP address of the YitianNFC receiver</string>
     <string name="settings_yitian_nfc_port">YitianNFC Port</string>

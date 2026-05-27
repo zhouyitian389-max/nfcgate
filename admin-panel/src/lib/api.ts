@@ -1,4 +1,6 @@
 import { tokenStorage } from './tokenStorage';
+import { requestTokenRefresh } from './tokenRefresh';
+import { logout } from './logoutHandler';
 
 export { tokenStorage };
 
@@ -22,49 +24,13 @@ export function clearAuthToken(): void {
   tokenStorage.clearTokens();
 }
 
-let _refreshing: Promise<string | null> | null = null;
-
-async function tryRefreshToken(): Promise<string | null> {
-  if (_refreshing) return _refreshing;
-  const refreshToken = tokenStorage.getRefreshToken();
-  if (!refreshToken) return null;
-
-  _refreshing = fetch(`${API_BASE}/auth/refresh`, {
-    method: 'POST',
-    headers: { 'Content-Type': 'application/json' },
-    body: JSON.stringify({ refreshToken })
-  })
-    .then(async (r) => {
-      if (!r.ok) {
-        tokenStorage.clearTokens();
-        return null;
-      }
-      const data = await r.json() as {
-        accessToken?: string;
-        token?: string;
-        refreshToken?: string;
-        expiresAt?: number;
-      };
-      const newAccess  = data.accessToken  || data.token   || '';
-      const newRefresh = data.refreshToken || '';
-      const expiresAt  = data.expiresAt    ?? (Date.now() + 15 * 60 * 1000);
-      if (newAccess && newRefresh) {
-        tokenStorage.setTokens(newAccess, newRefresh, expiresAt);
-      }
-      return newAccess || null;
-    })
-    .catch(() => {
-      tokenStorage.clearTokens();
-      return null;
-    })
-    .finally(() => { _refreshing = null; });
-  return _refreshing;
-}
-
 export async function apiFetch(path: string, init: RequestInit = {}) {
   // Proactively refresh if the access token is expiring within 60 s.
   if (tokenStorage.isAccessTokenExpiringSoon(60_000)) {
-    await tryRefreshToken();
+    const refreshed = await requestTokenRefresh();
+    if (!refreshed) {
+      tokenStorage.clearTokens();
+    }
   }
 
   const token = tokenStorage.getAccessToken();
@@ -82,7 +48,7 @@ export async function apiFetch(path: string, init: RequestInit = {}) {
 
   if (!res.ok) {
     if (res.status === 401 && typeof window !== 'undefined') {
-      const newToken = await tryRefreshToken();
+      const newToken = await requestTokenRefresh();
       if (newToken) {
         const retryRes = await fetch(`${API_BASE}${path}`, {
           ...init,
@@ -91,7 +57,8 @@ export async function apiFetch(path: string, init: RequestInit = {}) {
         });
         if (retryRes.ok) return retryRes.json();
       }
-      tokenStorage.clearTokens();
+      await logout('session_expired');
+      return;
     }
     throw new Error(`API request failed: ${res.status}`);
   }

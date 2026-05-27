@@ -1,7 +1,7 @@
 {
   "/_not-found/page": "/_not-found",
-  "/devices/page": "/devices",
   "/cards/page": "/cards",
+  "/devices/page": "/devices",
   "/login/page": "/login",
   "/logs/page": "/logs",
   "/page": "/",

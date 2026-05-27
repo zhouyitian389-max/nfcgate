@@ -7,7 +7,7 @@ import { authMiddleware, type AuthenticatedRequest } from '../middleware/auth.js
 import { loginRateLimiter, registerRateLimiter } from '../middleware/rateLimit.js';
 import { createSessionTokens, revokeSession, revokeUserSessions, rotateSessionTokens, tokenHashMatches } from '../services/authSessions.js';
 import { addToBlacklist } from '../services/tokenBlacklist.js';
-import { decodeToken, getAccessTokenExpiresInMs, getRefreshTokenExpiresInMs, getTokenExpiresInSeconds, verifyAccessToken, verifyRefreshToken, type SessionTokenUser } from '../services/tokenService.js';
+import { decodeToken, getAccessTokenExpiresInMs, getRefreshTokenExpiresInMs, getTokenExpiresInSeconds, verifyRefreshToken, type SessionTokenUser } from '../services/tokenService.js';
 import { isStrongPassword, isValidEmail, normalizeEmail } from '../utils/validators.js';
 import { closeSessionsByAccountId } from '../ws/relay.js';
 
@@ -61,22 +61,11 @@ async function markFailedLogin(userId: string, loginAttempts: number) {
 }
 
 async function resolveLoginUser(email: string | undefined) {
-  if (email) {
-    return prisma.user.findUnique({
-      where: { email },
-      include: { account: { select: { id: true, name: true, encryptionSalt: true } } }
-    });
-  }
-
-  const users = await prisma.user.findMany({
-    orderBy: { createdAt: 'asc' },
-    include: { account: { select: { id: true, name: true, encryptionSalt: true } } },
-    take: 2
+  if (!email) return null;
+  return prisma.user.findUnique({
+    where: { email },
+    include: { account: { select: { id: true, name: true, encryptionSalt: true } } }
   });
-  if (users.length !== 1) {
-    return null;
-  }
-  return users[0];
 }
 
 function buildSessionUser(user: {
@@ -188,13 +177,16 @@ router.post('/register', registerRateLimiter, async (req, res) => {
 router.post('/login', loginRateLimiter, async (req, res) => {
   const { email, password, deviceId, deviceName } = req.body as LoginBody;
   const normalizedEmail = normalizeEmail(email);
+  if (!normalizedEmail || !isValidEmail(normalizedEmail)) {
+    return res.status(400).json({ message: 'email and password are required' });
+  }
   if (!validatePassword(password)) {
-    return res.status(400).json({ message: normalizedEmail ? 'email and password are required' : 'password is required (>= 8 chars)' });
+    return res.status(400).json({ message: 'email and password are required' });
   }
 
   const user = await resolveLoginUser(normalizedEmail);
   if (!user) {
-    return res.status(401).json({ message: normalizedEmail ? 'Invalid credentials' : 'Password-only login requires exactly one registered user' });
+    return res.status(401).json({ message: 'Invalid credentials' });
   }
 
   if (user.lockedUntil && user.lockedUntil.getTime() > Date.now()) {
@@ -220,11 +212,17 @@ router.post('/login', loginRateLimiter, async (req, res) => {
 
 router.post('/logout', authMiddleware, async (req: AuthenticatedRequest, res) => {
   const authHeader = req.headers.authorization;
+  const refreshToken = trimValue((req.body as { refreshToken?: string } | undefined)?.refreshToken, 8192);
   if (authHeader?.startsWith('Bearer ')) {
     const token = authHeader.slice('Bearer '.length);
     const decoded = decodeToken(token);
     const expiry = decoded?.exp ? decoded.exp * 1000 : Date.now() + 7 * 24 * 60 * 60 * 1000;
     await addToBlacklist(token, expiry);
+  }
+  if (refreshToken) {
+    const decodedRefresh = decodeToken(refreshToken);
+    const expiry = decodedRefresh?.exp ? decodedRefresh.exp * 1000 : Date.now() + 7 * 24 * 60 * 60 * 1000;
+    await addToBlacklist(refreshToken, expiry);
   }
 
   if (req.user?.sessionId) {
@@ -237,55 +235,20 @@ router.post('/logout', authMiddleware, async (req: AuthenticatedRequest, res) =>
 });
 
 router.post('/refresh', authLimiter, async (req, res) => {
-  const body = req.body as { refreshToken?: string; token?: string };
+  const body = req.body as { refreshToken?: string };
   const providedRefreshToken = trimValue(body.refreshToken, 8192);
-  const providedAccessToken = trimValue(body.token, 8192);
-  const bearerToken = req.headers.authorization?.startsWith('Bearer ')
-    ? req.headers.authorization.slice('Bearer '.length)
-    : undefined;
 
   try {
-    if (providedRefreshToken) {
-      const payload = verifyRefreshToken(providedRefreshToken);
-      const session = await prisma.authSession.findFirst({
-        where: { sessionId: payload.sid, userId: payload.sub, revokedAt: null }
-      });
-      if (!session || !tokenHashMatches(providedRefreshToken, session.refreshTokenHash)) {
-        return res.status(401).json({ message: 'Invalid or revoked refresh token' });
-      }
-
-      const user = await prisma.user.findUnique({
-        where: { id: payload.sub },
-        include: { account: { select: { id: true, name: true, encryptionSalt: true } } }
-      });
-      if (!user) {
-        return res.status(401).json({ message: 'Invalid refresh token user' });
-      }
-      if ((user.passwordChangedAt?.getTime() ?? 0) > payload.pwd) {
-        await revokeSession(session.sessionId, 'Password changed');
-        return res.status(401).json({ message: 'Refresh token expired after password change' });
-      }
-
-      const { accessToken, refreshToken } = await rotateSessionTokens(session.sessionId, buildSessionUser(user), {
-        deviceId: session.deviceId,
-        deviceName: session.deviceName,
-        ip: req.ip,
-        userAgent: req.headers['user-agent']
-      });
-      return res.json(authPayloadResponse(user, accessToken, refreshToken));
-    }
-
-    const currentToken = providedAccessToken || bearerToken;
-    if (!currentToken) {
+    if (!providedRefreshToken) {
       return res.status(400).json({ message: 'refreshToken is required' });
     }
 
-    const payload = verifyAccessToken(currentToken);
+    const payload = verifyRefreshToken(providedRefreshToken);
     const session = await prisma.authSession.findFirst({
       where: { sessionId: payload.sid, userId: payload.sub, revokedAt: null }
     });
-    if (!session) {
-      return res.status(401).json({ message: 'Session has been revoked' });
+    if (!session || !tokenHashMatches(providedRefreshToken, session.refreshTokenHash)) {
+      return res.status(401).json({ message: 'Invalid or revoked refresh token' });
     }
 
     const user = await prisma.user.findUnique({
@@ -293,11 +256,11 @@ router.post('/refresh', authLimiter, async (req, res) => {
       include: { account: { select: { id: true, name: true, encryptionSalt: true } } }
     });
     if (!user) {
-      return res.status(401).json({ message: 'Invalid token user' });
+      return res.status(401).json({ message: 'Invalid refresh token user' });
     }
     if ((user.passwordChangedAt?.getTime() ?? 0) > payload.pwd) {
       await revokeSession(session.sessionId, 'Password changed');
-      return res.status(401).json({ message: 'Token expired after password change' });
+      return res.status(401).json({ message: 'Refresh token expired after password change' });
     }
 
     const { accessToken, refreshToken } = await rotateSessionTokens(session.sessionId, buildSessionUser(user), {

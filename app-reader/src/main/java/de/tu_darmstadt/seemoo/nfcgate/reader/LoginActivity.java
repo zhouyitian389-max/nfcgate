@@ -46,7 +46,7 @@ public class LoginActivity extends AppCompatActivity {
         try {
             CloudApiClient client = new CloudApiClient(this);
             CloudApiClient.LoginResult result = client.login(password);
-            SessionManager.saveLogin(this, result.token, result.expiresAt, result.accountId, password);
+            SessionManager.saveLogin(this, result.token, result.refreshToken, result.expiresAt, result.accountId, password);
             SessionManager.setSalt(this, result.salt);
             client.registerDevice();
             try { client.registerFcmToken("no_fcm"); } catch (Exception ignored) {}

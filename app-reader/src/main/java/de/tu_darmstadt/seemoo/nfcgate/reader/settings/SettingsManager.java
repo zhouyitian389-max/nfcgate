@@ -16,6 +16,7 @@ public final class SettingsManager {
     public static final String KEY_LANGUAGE        = "language";
     public static final String KEY_AUTO_SYNC       = "auto_sync";
     public static final String KEY_CLOUD_BASE      = "cloud_api_base";
+    public static final String KEY_CLOUD_EMAIL     = "cloud_email";
     public static final String KEY_HAPTIC          = "haptic_feedback";
     public static final String KEY_UPLOAD_MODE     = "upload_mode";
     public static final String KEY_API_SERVER_URL  = "api_server_url";
@@ -87,6 +88,10 @@ public final class SettingsManager {
 
     public static String getCloudBaseUrl(Context ctx) {
         return prefs(ctx).getString(KEY_CLOUD_BASE, DEFAULT_CLOUD_API_BASE);
+    }
+
+    public static String getCloudEmail(Context ctx) {
+        return prefs(ctx).getString(KEY_CLOUD_EMAIL, "");
     }
 
     /** Returns the cloud API server URL configured via the api_server_url preference. */

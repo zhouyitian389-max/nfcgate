@@ -2,6 +2,7 @@ import './globals.css';
 import Link from 'next/link';
 import type { ReactNode } from 'react';
 import LogoutButton from '@/components/LogoutButton';
+import AuthProvider from '@/components/AuthProvider';
 
 export default function RootLayout({ children }: { children: ReactNode }) {
   return (
@@ -21,7 +22,9 @@ export default function RootLayout({ children }: { children: ReactNode }) {
               <LogoutButton />
             </div>
           </aside>
-          <main className="flex-1 p-6">{children}</main>
+          <main className="flex-1 p-6">
+            <AuthProvider>{children}</AuthProvider>
+          </main>
         </div>
       </body>
     </html>

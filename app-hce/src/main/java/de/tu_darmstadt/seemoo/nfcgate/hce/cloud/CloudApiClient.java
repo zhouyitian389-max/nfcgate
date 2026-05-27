@@ -37,12 +37,14 @@ public class CloudApiClient {
 
     public static class LoginResult {
         public final String token;
+        public final String refreshToken;
         public final long expiresAt;
         public final String accountId;
         public final String salt;
 
-        public LoginResult(String token, long expiresAt, String accountId, String salt) {
+        public LoginResult(String token, String refreshToken, long expiresAt, String accountId, String salt) {
             this.token = token;
+            this.refreshToken = refreshToken;
             this.expiresAt = expiresAt;
             this.accountId = accountId;
             this.salt = salt;
@@ -97,20 +99,36 @@ public class CloudApiClient {
     public CloudApiClient(Context context) { this.appContext = context.getApplicationContext(); }
 
     public LoginResult login(String password) throws Exception {
-        JSONObject req = new JSONObject().put("password", password);
+        String email = SettingsManager.getCloudEmail(appContext);
+        JSONObject req = new JSONObject()
+                .put("email", email)
+                .put("password", password);
         JSONObject json = request("POST", "/api/auth/login", req, null, true);
-        long expiresIn = json.optLong("expires_in", 3600L);
-        return new LoginResult(json.optString("token", ""), System.currentTimeMillis() + expiresIn * 1000L, json.optString("account_id", ""), json.optString("salt", ""));
+        long serverExpiresAt = json.optLong("expiresAt", 0L);
+        long expiresAt = serverExpiresAt > 0 ? serverExpiresAt
+                : System.currentTimeMillis() + json.optLong("expires_in", 3600L) * 1000L;
+        return new LoginResult(
+                json.optString("token", ""),
+                json.optString("refreshToken", ""),
+                expiresAt,
+                json.optString("account_id", ""),
+                json.optString("salt", ""));
     }
 
     public void refreshIfNeeded() throws Exception {
         if (!SessionManager.isLoggedIn(appContext) || !SessionManager.isTokenExpiringSoon(appContext)) return;
         synchronized (REFRESH_LOCK) {
             if (!SessionManager.isLoggedIn(appContext) || !SessionManager.isTokenExpiringSoon(appContext)) return;
-            JSONObject req = new JSONObject().put("token", SessionManager.getToken(appContext));
-            JSONObject json = request("POST", "/api/auth/refresh", req, SessionManager.getToken(appContext), false);
-            long expiresIn = json.optLong("expires_in", 3600L);
-            SessionManager.updateToken(appContext, json.optString("token", SessionManager.getToken(appContext)), System.currentTimeMillis() + expiresIn * 1000L);
+            JSONObject req = new JSONObject().put("refreshToken", SessionManager.getRefreshToken(appContext));
+            JSONObject json = request("POST", "/api/auth/refresh", req, null, false);
+            long serverExpiresAt = json.optLong("expiresAt", 0L);
+            long expiresAt = serverExpiresAt > 0 ? serverExpiresAt
+                    : System.currentTimeMillis() + json.optLong("expires_in", 3600L) * 1000L;
+            SessionManager.updateToken(
+                    appContext,
+                    json.optString("token", SessionManager.getToken(appContext)),
+                    json.optString("refreshToken", SessionManager.getRefreshToken(appContext)),
+                    expiresAt);
         }
     }
 
