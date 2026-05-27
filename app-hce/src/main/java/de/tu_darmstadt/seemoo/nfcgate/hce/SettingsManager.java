@@ -10,6 +10,7 @@ public final class SettingsManager {
     public static final String KEY_THEME = "theme";
     public static final String KEY_LANGUAGE = "language";
     public static final String KEY_AUTO_SYNC = "auto_sync";
+    public static final String KEY_USB_OUTPUT_ENABLED = "pref_usb_output_enabled";
     public static final String KEY_CLOUD_BASE = "cloud_api_base";
     public static final String KEY_CLOUD_EMAIL = "cloud_email";
 
@@ -48,6 +49,10 @@ public final class SettingsManager {
 
     public static boolean isAutoSyncEnabled(Context context) {
         return prefs(context).getBoolean(KEY_AUTO_SYNC, true);
+    }
+
+    public static boolean isUsbOutputEnabled(Context context) {
+        return prefs(context).getBoolean(KEY_USB_OUTPUT_ENABLED, false);
     }
 
     public static String getLanguage(Context context) {

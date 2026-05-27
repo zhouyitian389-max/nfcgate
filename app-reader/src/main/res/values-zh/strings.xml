@@ -77,6 +77,8 @@
     <string name="settings_yitian_nfc_port_summary">YitianNFC 接收端的 TCP 端口（默认 8080）</string>
     <string name="settings_auto_scan">进入主页自动扫描</string>
     <string name="settings_scan_timeout">扫描超时</string>
+    <string name="settings_usb_reader_mode">USB 读卡器模式</string>
+    <string name="settings_usb_reader_mode_summary">启用 ACS ACR39U 通过 USB 读取接触式卡</string>
     <string name="settings_timeout_summary">%1$d 秒</string>
     <string name="settings_theme">主题</string>
     <string name="settings_haptic_feedback">振动反馈</string>

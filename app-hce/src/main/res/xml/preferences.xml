@@ -22,6 +22,11 @@
         android:key="auto_sync"
         android:title="@string/settings_auto_sync"
         android:defaultValue="true" />
+    <SwitchPreferenceCompat
+        android:key="pref_usb_output_enabled"
+        android:title="@string/settings_usb_output_mode"
+        android:summary="@string/settings_usb_output_mode_summary"
+        android:defaultValue="false" />
     <EditTextPreference
         android:key="pref_pin_code"
         android:title="@string/settings_pin_code"

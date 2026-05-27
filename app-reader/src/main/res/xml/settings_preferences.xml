@@ -61,6 +61,12 @@
             android:title="@string/settings_auto_sync"
             android:defaultValue="true" />
 
+        <SwitchPreferenceCompat
+            android:key="pref_usb_reader_enabled"
+            android:title="@string/settings_usb_reader_mode"
+            android:summary="@string/settings_usb_reader_mode_summary"
+            android:defaultValue="false" />
+
         <SeekBarPreference
             android:key="scan_timeout"
             android:title="@string/settings_scan_timeout"

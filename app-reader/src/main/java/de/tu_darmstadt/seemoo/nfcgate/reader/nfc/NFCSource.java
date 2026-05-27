@@ -4,5 +4,6 @@ public enum NFCSource {
     PHONE,
     WEAR_OS,
     PN532,
+    ACR39U,
     ACR122U
 }

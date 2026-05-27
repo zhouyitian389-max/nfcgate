@@ -20,6 +20,7 @@ public final class SettingsManager {
     public static final String KEY_HAPTIC          = "haptic_feedback";
     public static final String KEY_UPLOAD_MODE     = "upload_mode";
     public static final String KEY_API_SERVER_URL  = "api_server_url";
+    public static final String KEY_USB_READER_ENABLED = "pref_usb_reader_enabled";
 
     public static final String UPLOAD_MODE_CLOUD   = "cloud";
 
@@ -76,6 +77,10 @@ public final class SettingsManager {
 
     public static boolean isAutoSyncEnabled(Context ctx) {
         return prefs(ctx).getBoolean(KEY_AUTO_SYNC, true);
+    }
+
+    public static boolean isUsbReaderEnabled(Context ctx) {
+        return prefs(ctx).getBoolean(KEY_USB_READER_ENABLED, false);
     }
 
     public static String getTheme(Context ctx) {

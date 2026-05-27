@@ -67,6 +67,8 @@
     <string name="settings_biometric_summary">使用指纹/面容替代 PIN 解锁</string>
     <string name="settings_auth_token">HTTP Bearer Token 认证</string>
     <string name="settings_auth_token_summary">POST /api/cards 需要 Bearer Token</string>
+    <string name="settings_usb_output_mode">USB 输出模式</string>
+    <string name="settings_usb_output_mode_summary">优先通过 USB 转发 APDU 到 ACS ACR39U 接触式卡</string>
     <string name="settings_theme">主题</string>
     <string name="settings_haptic">触觉反馈</string>
     <string name="settings_logout">退出登录</string>
