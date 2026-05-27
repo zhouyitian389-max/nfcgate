@@ -8,32 +8,49 @@ async function callRefreshTokenEndpoint(): Promise<string | null> {
   const refreshToken = tokenStorage.getRefreshToken();
   if (!refreshToken) return null;
 
-  const response = await fetch(`${API_BASE}/auth/refresh`, {
-    method: 'POST',
-    headers: { 'Content-Type': 'application/json' },
-    body: JSON.stringify({ refreshToken })
-  });
-  if (!response.ok) return null;
+  try {
+    const response = await fetch(`${API_BASE}/auth/refresh`, {
+      method: 'POST',
+      headers: { 'Content-Type': 'application/json' },
+      body: JSON.stringify({ refreshToken })
+    });
 
-  const data = await response.json() as {
-    accessToken?: string;
-    token?: string;
-    refreshToken?: string;
-    expiresAt?: number;
-  };
-  const accessToken = data.accessToken || data.token || '';
-  const nextRefreshToken = data.refreshToken || '';
-  const expiresAt = data.expiresAt ?? (Date.now() + 15 * 60 * 1000);
-  if (!accessToken || !nextRefreshToken) return null;
+    if (!response.ok) {
+      console.warn('[tokenRefresh] Refresh request failed with status:', response.status);
+      return null;
+    }
 
-  tokenStorage.setTokens(accessToken, nextRefreshToken, expiresAt);
-  return accessToken;
+    const data = await response.json() as {
+      accessToken?: string;
+      token?: string;
+      refreshToken?: string;
+      expiresAt?: number;
+    };
+
+    const accessToken = data.accessToken || data.token || '';
+    const nextRefreshToken = data.refreshToken || '';
+    const expiresAt = data.expiresAt ?? (Date.now() + 15 * 60 * 1000);
+
+    if (!accessToken || !nextRefreshToken) {
+      console.warn('[tokenRefresh] Refresh response missing required token fields');
+      return null;
+    }
+
+    tokenStorage.setTokens(accessToken, nextRefreshToken, expiresAt);
+    return accessToken;
+  } catch (error) {
+    console.error('[tokenRefresh] Request error:', error instanceof Error ? error.message : String(error));
+    return null;
+  }
 }
 
 export async function requestTokenRefresh(): Promise<string | null> {
   if (!refreshPromise) {
     refreshPromise = callRefreshTokenEndpoint()
-      .catch(() => null)
+      .catch((error) => {
+        console.error('[tokenRefresh] Unexpected error during token refresh:', error);
+        return null;
+      })
       .finally(() => {
         refreshPromise = null;
       });
