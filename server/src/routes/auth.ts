@@ -3,9 +3,10 @@ import { Router } from 'express';
 import bcrypt from 'bcrypt';
 import rateLimit from 'express-rate-limit';
 import prisma from '../db.js';
-import { authMiddleware, type AuthenticatedRequest } from '../middleware/auth.js';
+import { adminOnly, authMiddleware, type AuthenticatedRequest } from '../middleware/auth.js';
 import { loginRateLimiter, registerRateLimiter } from '../middleware/rateLimit.js';
 import { createSessionTokens, revokeSession, revokeUserSessions, rotateSessionTokens, tokenHashMatches } from '../services/authSessions.js';
+import { createManagedUser } from '../services/adminUsers.js';
 import { addToBlacklist } from '../services/tokenBlacklist.js';
 import { decodeToken, getAccessTokenExpiresInMs, getRefreshTokenExpiresInMs, getTokenExpiresInSeconds, verifyRefreshToken, type SessionTokenUser } from '../services/tokenService.js';
 import { isStrongPassword, isValidEmail, normalizeEmail } from '../utils/validators.js';
@@ -119,59 +120,26 @@ function authPayloadResponse(user: {
   };
 }
 
-router.post('/register', registerRateLimiter, async (req, res) => {
-  const { email, password, name, accountName } = req.body as {
-    email?: string;
-    password?: string;
-    name?: string;
-    accountName?: string;
-  };
-  const normalizedEmail = normalizeEmail(email);
+router.post('/register', registerRateLimiter, authMiddleware, adminOnly, async (req, res) => {
+  try {
+    const user = await createManagedUser(req.body as {
+      email?: string;
+      password?: string;
+      name?: string;
+      accountName?: string;
+      role?: string;
+    });
 
-  if (!normalizedEmail || !isValidEmail(normalizedEmail)) {
-    return res.status(400).json({ message: 'A valid email address is required' });
-  }
-
-  if (!isStrongPassword(password)) {
-    return res.status(400).json({ message: 'Password must be 8-256 chars and include an uppercase letter, number, and special character' });
-  }
-
-  const existing = await prisma.user.findUnique({ where: { email: normalizedEmail } });
-  if (existing) {
-    return res.status(409).json({ message: 'Email already registered' });
-  }
-
-  const hashedPassword = await bcrypt.hash(password, 12);
-  const account = await prisma.account.create({
-    data: {
-      name: trimValue(accountName, 120) || trimValue(name, 120) || normalizedEmail,
-      encryptionSalt: randomUUID()
+    return res.status(201).json({ user });
+  } catch (error) {
+    if (error instanceof Error) {
+      if (error.message === 'Email already registered') {
+        return res.status(409).json({ message: error.message });
+      }
+      return res.status(400).json({ message: error.message });
     }
-  });
-  const user = await prisma.user.create({
-    data: {
-      email: normalizedEmail,
-      password: hashedPassword,
-      name: trimValue(name, 120),
-      role: 'USER',
-      accountId: account.id,
-      passwordChangedAt: new Date()
-    }
-  });
-
-  const { accessToken, refreshToken } = await createSessionTokens(buildSessionUser(user), {
-    ip: req.ip,
-    userAgent: req.headers['user-agent']
-  });
-
-  return res.status(201).json(authPayloadResponse({
-    ...user,
-    account: {
-      id: account.id,
-      name: account.name,
-      encryptionSalt: account.encryptionSalt
-    }
-  }, accessToken, refreshToken));
+    throw error;
+  }
 });
 
 router.post('/login', loginRateLimiter, async (req, res) => {
