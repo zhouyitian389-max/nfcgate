@@ -5,6 +5,7 @@
 
     <string name="hce_service_description">YitianNFC HCE Emulator</string>
     <string name="hce_aid_group">YitianNFC</string>
+    <string name="aid_group_payment">Payment AIDs</string>
 
     <string name="title_main">YitianNFC</string>
     <string name="title_received_cards">Received Cards</string>

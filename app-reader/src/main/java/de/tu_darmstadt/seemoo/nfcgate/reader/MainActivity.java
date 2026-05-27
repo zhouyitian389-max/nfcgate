@@ -322,6 +322,12 @@ public class MainActivity extends AppCompatActivity {
                 CardBrandDetector.CardBrand brand = CardBrandDetector.detect(pan);
 
                 ScanRecord record = new ScanRecord(deviceName, source, rawData, pan, brand);
+                if (emvCard != null) {
+                    record.setExpiry(emvCard.expiry);
+                    record.setTrack2(emvCard.track2);
+                    record.setAid(emvCard.aid);
+                    record.setCardholderName(emvCard.cardholderName);
+                }
                 scanHistoryAdapter.addRecord(record);
                 persistRecord(record);
 

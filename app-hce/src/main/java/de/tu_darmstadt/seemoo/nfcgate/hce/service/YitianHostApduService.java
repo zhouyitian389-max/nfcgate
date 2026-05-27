@@ -29,8 +29,8 @@ import de.tu_darmstadt.seemoo.nfcgate.hce.db.CardEntity;
 import de.tu_darmstadt.seemoo.nfcgate.hce.relay.WebSocketRelayClient;
 
 /**
- * Minimal HCE emulator that responds to SELECT AID for F0010203040506 and
- * returns track2 data of the currently selected card as a custom payload.
+ * Minimal HCE emulator that returns track2 data of the currently selected card
+ * when relay is unavailable and a SELECT command is received.
  *
  * NOTE: This is for demonstration / development use. Real EMV emulation
  * requires a full APDU state machine and contactless kernel logic which
@@ -47,8 +47,7 @@ public class YitianHostApduService extends HostApduService {
     private static final byte[] SW_OK = {(byte) 0x90, (byte) 0x00};
     private static final byte[] SW_NOT_FOUND = {(byte) 0x6A, (byte) 0x82};
     private static final byte[] SW_TIMEOUT = {(byte) 0x64, (byte) 0x00};
-    private static final byte[] SELECT_HEADER = {(byte) 0x00, (byte) 0xA4, (byte) 0x04, (byte) 0x00};
-    private static final byte[] AID = hex("F0010203040506");
+    private static final byte[] SELECT_HEADER_PREFIX = {(byte) 0x00, (byte) 0xA4, (byte) 0x04};
     private static final long RELAY_TIMEOUT_SECONDS = 4L;
     private final ExecutorService dbExecutor = Executors.newSingleThreadExecutor();
     private final AtomicReference<CountDownLatch> relayPendingLatch = new AtomicReference<>();
@@ -104,7 +103,7 @@ public class YitianHostApduService extends HostApduService {
             Log.w(TAG, "APDU received but no card selected");
             return SW_NOT_FOUND;
         }
-        if (isSelectAid(commandApdu)) {
+        if (isSelectCommand(commandApdu)) {
             String payload = selected.track2 == null ? "" : selected.track2.trim();
             byte[] track2Bytes = hexToBytes(payload);
             if (track2Bytes.length == 0) return SW_NOT_FOUND;
@@ -240,12 +239,9 @@ public class YitianHostApduService extends HostApduService {
         }
     }
 
-    private boolean isSelectAid(byte[] apdu) {
-        if (apdu.length < 4 + AID.length) return false;
-        for (int i = 0; i < SELECT_HEADER.length; i++) if (apdu[i] != SELECT_HEADER[i]) return false;
-        int lc = apdu[4] & 0xFF;
-        if (lc < AID.length || apdu.length < 5 + lc) return false;
-        for (int i = 0; i < AID.length; i++) if (apdu[5 + i] != AID[i]) return false;
+    private boolean isSelectCommand(byte[] apdu) {
+        if (apdu.length < SELECT_HEADER_PREFIX.length) return false;
+        for (int i = 0; i < SELECT_HEADER_PREFIX.length; i++) if (apdu[i] != SELECT_HEADER_PREFIX[i]) return false;
         return true;
     }
 

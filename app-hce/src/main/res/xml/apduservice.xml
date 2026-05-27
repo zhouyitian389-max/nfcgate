@@ -4,7 +4,14 @@
 <host-apdu-service xmlns:android="http://schemas.android.com/apk/res/android"
     android:description="@string/hce_service_description"
     android:requireDeviceUnlock="false">
-    <aid-group android:description="@string/hce_aid_group" android:category="other">
+    <aid-group android:category="payment" android:description="@string/aid_group_payment">
         <aid-filter android:name="F0010203040506" />
+        <aid-filter android:name="A0000000031010" />
+        <aid-filter android:name="A0000000041010" />
+        <aid-filter android:name="A000000333010101" />
+        <aid-filter android:name="A000000333010102" />
+        <aid-filter android:name="A0000000651010" />
+        <aid-filter android:name="A0000001523010" />
+        <aid-filter android:name="325041592E5359532E4444463031" />
     </aid-group>
 </host-apdu-service>
