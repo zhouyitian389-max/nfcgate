@@ -3,15 +3,22 @@ name: 🚀 Auto Release v2.1.0
 on:
   workflow_dispatch
 
+permissions:
+  contents: write
+  actions: read
+
 jobs:
   create-tag-and-build:
     runs-on: ubuntu-latest
     name: Create Tag & Trigger Build
+    permissions:
+      contents: write
     steps:
       - uses: actions/checkout@v4
         with:
           ref: v2
           fetch-depth: 0
+          token: ${{ secrets.GITHUB_TOKEN }}
 
       - name: Configure Git
         run: |
@@ -29,22 +36,28 @@ jobs:
             echo "🆕 Creating new tag v2.1.0"
           fi
 
-      - name: Delete old tag if exists
+      - name: Delete old tag locally
         if: steps.check_tag.outputs.tag_exists == 'true'
         run: |
-          git push origin --delete v2.1.0 || true
           git tag -d v2.1.0 || true
-          echo "🗑️ Old tag deleted"
+          echo "🗑️ Old tag deleted locally"
+
+      - name: Delete old tag from remote
+        if: steps.check_tag.outputs.tag_exists == 'true'
+        continue-on-error: true
+        run: |
+          git push origin --delete v2.1.0 || true
+          echo "🗑️ Old remote tag deleted"
 
       - name: Create new tag
         run: |
           git tag -a v2.1.0 -m "v2.1.0: Enhanced error handling & logging - Auto Release"
-          echo "✅ Tag v2.1.0 created"
+          echo "✅ Tag v2.1.0 created locally"
 
-      - name: Push tag to trigger build workflow
+      - name: Push tag to GitHub
         run: |
           git push origin v2.1.0 --force
-          echo "🚀 Tag pushed! Build workflow will start automatically..."
+          echo "🚀 Tag pushed to GitHub successfully!"
 
   build-server:
     needs: create-tag-and-build
@@ -105,7 +118,7 @@ jobs:
       - name: Package
         run: |
           cd admin-panel
-          zip -r ../nfcgate-admin-panel-v2.1.0.zip .next public out src package.json package-lock.json next.config.ts tsconfig.json .env.example
+          zip -r ../nfcgate-admin-panel-v2.1.0.zip .next public out src package.json package-lock.json next.config.ts tsconfig.json .env.example || zip -r ../nfcgate-admin-panel-v2.1.0.zip .next public src package.json package-lock.json next.config.ts tsconfig.json .env.example
           cd ..
 
       - name: Upload artifact
@@ -192,6 +205,8 @@ jobs:
     runs-on: ubuntu-latest
     name: Upload to Release
     if: always()
+    permissions:
+      contents: write
     steps:
       - uses: actions/checkout@v4
         with:
@@ -209,6 +224,7 @@ jobs:
           cp release-assets/admin-panel-build/* final-release/ 2>/dev/null || true
           cp release-assets/acr39u-client-build/* final-release/ 2>/dev/null || true
           cp release-assets/android-apks/* final-release/ 2>/dev/null || true
+          echo "📦 Files to upload:"
           ls -lh final-release/
 
       - name: Upload to Release
@@ -239,6 +255,9 @@ jobs:
             - ✅ nfcgate-admin-panel-v2.1.0.zip
             - ✅ nfcgate-acr39u-client-v2.1.0.zip
             - ✅ Android APKs
+            
+            ### 🚀 Deployment
+            See [DEPLOY.md](https://github.com/zhouyitian389-max/nfcgate/blob/v2/DEPLOY.md) for instructions.
           files: final-release/*
           draft: false
           prerelease: false
