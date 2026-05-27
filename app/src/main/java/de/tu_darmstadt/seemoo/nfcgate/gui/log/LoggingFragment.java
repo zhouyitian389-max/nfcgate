@@ -143,21 +143,20 @@ public class LoggingFragment extends Fragment {
             for (Integer selection : mActionSelections)
                 sessionLogs.add(mLogAdapter.getItem(selection));
 
-            switch (item.getItemId()) {
-                case R.id.action_delete:
-                    for (SessionLog sessionLog : sessionLogs)
-                        mLogAction.delete(sessionLog);
+            int itemId = item.getItemId();
+            if (itemId == R.id.action_delete) {
+                for (SessionLog sessionLog : sessionLogs)
+                    mLogAction.delete(sessionLog);
 
+                mode.finish();
+                return true;
+            } else if (itemId == R.id.action_share) {
+                if (mActionSelections.size() == 1) {
+                    mLogAction.share(mLogAdapter.getItem(mActionSelections.get(0)));
                     mode.finish();
                     return true;
-                case R.id.action_share:
-                    if (mActionSelections.size() == 1) {
-                        mLogAction.share(mLogAdapter.getItem(mActionSelections.get(0)));
-                        mode.finish();
-                        return true;
-                    }
-                    else
-                        Toast.makeText(getActivity(), getActivity().getString(R.string.log_error_multiple), Toast.LENGTH_LONG).show();
+                } else
+                    Toast.makeText(getActivity(), getActivity().getString(R.string.log_error_multiple), Toast.LENGTH_LONG).show();
             }
 
             return false;
