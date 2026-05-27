@@ -13,7 +13,13 @@ function emailKey(req: Request): string {
   return `${ipKey(req)}|${emailPart}`;
 }
 
-/** For authenticated endpoints: combine IP + userId decoded from the JWT (no verify needed for key). */
+/**
+ * For authenticated endpoints: combine IP + userId decoded from the JWT.
+ * 
+ * Note: jwt.decode() without verify is intentional and safe here - it's used only for key generation.
+ * Actual token validation happens in auth middleware via verifyAccessToken().
+ * This allows us to extract the userId for per-user rate limiting without validating the signature twice.
+ */
 function userKey(req: Request): string {
   const auth = req.headers.authorization;
   if (auth?.startsWith('Bearer ')) {
@@ -22,8 +28,11 @@ function userKey(req: Request): string {
       if (decoded && typeof decoded === 'object' && 'sub' in decoded) {
         return `${ipKey(req)}|${decoded.sub as string}`;
       }
-    } catch {
-      // fall through to IP-only
+    } catch (error) {
+      // Malformed token - fall through to IP-only rate limiting
+      if (process.env.DEBUG_RATE_LIMIT === 'true') {
+        console.warn('[rateLimit] JWT decode error:', error instanceof Error ? error.message : 'Unknown error');
+      }
     }
   }
   return ipKey(req);
