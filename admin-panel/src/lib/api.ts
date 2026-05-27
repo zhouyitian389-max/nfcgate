@@ -62,5 +62,9 @@ export async function apiFetch(path: string, init: RequestInit = {}) {
     }
     throw new Error(`API request failed: ${res.status}`);
   }
-  return res.json();
+  if (res.status === 204) {
+    return {};
+  }
+  const text = await res.text();
+  return text ? JSON.parse(text) : {};
 }
