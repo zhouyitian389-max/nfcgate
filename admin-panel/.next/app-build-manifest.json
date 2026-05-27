@@ -15,19 +15,19 @@
       "static/css/2f049c3ce4ffc5ac.css",
       "static/chunks/app/layout-d0f182cb399ee6cf.js"
     ],
-    "/devices/page": [
-      "static/chunks/webpack-4e6bf084ac60582b.js",
-      "static/chunks/4bd1b696-c023c6e3521b1417.js",
-      "static/chunks/255-4f84124391a7dac4.js",
-      "static/chunks/main-app-25adf02a536618f3.js",
-      "static/chunks/app/devices/page-363a8f8d8ffe4742.js"
-    ],
     "/cards/page": [
       "static/chunks/webpack-4e6bf084ac60582b.js",
       "static/chunks/4bd1b696-c023c6e3521b1417.js",
       "static/chunks/255-4f84124391a7dac4.js",
       "static/chunks/main-app-25adf02a536618f3.js",
       "static/chunks/app/cards/page-81e80733833e8557.js"
+    ],
+    "/devices/page": [
+      "static/chunks/webpack-4e6bf084ac60582b.js",
+      "static/chunks/4bd1b696-c023c6e3521b1417.js",
+      "static/chunks/255-4f84124391a7dac4.js",
+      "static/chunks/main-app-25adf02a536618f3.js",
+      "static/chunks/app/devices/page-363a8f8d8ffe4742.js"
     ],
     "/login/page": [
       "static/chunks/webpack-4e6bf084ac60582b.js",
