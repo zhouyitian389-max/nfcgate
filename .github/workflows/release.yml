@@ -3,13 +3,13 @@ name: release
 on:
   push:
     tags:
-      - 'v2.2.0'
+      - 'v*'
   workflow_dispatch:
     inputs:
       tag:
-        description: 'Tag to build and upload release assets for (e.g. v2.2.0)'
+        description: 'Tag to build and upload release assets for (e.g. v2.3.0)'
         required: true
-        default: 'v2.2.0'
+        default: 'v2.3.0'
 
 permissions:
   contents: write

@@ -5,6 +5,9 @@ import android.util.Log;
 import org.json.JSONException;
 import org.json.JSONObject;
 
+import java.util.concurrent.Executors;
+import java.util.concurrent.RejectedExecutionException;
+import java.util.concurrent.ScheduledExecutorService;
 import java.util.concurrent.TimeUnit;
 import java.util.concurrent.atomic.AtomicInteger;
 
@@ -20,15 +23,18 @@ public class WebSocketRelayClient {
     }
 
     private static final String TAG = "HceRelayWsClient";
-    private final OkHttpClient httpClient = new OkHttpClient.Builder()
+    private static final OkHttpClient SHARED_CLIENT = new OkHttpClient.Builder()
             .readTimeout(0, TimeUnit.MILLISECONDS)
+            .pingInterval(15, TimeUnit.SECONDS)
             .build();
     private final String url;
     private final String jwt;
     private final String sessionId;
     private final Listener listener;
+    private final ScheduledExecutorService scheduler = Executors.newSingleThreadScheduledExecutor();
     private WebSocket webSocket;
     private int reconnectAttempt;
+    private boolean closing;
     private final AtomicInteger nextCommandSeq = new AtomicInteger(1);
     private final AtomicInteger pendingSeq = new AtomicInteger(0);
 
@@ -43,18 +49,21 @@ public class WebSocketRelayClient {
         if (webSocket != null || url == null || url.isEmpty()) {
             return;
         }
+        closing = false;
         Request.Builder requestBuilder = new Request.Builder().url(url);
         if (jwt != null && !jwt.isEmpty()) {
             requestBuilder.header("Authorization", "Bearer " + jwt);
         }
-        webSocket = httpClient.newWebSocket(requestBuilder.build(), new RelayWebSocketListener());
+        webSocket = SHARED_CLIENT.newWebSocket(requestBuilder.build(), new RelayWebSocketListener());
     }
 
     public synchronized void close() {
+        closing = true;
         if (webSocket != null) {
             webSocket.close(1000, "closed");
             webSocket = null;
         }
+        scheduler.shutdownNow();
     }
 
     public synchronized boolean sendApduCommand(String apduHex) {
@@ -77,22 +86,26 @@ public class WebSocketRelayClient {
     }
 
     private synchronized void scheduleReconnect() {
-        if (url == null || url.isEmpty()) {
+        if (closing || scheduler.isShutdown() || url == null || url.isEmpty()) {
             return;
         }
         reconnectAttempt++;
         long backoffMs = Math.min(30_000L, (long) Math.pow(2, Math.min(reconnectAttempt, 6)) * 1000L);
-        new Thread(() -> {
-            try {
-                Thread.sleep(backoffMs);
-            } catch (InterruptedException ignored) {
-                Thread.currentThread().interrupt();
+        try {
+            scheduler.schedule(() -> {
+                synchronized (WebSocketRelayClient.this) {
+                    if (closing) {
+                        return;
+                    }
+                    webSocket = null;
+                }
+                connect();
+            }, backoffMs, TimeUnit.MILLISECONDS);
+        } catch (RejectedExecutionException e) {
+            if (!scheduler.isShutdown()) {
+                Log.w(TAG, "Failed to schedule reconnect", e);
             }
-            synchronized (WebSocketRelayClient.this) {
-                webSocket = null;
-            }
-            connect();
-        }, "hce-relay-reconnect").start();
+        }
     }
 
     private class RelayWebSocketListener extends WebSocketListener {

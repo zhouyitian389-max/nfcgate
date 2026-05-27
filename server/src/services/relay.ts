@@ -48,7 +48,7 @@ interface RelaySession {
   external?: SocketWithState;
 }
 
-const SESSION_TIMEOUT_MS = Number(process.env.RELAY_SESSION_TIMEOUT_MS || 20_000);
+const SESSION_TIMEOUT_MS = Number(process.env.RELAY_SESSION_TIMEOUT_MS || 120_000);
 const HEARTBEAT_MS = Number(process.env.RELAY_HEARTBEAT_MS || 10_000);
 const HEX_REGEX = /^[0-9A-Fa-f]+$/;
 const MAX_APDU_LEN = 2000;
