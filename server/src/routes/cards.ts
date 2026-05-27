@@ -1,5 +1,6 @@
 import { Router } from 'express';
 import { createHash, createHmac } from 'crypto';
+import type { Prisma } from '@prisma/client';
 import { v4 as uuidv4 } from 'uuid';
 import prisma from '../db.js';
 import { authMiddleware, type AuthenticatedRequest } from '../middleware/auth.js';
@@ -11,7 +12,11 @@ const router = Router();
 router.use(authMiddleware);
 
 function panHashSecret() {
-  return process.env.PAN_HASH_SECRET || process.env.CARD_ENCRYPTION_KEY || 'dev-pan-hash-secret-change-me';
+  const secret = process.env.PAN_HASH_SECRET || process.env.CARD_ENCRYPTION_KEY;
+  if (!secret && process.env.NODE_ENV === 'production') {
+    throw new Error('FATAL: PAN_HASH_SECRET or CARD_ENCRYPTION_KEY must be set in production');
+  }
+  return secret || 'dev-pan-hash-secret-change-me';
 }
 
 function hashPan(pan: string): string {
@@ -61,7 +66,7 @@ function resolveCardSecret(card: {
   };
 }
 
-async function upsertCloudCard(accountId: string, item: Record<string, unknown>) {
+async function upsertCloudCardTx(tx: Prisma.TransactionClient, accountId: string, item: Record<string, unknown>) {
   const encryptedBlob = trimString(item.blob, 16_384);
   const pan = trimString(item.pan, 32);
   const brand = trimString(item.brand, 32) || 'UNKNOWN';
@@ -79,56 +84,54 @@ async function upsertCloudCard(accountId: string, item: Record<string, unknown>)
   const panHashValue = pan ? hashPan(pan) : null;
   const legacyPanHashValue = pan ? hashPanLegacy(pan) : null;
 
-  return prisma.$transaction(async (tx) => {
-    let existing = encryptedBlob
-      ? await tx.cloudCard.findFirst({ where: { accountId, encryptedBlob, deletedAt: null } })
-      : null;
+  let existing = encryptedBlob
+    ? await tx.cloudCard.findFirst({ where: { accountId, encryptedBlob, deletedAt: null } })
+    : null;
 
-    if (!existing && panHashValue) {
-      existing = await tx.cloudCard.findFirst({
-        where: {
-          accountId,
-          deletedAt: null,
-          panHash: { in: legacyPanHashValue ? [panHashValue, legacyPanHashValue] : [panHashValue] }
-        }
-      }) ?? null;
-    }
-
-    if (existing) {
-      return tx.cloudCard.update({
-        where: { id: existing.id },
-        data: {
-          encryptedBlob: encryptedBlob ?? existing.encryptedBlob,
-          panEncrypted: panEncrypted ?? existing.panEncrypted,
-          pan: pan ? maskPan(pan) : existing.pan,
-          panHash: panHashValue ?? existing.panHash,
-          brand,
-          holder: holder ?? existing.holder,
-          expiry: expiry ?? existing.expiry,
-          track2Encrypted: track2Encrypted ?? existing.track2Encrypted,
-          track2: track2 ? null : existing.track2,
-          note: note ?? existing.note,
-          deletedAt: null
-        }
-      });
-    }
-
-    return tx.cloudCard.create({
-      data: {
+  if (!existing && panHashValue) {
+    existing = await tx.cloudCard.findFirst({
+      where: {
         accountId,
-        encryptedBlob: encryptedBlob ?? null,
-        panEncrypted,
-        pan: pan ? maskPan(pan) : null,
-        panHash: panHashValue,
+        deletedAt: null,
+        panHash: { in: legacyPanHashValue ? [panHashValue, legacyPanHashValue] : [panHashValue] }
+      }
+    }) ?? null;
+  }
+
+  if (existing) {
+    return tx.cloudCard.update({
+      where: { id: existing.id },
+      data: {
+        encryptedBlob: encryptedBlob ?? existing.encryptedBlob,
+        panEncrypted: panEncrypted ?? existing.panEncrypted,
+        pan: pan ? maskPan(pan) : existing.pan,
+        panHash: panHashValue ?? existing.panHash,
         brand,
-        holder: holder ?? null,
-        expiry: expiry ?? null,
-        track2Encrypted,
-        track2: null,
-        note: note ?? null,
-        source: encryptedBlob ? 'encrypted-mobile' : 'plain-mobile'
+        holder: holder ?? existing.holder,
+        expiry: expiry ?? existing.expiry,
+        track2Encrypted: track2Encrypted ?? existing.track2Encrypted,
+        track2: track2 ? null : existing.track2,
+        note: note ?? existing.note,
+        deletedAt: null
       }
     });
+  }
+
+  return tx.cloudCard.create({
+    data: {
+      accountId,
+      encryptedBlob: encryptedBlob ?? null,
+      panEncrypted,
+      pan: pan ? maskPan(pan) : null,
+      panHash: panHashValue,
+      brand,
+      holder: holder ?? null,
+      expiry: expiry ?? null,
+      track2Encrypted,
+      track2: null,
+      note: note ?? null,
+      source: encryptedBlob ? 'encrypted-mobile' : 'plain-mobile'
+    }
   });
 }
 
@@ -188,19 +191,35 @@ router.post('/upload', createCardRateLimiter, async (req, res) => {
     return res.status(400).json({ message: 'cards must be a non-empty array' });
   }
 
-  const ids: string[] = [];
-  for (const entry of rawCards) {
-    if (!entry || typeof entry !== 'object' || Array.isArray(entry)) {
-      return res.status(400).json({ message: 'cards entries must be objects' });
-    }
-    const card = await upsertCloudCard(accountId, entry as Record<string, unknown>);
-    ids.push(card.id);
+  if (rawCards.length > 100) {
+    return res.status(400).json({ message: 'cards length must be <= 100' });
   }
+  try {
+    const ids = await prisma.$transaction(async (tx) => {
+      const results: string[] = [];
+      for (const entry of rawCards.slice(0, 100)) {
+        if (!entry || typeof entry !== 'object' || Array.isArray(entry)) {
+          throw new Error('cards entries must be objects');
+        }
+        const card = await upsertCloudCardTx(tx, accountId, entry as Record<string, unknown>);
+        results.push(card.id);
+      }
+      return results;
+    });
 
-  return res.status(201).json({
-    added: ids.length,
-    card_ids: ids
-  });
+    return res.status(201).json({
+      added: ids.length,
+      card_ids: ids
+    });
+  } catch (error) {
+    if (error instanceof Error && (
+      error.message === 'cards entries must be objects' ||
+      error.message === 'Each card must contain either blob or pan'
+    )) {
+      return res.status(400).json({ message: error.message });
+    }
+    throw error;
+  }
 });
 
 router.post('/ack', async (req, res) => {

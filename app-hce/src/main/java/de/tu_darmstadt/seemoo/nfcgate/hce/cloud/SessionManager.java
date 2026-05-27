@@ -51,13 +51,13 @@ public final class SessionManager {
         }
     }
 
-    public static void saveLogin(Context context, String token, String refreshToken, long expiresAtMillis, String accountId, String password) {
+    public static void saveLogin(Context context, String token, String refreshToken, long expiresAtMillis, String accountId) {
         prefs(context).edit().putLong(KEY_TOKEN_EXPIRY, expiresAtMillis)
                 .putString(KEY_ACCOUNT_ID, accountId).remove(KEY_PASSWORD).remove(KEY_SALT).apply();
         secretPrefs(context).edit()
                 .putString(KEY_TOKEN, token)
                 .putString(KEY_REFRESH_TOKEN, refreshToken)
-                .putString(KEY_PASSWORD, password)
+                .remove(KEY_PASSWORD)
                 .apply();
     }
 
@@ -79,16 +79,8 @@ public final class SessionManager {
         if (!refreshToken.isEmpty()) return refreshToken;
         return "";
     }
+    @Deprecated
     public static String getPassword(Context context) {
-        SharedPreferences secrets = secretPrefs(context);
-        String password = secrets.getString(KEY_PASSWORD, "");
-        if (!password.isEmpty()) return password;
-        String legacy = prefs(context).getString(KEY_PASSWORD, "");
-        if (!legacy.isEmpty()) {
-            secrets.edit().putString(KEY_PASSWORD, legacy).apply();
-            prefs(context).edit().remove(KEY_PASSWORD).apply();
-            return legacy;
-        }
         return "";
     }
     public static String getSalt(Context context) {

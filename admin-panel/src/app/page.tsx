@@ -15,16 +15,16 @@ export default function DashboardPage() {
 
   useEffect(() => {
     Promise.all([
-      apiFetch('/sessions').catch(() => ({ data: [] })),
-      apiFetch('/devices').catch(() => ({ data: [] })),
+      apiFetch('/sessions').catch(() => []),
+      apiFetch('/devices').catch(() => ({ devices: [] })),
       apiFetch('/cards').catch(() => ({ data: [] })),
       apiFetch('/logs').catch(() => ({ data: [] }))
     ]).then(([sessions, devices, cards, logs]) =>
       setStats({
-        activeSessions: sessions.data?.length || 0,
-        devicesOnline: (devices.data || []).filter((d: { online?: boolean }) => d.online).length,
-        totalCards: cards.data?.length || 0,
-        logsToday: logs.data?.length || 0
+        activeSessions: Array.isArray(sessions) ? sessions.length : (sessions?.data?.length || sessions?.sessions?.length || 0),
+        devicesOnline: ((devices?.devices || devices?.data || []) as Array<{ online?: boolean }>).filter((d) => d.online).length,
+        totalCards: cards?.data?.length || 0,
+        logsToday: logs?.data?.length || 0
       })
     );
   }, []);

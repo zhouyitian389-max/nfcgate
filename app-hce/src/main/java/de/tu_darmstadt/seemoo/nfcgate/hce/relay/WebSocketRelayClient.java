@@ -177,9 +177,12 @@ public class WebSocketRelayClient {
         if (normalized.endsWith("/")) {
             normalized = normalized.substring(0, normalized.length() - 1);
         }
-        if (normalized.endsWith("/relay")) {
+        if (normalized.endsWith("/ws/relay")) {
             return normalized;
         }
-        return normalized + "/relay";
+        if (normalized.endsWith("/relay")) {
+            return normalized.substring(0, normalized.length() - "/relay".length()) + "/ws/relay";
+        }
+        return normalized + "/ws/relay";
     }
 }

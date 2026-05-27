@@ -57,7 +57,7 @@ public class LoginActivity extends AppCompatActivity {
             CardDatabase db = CardDatabase.getInstance(this);
             db.cardDao().deleteAll();
             db.operationLogDao().clearAll();
-            SessionManager.saveLogin(this, result.token, result.refreshToken, result.expiresAt, result.accountId, password);
+            SessionManager.saveLogin(this, result.token, result.refreshToken, result.expiresAt, result.accountId);
             SessionManager.setSalt(this, result.salt);
             api.registerDevice();
             try { api.registerFcmToken("no_fcm"); } catch (Exception ignored) {}
