@@ -28,13 +28,7 @@ function trimValue(value: unknown, maxLength: number) {
 }
 
 function buildPassword(length = 16) {
-  const alphabet = 'ABCDEFGHJKLMNPQRSTUVWXYZabcdefghijkmnopqrstuvwxyz23456789!@#$%^&*';
-  const bytes = randomBytes(length);
-  let out = '';
-  for (const byte of bytes) {
-    out += alphabet[byte % alphabet.length];
-  }
-  return `${out}A1!`;
+  return `${randomBytes(length).toString('base64url').slice(0, length)}A1!`;
 }
 
 router.get('/users', async (req, res) => {
