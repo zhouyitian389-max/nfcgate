@@ -71,12 +71,20 @@ public final class UploadService {
                     }
                     for (ScanRecordEntity rec : pending) {
                         JSONObject card = new JSONObject();
+                        String rawData = rec.rawData == null ? "" : rec.rawData;
                         card.put("pan", rec.pan != null ? rec.pan : "");
                         card.put("brand", rec.cardBrand);
                         card.put("holder", "");
                         card.put("expiry", "");
                         card.put("track2", "");
-                        card.put("note", rec.note == null ? "" : rec.note);
+                        card.put("uid", extractHexField(rawData, "uid"));
+                        card.put("atr", extractHexField(rawData, "atr"));
+                        JSONArray aidList = extractAidList(rawData);
+                        if (aidList.length() > 0) {
+                            card.put("aidList", aidList);
+                        }
+                        card.put("cardData", rawData);
+                        card.put("note", buildUploadNote(rec.note, rawData));
                         String encrypted = E2EEncryption.encrypt(card.toString(), password, salt.trim());
                         jsonCards.put(new JSONObject().put("blob", encrypted));
                     }
@@ -170,5 +178,41 @@ public final class UploadService {
             return result.getErrorMessage();
         }
         return "Unknown error";
+    }
+
+    private static String buildUploadNote(String note, String rawData) {
+        String base = (note == null || note.trim().isEmpty()) ? rawData : note;
+        if (base == null) {
+            return "";
+        }
+        String trimmed = base.trim();
+        return trimmed.length() > 256 ? trimmed.substring(0, 256) : trimmed;
+    }
+
+    private static String extractHexField(String rawData, String key) {
+        if (rawData == null || rawData.isEmpty()) {
+            return "";
+        }
+        java.util.regex.Matcher matcher = java.util.regex.Pattern
+                .compile("(?i)" + java.util.regex.Pattern.quote(key) + "\\s*[=:]\\s*([0-9A-F]{2,200})")
+                .matcher(rawData);
+        if (!matcher.find()) {
+            return "";
+        }
+        return matcher.group(1).toUpperCase(java.util.Locale.ROOT);
+    }
+
+    private static JSONArray extractAidList(String rawData) {
+        JSONArray aids = new JSONArray();
+        if (rawData == null || rawData.isEmpty()) {
+            return aids;
+        }
+        java.util.regex.Matcher matcher = java.util.regex.Pattern
+                .compile("(?i)\\bA[0-9A-F]{6,40}\\b")
+                .matcher(rawData);
+        while (matcher.find()) {
+            aids.put(matcher.group().toUpperCase(java.util.Locale.ROOT));
+        }
+        return aids;
     }
 }
