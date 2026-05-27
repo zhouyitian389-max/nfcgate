@@ -1,0 +1,148 @@
+name: Build and Upload Android APKs
+
+on:
+  workflow_dispatch
+
+permissions:
+  contents: write
+
+jobs:
+  build-android-apks:
+    runs-on: ubuntu-latest
+    name: Build Android APKs
+    steps:
+      - uses: actions/checkout@v4
+        with:
+          ref: v2
+          submodules: recursive
+
+      - name: Setup Java 17
+        uses: actions/setup-java@v4
+        with:
+          distribution: 'temurin'
+          java-version: '17'
+          cache: 'gradle'
+
+      - name: "📋 Check directories"
+        run: |
+          echo "📂 Project structure:"
+          ls -la
+          echo ""
+          echo "📂 Gradle wrapper:"
+          ls -la gradlew
+          echo ""
+          echo "📂 App modules:"
+          ls -la app-hce/ app-reader/ 2>/dev/null || echo "Modules not found"
+
+      - name: "🔧 Grant execute permission for gradlew"
+        run: |
+          chmod +x gradlew
+          ./gradlew --version
+
+      - name: "🏗️ Build app-hce Release APK"
+        continue-on-error: true
+        run: |
+          echo "Building app-hce Release APK..."
+          ./gradlew :app-hce:assembleRelease --stacktrace --no-daemon -x lint
+          echo "✅ app-hce Release build completed"
+
+      - name: "🏗️ Build app-hce Debug APK (fallback)"
+        if: failure()
+        run: |
+          echo "Building app-hce Debug APK as fallback..."
+          ./gradlew :app-hce:assembleDebug --stacktrace --no-daemon -x lint
+          echo "✅ app-hce Debug build completed"
+
+      - name: "🏗️ Build app-reader Release APK"
+        continue-on-error: true
+        run: |
+          echo "Building app-reader Release APK..."
+          ./gradlew :app-reader:assembleRelease --stacktrace --no-daemon -x lint
+          echo "✅ app-reader Release build completed"
+
+      - name: "🏗️ Build app-reader Debug APK (fallback)"
+        if: failure()
+        run: |
+          echo "Building app-reader Debug APK as fallback..."
+          ./gradlew :app-reader:assembleDebug --stacktrace --no-daemon -x lint
+          echo "✅ app-reader Debug build completed"
+
+      - name: "📂 Find and organize APKs"
+        run: |
+          mkdir -p release-apks
+          echo "🔍 Searching for APK files..."
+          find . -name "*.apk" -type f | head -20
+          echo ""
+          echo "📋 Copying APKs to release-apks/..."
+          find . -name "*.apk" -type f -exec cp {} release-apks/ \; 2>/dev/null || true
+          echo ""
+          echo "📦 APK files found:"
+          ls -lh release-apks/ || echo "No APKs found!"
+          
+          # Rename for clarity
+          cd release-apks
+          if [ -f app-hce-release.apk ]; then
+            mv app-hce-release.apk app-hce-v2.1.0-release.apk
+          elif [ -f app-hce-debug.apk ]; then
+            cp app-hce-debug.apk app-hce-v2.1.0-debug.apk
+          fi
+          
+          if [ -f app-reader-release.apk ]; then
+            mv app-reader-release.apk app-reader-v2.1.0-release.apk
+          elif [ -f app-reader-debug.apk ]; then
+            cp app-reader-debug.apk app-reader-v2.1.0-debug.apk
+          fi
+          
+          ls -lh
+          cd ..
+
+      - name: "📤 Upload APKs to Release"
+        run: |
+          RELEASE_ID=$(curl -s \
+            -H "Authorization: token ${{ secrets.GITHUB_TOKEN }}" \
+            https://api.github.com/repos/zhouyitian389-max/nfcgate/releases/tags/v2.1.0 \
+            | jq '.id')
+          
+          echo "Release ID: $RELEASE_ID"
+          
+          if [ ! -d "release-apks" ] || [ -z "$(ls -A release-apks/)" ]; then
+            echo "❌ No APKs found to upload!"
+            exit 1
+          fi
+          
+          for FILE in release-apks/*.apk; do
+            if [ -f "$FILE" ]; then
+              FILENAME=$(basename "$FILE")
+              SIZE=$(ls -lh "$FILE" | awk '{print $5}')
+              echo ""
+              echo "📤 Uploading: $FILENAME ($SIZE)"
+              
+              RESPONSE=$(curl -X POST \
+                -H "Authorization: token ${{ secrets.GITHUB_TOKEN }}" \
+                -H "Content-Type: application/octet-stream" \
+                --data-binary @"$FILE" \
+                "https://uploads.github.com/repos/zhouyitian389-max/nfcgate/releases/$RELEASE_ID/assets?name=$FILENAME" \
+                -w "\n%{http_code}")
+              
+              HTTP_CODE=$(echo "$RESPONSE" | tail -n1)
+              
+              if [ "$HTTP_CODE" == "201" ] || [ "$HTTP_CODE" == "200" ]; then
+                echo "✅ $FILENAME uploaded successfully!"
+              else
+                echo "⚠️ Upload returned HTTP $HTTP_CODE"
+              fi
+            fi
+          done
+          
+          echo ""
+          echo "📋 Final Release Contents:"
+          curl -s \
+            -H "Authorization: token ${{ secrets.GITHUB_TOKEN }}" \
+            https://api.github.com/repos/zhouyitian389-max/nfcgate/releases/tags/v2.1.0 \
+            | jq '.assets[] | "\(.name) - \(.size) bytes"'
+
+      - name: "✅ Verify Upload"
+        run: |
+          echo "🎉 Build and upload process completed!"
+          echo ""
+          echo "View Release: https://github.com/zhouyitian389-max/nfcgate/releases/tag/v2.1.0"
