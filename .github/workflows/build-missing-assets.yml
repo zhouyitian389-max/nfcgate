@@ -1,0 +1,170 @@
+name: Build Missing Assets v2.1.0
+
+on:
+  workflow_dispatch
+
+permissions:
+  contents: write
+
+jobs:
+  build-acr39u:
+    runs-on: ubuntu-latest
+    name: Build ACR39U Client
+    steps:
+      - uses: actions/checkout@v4
+        with:
+          ref: v2
+
+      - name: Setup Node.js
+        uses: actions/setup-node@v4
+        with:
+          node-version: '20'
+          cache: 'npm'
+          cache-dependency-path: acr39u-client/package-lock.json
+
+      - name: Install system dependencies
+        run: |
+          sudo apt-get update
+          sudo apt-get install -y libpcsclite-dev
+          echo "✅ System dependencies installed"
+
+      - name: Install Node dependencies
+        run: |
+          cd acr39u-client
+          npm ci
+          echo "✅ Node dependencies installed"
+
+      - name: Build TypeScript
+        run: |
+          cd acr39u-client
+          npm run build
+          echo "✅ TypeScript compiled"
+
+      - name: Package ACR39U Client
+        run: |
+          cd acr39u-client
+          zip -r ../nfcgate-acr39u-client-v2.1.0.zip dist node_modules package.json package-lock.json README.md
+          cd ..
+          ls -lh nfcgate-acr39u-client-v2.1.0.zip
+          echo "✅ ACR39U Client packaged"
+
+      - name: Upload artifact
+        uses: actions/upload-artifact@v4
+        with:
+          name: acr39u-build
+          path: nfcgate-acr39u-client-v2.1.0.zip
+          retention-days: 1
+
+  build-android:
+    runs-on: ubuntu-latest
+    name: Build Android APKs
+    steps:
+      - uses: actions/checkout@v4
+        with:
+          ref: v2
+          submodules: recursive
+
+      - name: Setup Java
+        uses: actions/setup-java@v4
+        with:
+          distribution: 'temurin'
+          java-version: '17'
+          cache: 'gradle'
+
+      - name: Grant execute permission
+        run: chmod +x gradlew
+
+      - name: Build Release APKs
+        continue-on-error: true
+        run: |
+          ./gradlew assembleRelease --stacktrace --no-daemon
+          echo "✅ APK build completed"
+
+      - name: Build Debug APKs (fallback)
+        if: failure()
+        run: |
+          ./gradlew assembleDebug --stacktrace --no-daemon
+          echo "⚠️ Built debug APKs instead"
+
+      - name: Prepare APK files
+        run: |
+          mkdir -p release-apks
+          find . -name "*.apk" -type f -exec cp {} release-apks/ \;
+          ls -lh release-apks/
+          echo "✅ APK files prepared"
+
+      - name: Upload APK artifacts
+        uses: actions/upload-artifact@v4
+        with:
+          name: android-apks
+          path: release-apks/
+          retention-days: 1
+
+  upload-to-release:
+    needs: [build-acr39u, build-android]
+    runs-on: ubuntu-latest
+    name: Upload Assets to Release
+    if: always()
+    steps:
+      - uses: actions/checkout@v4
+        with:
+          ref: v2
+
+      - name: Download all artifacts
+        uses: actions/download-artifact@v4
+        with:
+          path: build-artifacts
+
+      - name: List all artifacts
+        run: |
+          echo "📦 Downloaded artifacts:"
+          find build-artifacts -type f -exec ls -lh {} \;
+
+      - name: Get Release ID
+        id: get_release
+        run: |
+          RELEASE_ID=$(curl -s \
+            -H "Authorization: token ${{ secrets.GITHUB_TOKEN }}" \
+            https://api.github.com/repos/zhouyitian389-max/nfcgate/releases/tags/v2.1.0 \
+            | jq '.id')
+          echo "release_id=$RELEASE_ID" >> $GITHUB_OUTPUT
+          echo "Release ID: $RELEASE_ID"
+
+      - name: Upload ACR39U Client
+        continue-on-error: true
+        run: |
+          FILE="build-artifacts/acr39u-build/nfcgate-acr39u-client-v2.1.0.zip"
+          if [ -f "$FILE" ]; then
+            echo "📤 Uploading ACR39U Client..."
+            curl -X POST \
+              -H "Authorization: token ${{ secrets.GITHUB_TOKEN }}" \
+              -H "Content-Type: application/octet-stream" \
+              --data-binary @"$FILE" \
+              "https://uploads.github.com/repos/zhouyitian389-max/nfcgate/releases/${{ steps.get_release.outputs.release_id }}/assets?name=nfcgate-acr39u-client-v2.1.0.zip"
+            echo "✅ ACR39U Client uploaded"
+          fi
+
+      - name: Upload Android APKs
+        continue-on-error: true
+        run: |
+          for FILE in build-artifacts/android-apks/*.apk; do
+            if [ -f "$FILE" ]; then
+              FILENAME=$(basename "$FILE")
+              echo "📤 Uploading $FILENAME..."
+              curl -X POST \
+                -H "Authorization: token ${{ secrets.GITHUB_TOKEN }}" \
+                -H "Content-Type: application/octet-stream" \
+                --data-binary @"$FILE" \
+                "https://uploads.github.com/repos/zhouyitian389-max/nfcgate/releases/${{ steps.get_release.outputs.release_id }}/assets?name=$FILENAME"
+              echo "✅ $FILENAME uploaded"
+            fi
+          done
+
+      - name: Verify Upload
+        run: |
+          echo "📋 Release assets:"
+          curl -s \
+            -H "Authorization: token ${{ secrets.GITHUB_TOKEN }}" \
+            https://api.github.com/repos/zhouyitian389-max/nfcgate/releases/tags/v2.1.0 \
+            | jq '.assets[] | {name: .name, size: .size}'
+          echo "✅ Upload complete!"
