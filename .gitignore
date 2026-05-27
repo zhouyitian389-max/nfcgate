@@ -21,6 +21,7 @@ node_modules/
 __pycache__/
 dist/
 admin/.next/
+admin-panel/.next/
 
 # Android Studio generated files and folders
 captures/
