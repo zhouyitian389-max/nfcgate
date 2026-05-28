@@ -24,6 +24,9 @@
 -keep class de.tu_darmstadt.seemoo.nfcgate.reader.util.CardBrandDetector { *; }
 -keep class de.tu_darmstadt.seemoo.nfcgate.reader.BuildConfig { *; }
 
+# Keep cloud API classes (login, session, sync)
+-keep class de.tu_darmstadt.seemoo.nfcgate.reader.cloud.** { *; }
+
 # SQLCipher
 -keep class net.sqlcipher.** { *; }
 -keep class net.sqlcipher.database.** { *; }
@@ -33,3 +36,14 @@
 -keep class androidx.security.crypto.** { *; }
 -keep class com.google.crypto.tink.** { *; }
 -dontwarn com.google.crypto.tink.**
+
+# OkHttp
+-keep class okhttp3.** { *; }
+-keep class okio.** { *; }
+-dontwarn okhttp3.**
+-dontwarn okio.**
+
+# Keep all inner classes used in API responses
+-keepclassmembers class * {
+    public <fields>;
+}
