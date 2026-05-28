@@ -174,13 +174,21 @@ router.get('/', async (req, res) => {
 
 router.get('/pull', async (req, res) => {
   const { accountId } = (req as AuthenticatedRequest).user!;
+  const since = req.query.since && typeof req.query.since === 'string'
+    ? new Date(req.query.since)
+    : undefined;
+  const where: Prisma.CloudCardWhereInput = { accountId, deletedAt: null };
+  if (since && !Number.isNaN(since.getTime())) {
+    where.updatedAt = { gte: since };
+  }
   const cards = await prisma.cloudCard.findMany({
-    where: { accountId, deletedAt: null },
+    where,
     orderBy: { createdAt: 'desc' },
     take: 500
   });
   return res.json({
-    cards: cards.map(mapCloudCard)
+    cards: cards.map(mapCloudCard),
+    syncedAt: new Date().toISOString()
   });
 });
 

@@ -17,7 +17,7 @@ function streamEvents(req: AuthenticatedRequest, res: Response) {
   const clientId = sseHub.addClient(user.accountId, res);
   const keepAlive = setInterval(() => {
     res.write(': keep-alive\n\n');
-  }, 25_000);
+  }, 15_000);
 
   res.write(`event: connected\ndata: ${JSON.stringify({ ok: true, accountId: user.accountId, sessionId: user.sessionId })}\n\n`);
 
