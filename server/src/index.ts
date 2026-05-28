@@ -8,6 +8,8 @@ import { authMiddleware, adminOnly } from './middleware/auth.js';
 import { initWebSocket } from './ws/relay.js';
 import healthRoutes from './middleware/health.js';
 import { apiRateLimiter } from './middleware/rateLimit.js';
+import { requestLogger } from './middleware/requestLogger.js';
+import { startDeviceMonitor } from './services/deviceMonitor.js';
 
 import authRoutes from './routes/auth.js';
 import cardRoutes from './routes/cards.js';
@@ -71,6 +73,7 @@ app.use(cors({
   allowedHeaders: ['Content-Type', 'Authorization', 'X-Device-Id'],
 }));
 app.use(express.json({ limit: '10mb' }));
+app.use(requestLogger);
 app.use((req, res, next) => {
   if (process.env.NODE_ENV === 'production') {
     const proto = req.headers['x-forwarded-proto'];
@@ -98,6 +101,16 @@ app.use('/api/stats', statsRoutes);
 
 app.use('/api/admin', authMiddleware, adminOnly, adminRoutes);
 
+app.use('/api/v1/auth', authRoutes);
+app.use('/api/v1/cards', cardRoutes);
+app.use('/api/v1/devices', deviceRoutes);
+app.use('/api/v1/relay', relayRoutes);
+app.use('/api/v1/sessions', sessionsRoutes);
+app.use('/api/v1/events', eventsRoutes);
+app.use('/api/v1/logs', logsRoutes);
+app.use('/api/v1/stats', statsRoutes);
+app.use('/api/v1/admin', authMiddleware, adminOnly, adminRoutes);
+
 app.use((err: Error, _req: express.Request, res: express.Response, _next: express.NextFunction) => {
   const status = err.message.includes('CORS') ? 403 : 500;
   if (status >= 500) {
@@ -107,13 +120,16 @@ app.use((err: Error, _req: express.Request, res: express.Response, _next: expres
 });
 
 const shutdownWebSocket = initWebSocket(server);
+let stopDeviceMonitor: () => void = () => undefined;
 
 const port = Number(process.env.PORT || 8080);
 server.listen(port, () => {
+  stopDeviceMonitor = startDeviceMonitor();
   console.log(`NFCGate server running on :${port}`);
 });
 
 process.on('SIGTERM', async () => {
+  stopDeviceMonitor();
   server.close(async () => {
     await shutdownWebSocket();
     await prisma.$disconnect();
