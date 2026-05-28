@@ -47,6 +47,8 @@ export async function apiFetch(path: string, init: RequestInit = {}) {
   });
 
   if (!res.ok) {
+    // In SSR/non-browser environments we intentionally skip logout flow and throw.
+    // Only browser clients should trigger token refresh + logout side effects on 401.
     if (res.status === 401 && typeof window !== 'undefined') {
       const newToken = await requestTokenRefresh();
       if (newToken) {

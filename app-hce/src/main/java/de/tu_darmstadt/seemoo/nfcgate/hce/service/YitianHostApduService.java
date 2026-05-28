@@ -48,6 +48,8 @@ public class YitianHostApduService extends HostApduService {
     public static final String ACTION_PIN_LOCK_CHANGED = "de.tu_darmstadt.seemoo.nfcgate.hce.ACTION_PIN_LOCK_CHANGED";
     private static final byte[] SW_OK = {(byte) 0x90, (byte) 0x00};
     private static final byte[] SW_NOT_FOUND = {(byte) 0x6A, (byte) 0x82};
+    private static final byte[] SW_INS_NOT_SUPPORTED = {(byte) 0x6D, (byte) 0x00};
+    private static final byte[] SW_TIMEOUT = {(byte) 0x64, (byte) 0x00};
     private static final byte[] SELECT_HEADER_PREFIX = {(byte) 0x00, (byte) 0xA4, (byte) 0x04};
     private static final long RELAY_TIMEOUT_SECONDS = 4L;
     private final ExecutorService dbExecutor = Executors.newSingleThreadExecutor();
@@ -127,7 +129,7 @@ public class YitianHostApduService extends HostApduService {
             if (track2Bytes.length == 0) return SW_NOT_FOUND;
             return concat(track2Bytes, SW_OK);
         }
-        return SW_OK;
+        return SW_INS_NOT_SUPPORTED;
     }
 
     @Override

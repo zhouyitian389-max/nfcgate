@@ -31,31 +31,30 @@ export async function authMiddleware(req: AuthenticatedRequest, res: Response, n
 
   try {
     const payload = verifyAccessToken(token);
-    const user = await prisma.user.findUnique({
-      where: { id: payload.sub },
+    const session = await prisma.authSession.findFirst({
+      where: { sessionId: payload.sid, revokedAt: null },
       select: {
-        id: true,
-        accountId: true,
-        role: true,
-        email: true,
-        mustChangePassword: true,
-        passwordChangedAt: true
+        sessionId: true,
+        deviceId: true,
+        user: {
+          select: {
+            id: true,
+            accountId: true,
+            role: true,
+            email: true,
+            mustChangePassword: true,
+            passwordChangedAt: true
+          }
+        }
       }
     });
 
-    if (!user) {
-      return res.status(401).json({ message: 'Invalid token user' });
+    if (!session || !session.user || session.user.id !== payload.sub) {
+      return res.status(401).json({ message: 'Session has been revoked' });
     }
+    const user = session.user;
     if ((user.passwordChangedAt?.getTime() ?? 0) > payload.pwd) {
       return res.status(401).json({ message: 'Session expired after password change' });
-    }
-
-    const session = await prisma.authSession.findFirst({
-      where: { sessionId: payload.sid, userId: user.id, revokedAt: null },
-      select: { sessionId: true, deviceId: true }
-    });
-    if (!session) {
-      return res.status(401).json({ message: 'Session has been revoked' });
     }
 
     req.user = {

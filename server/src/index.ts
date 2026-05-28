@@ -87,10 +87,6 @@ app.use((req, res, next) => {
 app.use('/health', healthRoutes);
 app.use('/api', apiRateLimiter);
 
-app.get('/health', (_req, res) => {
-  res.json({ status: 'ok', timestamp: new Date().toISOString() });
-});
-
 app.use('/api/auth', authRoutes);
 app.use('/api/cards', cardRoutes);
 app.use('/api/devices', deviceRoutes);
@@ -110,7 +106,7 @@ app.use((err: Error, _req: express.Request, res: express.Response, _next: expres
   res.status(status).json({ message: status === 403 ? err.message : 'Internal server error' });
 });
 
-initWebSocket(server);
+const shutdownWebSocket = initWebSocket(server);
 
 const port = Number(process.env.PORT || 8080);
 server.listen(port, () => {
@@ -118,6 +114,10 @@ server.listen(port, () => {
 });
 
 process.on('SIGTERM', async () => {
-  await prisma.$disconnect();
-  server.close(() => process.exit(0));
+  server.close(async () => {
+    await shutdownWebSocket();
+    await prisma.$disconnect();
+    process.exit(0);
+  });
+  setTimeout(() => process.exit(1), 5000).unref();
 });

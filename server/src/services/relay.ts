@@ -568,7 +568,7 @@ export function initWebSocket(server: Server) {
     });
   });
 
-  setInterval(async () => {
+  const maintenanceTimer = setInterval(async () => {
     for (const [token, session] of sessions.entries()) {
       if (Date.now() - session.lastActivityAt > SESSION_TIMEOUT_MS) {
         await closeSession(token, 'Session timeout');
@@ -596,5 +596,15 @@ export function initWebSocket(server: Server) {
         sessionTokens.delete(token);
       }
     }
-  }, HEARTBEAT_MS).unref();
+  }, HEARTBEAT_MS);
+  maintenanceTimer.unref();
+
+  return async () => {
+    clearInterval(maintenanceTimer);
+    const activeTokens = Array.from(sessions.keys());
+    await Promise.all(activeTokens.map((token) => closeSession(token, 'Server shutting down')));
+    await new Promise<void>((resolve) => {
+      wss.close(() => resolve());
+    });
+  };
 }

@@ -11,7 +11,7 @@ import androidx.sqlite.db.SupportSQLiteDatabase;
 
 import net.sqlcipher.database.SupportFactory;
 
-@Database(entities = {CardEntity.class, OperationLogEntity.class}, version = 3, exportSchema = false)
+@Database(entities = {CardEntity.class, OperationLogEntity.class}, version = 4, exportSchema = false)
 public abstract class CardDatabase extends RoomDatabase {
     private static volatile CardDatabase instance;
 
@@ -53,6 +53,14 @@ public abstract class CardDatabase extends RoomDatabase {
         }
     };
 
+    static final Migration MIGRATION_3_4 = new Migration(3, 4) {
+        @Override
+        public void migrate(@NonNull SupportSQLiteDatabase database) {
+            database.execSQL("DROP INDEX IF EXISTS index_cards_pan");
+            database.execSQL("CREATE INDEX IF NOT EXISTS index_cards_pan ON cards(pan)");
+        }
+    };
+
     public static CardDatabase getInstance(Context context) {
         if (instance == null) {
             synchronized (CardDatabase.class) {
@@ -77,7 +85,7 @@ public abstract class CardDatabase extends RoomDatabase {
                 CardDatabase.class,
                 "yitian_nfc.db"
         ).openHelperFactory(factory)
-                .addMigrations(MIGRATION_1_2, MIGRATION_2_3)
+                .addMigrations(MIGRATION_1_2, MIGRATION_2_3, MIGRATION_3_4)
                 .build();
     }
 }
