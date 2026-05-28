@@ -2,6 +2,7 @@ import crypto from 'crypto';
 
 const DEFAULT_CARD_KEY = crypto.createHash('sha256').update('nfcgate-dev-card-key').digest();
 const KEY_LENGTH = 32;
+let cardKeyCache: Buffer | null = null;
 
 function resolveCardKey(): Buffer {
   const raw = process.env.CARD_ENCRYPTION_KEY?.trim();
@@ -24,11 +25,13 @@ function resolveCardKey(): Buffer {
 }
 
 function getCardKey(): Buffer {
+  if (cardKeyCache) return cardKeyCache;
   const key = resolveCardKey();
   if (key.length !== KEY_LENGTH) {
     throw new Error('CARD_ENCRYPTION_KEY must resolve to 32 bytes');
   }
-  return key;
+  cardKeyCache = key;
+  return cardKeyCache;
 }
 
 export function encryptString(value: string): string {

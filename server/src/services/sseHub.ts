@@ -9,8 +9,21 @@ interface SSEClient {
 
 class SSEHub {
   private clients: Map<string, SSEClient> = new Map();
+  private readonly maxConnectionsPerUser = 5;
 
   addClient(userId: string, res: ServerResponse): string {
+    const userClients = [...this.clients.values()].filter((client) => client.userId === userId);
+    while (userClients.length >= this.maxConnectionsPerUser) {
+      const oldest = userClients.shift();
+      if (!oldest) break;
+      this.clients.delete(oldest.id);
+      try {
+        oldest.res.end();
+      } catch {
+        // ignore response close errors
+      }
+    }
+
     const id = randomUUID();
     this.clients.set(id, { id, userId, res });
     return id;

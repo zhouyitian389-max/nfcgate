@@ -56,10 +56,12 @@ const MAX_APDU_LEN = 2000;
 const MAX_ATR_LEN = 128;
 const MESSAGE_RATE_WINDOW_MS = 1000;
 const MAX_MESSAGES_PER_WINDOW = Number(process.env.RELAY_MAX_MESSAGES_PER_SECOND || 120);
+const WS_RATE_WINDOW_MS = 5000;
+const WS_MAX_PER_WINDOW = 10;
 
 const sessions = new Map<string, RelaySession>();
 const sessionTokens = new Map<string, SessionTokenMeta>();
-const wsConnectionByIp = new Map<string, number>();
+const wsConnectionByIp = new Map<string, { count: number; windowStart: number }>();
 
 function isValidHex(data: unknown, maxLength: number): data is string {
   return typeof data === 'string' &&
@@ -278,11 +280,9 @@ export function setRoleSocket(session: RelaySession, role: RelayRole, ws: Socket
   } else if (role === 'reader') {
     if (session.reader && session.reader !== ws) session.reader.close(1000, 'Replaced by new reader connection');
     session.reader = ws;
-    session.lastResponseSeq = 0;
   } else {
     if (session.external && session.external !== ws) session.external.close(1000, 'Replaced by new external connection');
     session.external = ws;
-    session.lastResponseSeq = 0;
   }
 }
 
@@ -343,12 +343,15 @@ export function initWebSocket(server: Server) {
     }
     const ip = request.socket.remoteAddress || 'unknown';
     const now = Date.now();
-    const last = wsConnectionByIp.get(ip) ?? 0;
-    if (now - last < 1000) {
+    const currentWindow = wsConnectionByIp.get(ip);
+    if (!currentWindow || now - currentWindow.windowStart >= WS_RATE_WINDOW_MS) {
+      wsConnectionByIp.set(ip, { count: 1, windowStart: now });
+    } else if (currentWindow.count >= WS_MAX_PER_WINDOW) {
       socket.destroy();
       return;
+    } else {
+      wsConnectionByIp.set(ip, { count: currentWindow.count + 1, windowStart: currentWindow.windowStart });
     }
-    wsConnectionByIp.set(ip, now);
 
     const token = extractBearerToken(request);
     const role = (url.searchParams.get('role') as RelayRole | null) || undefined;
@@ -512,6 +515,7 @@ export function initWebSocket(server: Server) {
         const target = getReaderPeer(current);
         if (!target) {
           send(ws, { type: 'error', message: 'No reader connected' });
+          console.warn(`[relay] Dropped APDU command ${current.sessionId}: no reader peer`);
           return;
         }
 
@@ -589,8 +593,8 @@ export function initWebSocket(server: Server) {
     });
 
     const now = Date.now();
-    for (const [ip, ts] of wsConnectionByIp.entries()) {
-      if (now - ts > 10_000) {
+    for (const [ip, entry] of wsConnectionByIp.entries()) {
+      if (now - entry.windowStart > WS_RATE_WINDOW_MS * 2) {
         wsConnectionByIp.delete(ip);
       }
     }

@@ -5,6 +5,18 @@ import { authMiddleware, type AuthenticatedRequest } from '../middleware/auth.js
 const router = Router();
 router.use(authMiddleware);
 
+function parseLimit(raw: unknown, defaultValue: number, maxValue: number) {
+  const parsed = typeof raw === 'string' ? Number(raw) : Number(raw ?? defaultValue);
+  if (!Number.isFinite(parsed) || parsed <= 0) return defaultValue;
+  return Math.min(maxValue, Math.floor(parsed));
+}
+
+function parsePage(raw: unknown) {
+  const parsed = typeof raw === 'string' ? Number(raw) : Number(raw ?? 1);
+  if (!Number.isFinite(parsed) || parsed <= 0) return 1;
+  return Math.floor(parsed);
+}
+
 router.get('/', async (req, res) => {
   const user = (req as AuthenticatedRequest).user!;
   const {
@@ -18,20 +30,31 @@ router.get('/', async (req, res) => {
   const createdAt: { gte?: Date; lte?: Date } = {};
   if (from) createdAt.gte = new Date(from);
   if (to) createdAt.lte = new Date(to);
+  const limit = parseLimit(req.query.limit, 50, 200);
+  const page = parsePage(req.query.page);
+  const skip = (page - 1) * limit;
+  const where = {
+    ...(user.role === 'ADMIN' ? {} : { accountId: user.accountId }),
+    ...(sessionId ? { sessionId } : {}),
+    ...(cardId ? { cardId } : {}),
+    ...(mode ? { mode } : {}),
+    ...(from || to ? { createdAt } : {})
+  };
 
-  const logs = await prisma.apduLog.findMany({
-    where: {
-      ...(user.role === 'ADMIN' ? {} : { accountId: user.accountId }),
-      ...(sessionId ? { sessionId } : {}),
-      ...(cardId ? { cardId } : {}),
-      ...(mode ? { mode } : {}),
-      ...(from || to ? { createdAt } : {})
-    },
-    orderBy: { createdAt: 'desc' },
-    take: 200
-  });
+  const [logs, total] = await Promise.all([
+    prisma.apduLog.findMany({
+      where,
+      orderBy: { createdAt: 'desc' },
+      skip,
+      take: limit
+    }),
+    prisma.apduLog.count({ where })
+  ]);
   res.json({
     data: logs,
+    total,
+    page,
+    limit,
     logs: logs.map((log) => ({
       id: log.id,
       timestamp: log.createdAt.getTime(),

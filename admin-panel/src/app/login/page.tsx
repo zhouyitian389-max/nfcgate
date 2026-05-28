@@ -10,6 +10,7 @@ export default function LoginPage() {
   const [email, setEmail] = useState('');
   const [password, setPassword] = useState('');
   const [error, setError] = useState('');
+  const [submitting, setSubmitting] = useState(false);
   const router = useRouter();
 
   const resolveErrorMessage = (status: number) => {
@@ -22,31 +23,37 @@ export default function LoginPage() {
 
   const onSubmit = async (event: FormEvent) => {
     event.preventDefault();
+    if (submitting) return;
     setError('');
-    const res = await fetch(`${API_BASE}/auth/login`, {
-      method: 'POST',
-      headers: { 'Content-Type': 'application/json' },
-      body: JSON.stringify({ email, password })
-    });
-    if (!res.ok) {
-      setError(resolveErrorMessage(res.status));
-      return;
-    }
-    const payload = await res.json() as {
-      accessToken?: string;
-      token?: string;
-      refreshToken?: string;
-      expiresAt?: number;
-      expiresIn?: number;
-      expires_in?: number;
-    };
-    const accessToken  = payload.accessToken || payload.token || '';
-    const refreshToken = payload.refreshToken || '';
-    const expiresAt    = payload.expiresAt
-      ?? (Date.now() + ((payload.expiresIn ?? payload.expires_in ?? 15 * 60) * 1000));
+    setSubmitting(true);
+    try {
+      const res = await fetch(`${API_BASE}/auth/login`, {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({ email, password })
+      });
+      if (!res.ok) {
+        setError(resolveErrorMessage(res.status));
+        return;
+      }
+      const payload = await res.json() as {
+        accessToken?: string;
+        token?: string;
+        refreshToken?: string;
+        expiresAt?: number;
+        expiresIn?: number;
+        expires_in?: number;
+      };
+      const accessToken = payload.accessToken || payload.token || '';
+      const refreshToken = payload.refreshToken || '';
+      const expiresAt = payload.expiresAt
+        ?? (Date.now() + ((payload.expiresIn ?? payload.expires_in ?? 15 * 60) * 1000));
 
-    tokenStorage.setTokens(accessToken, refreshToken, expiresAt);
-    router.push('/');
+      tokenStorage.setTokens(accessToken, refreshToken, expiresAt);
+      router.push('/');
+    } finally {
+      setSubmitting(false);
+    }
   };
 
   return (
@@ -55,7 +62,9 @@ export default function LoginPage() {
       <input className="w-full border p-2 rounded" type="email" value={email} onChange={(e) => setEmail(e.target.value)} placeholder="Email" required />
       <input className="w-full border p-2 rounded" type="password" value={password} onChange={(e) => setPassword(e.target.value)} placeholder="Password" required />
       {error ? <p className="text-sm text-red-600">{error}</p> : null}
-      <button className="w-full bg-black text-white rounded p-2" type="submit">Sign in</button>
+      <button className="w-full bg-black text-white rounded p-2 disabled:opacity-60" type="submit" disabled={submitting}>
+        {submitting ? '登录中...' : 'Sign in'}
+      </button>
     </form>
   );
 }

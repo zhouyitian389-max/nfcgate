@@ -10,16 +10,29 @@ function csvEscape(value: unknown) {
 
 export default function CardsPage() {
   const [rows, setRows] = useState<any[]>([]);
+  const [loading, setLoading] = useState(false);
+  const [page, setPage] = useState(1);
+  const [total, setTotal] = useState(0);
   const [message, setMessage] = useState('');
+  const limit = 20;
+  const pageCount = Math.max(1, Math.ceil(total / limit));
 
-  const load = async () => {
-    const res = await apiFetch('/admin/cards');
+  const load = async (targetPage = page) => {
+    setLoading(true);
+    const res = await apiFetch(`/admin/cards?page=${targetPage}&limit=${limit}`);
     setRows(res.data || []);
+    setTotal(Number(res.total) || 0);
+    setPage(Number(res.page) || targetPage);
+    setLoading(false);
   };
 
   useEffect(() => {
-    load().catch(() => setRows([]));
-  }, []);
+    load(page).catch(() => {
+      setRows([]);
+      setTotal(0);
+      setLoading(false);
+    });
+  }, [page]);
 
   const deleteCard = async (id: string) => {
     if (!window.confirm('Delete this card record?')) return;
@@ -29,12 +42,16 @@ export default function CardsPage() {
   };
 
   const exportCards = () => {
-    const header = ['id', 'account', 'uid', 'atr', 'label', 'type', 'createdAt'];
+    const header = ['id', 'source', 'account', 'uid', 'atr', 'brand', 'pan', 'expiry', 'label', 'type', 'createdAt'];
     const body = rows.map((card) => [
       card.id,
+      card.source || 'card',
       card.account?.name || '',
       card.uid || '',
       card.atr || '',
+      card.brand || '',
+      card.pan || '',
+      card.expiry || '',
       card.label || '',
       card.type || '',
       card.createdAt ? new Date(card.createdAt).toISOString() : ''
@@ -59,13 +76,18 @@ export default function CardsPage() {
         <button className="rounded border px-3 py-2 bg-white" onClick={exportCards}>Export</button>
       </div>
       {message ? <div className="rounded border border-green-200 bg-green-50 p-3 text-sm text-green-800">{message}</div> : null}
+      {loading ? <div className="text-sm text-gray-500">加载中...</div> : null}
       <div className="bg-white border rounded overflow-x-auto">
         <table className="w-full text-sm">
           <thead className="bg-gray-50">
             <tr>
               <th className="p-2 text-left">UID</th>
               <th className="p-2 text-left">ATR</th>
+              <th className="p-2 text-left">Brand</th>
+              <th className="p-2 text-left">PAN</th>
+              <th className="p-2 text-left">Expiry</th>
               <th className="p-2 text-left">Label</th>
+              <th className="p-2 text-left">Source</th>
               <th className="p-2 text-left">Account</th>
               <th className="p-2 text-left">Created</th>
               <th className="p-2 text-left">Actions</th>
@@ -76,7 +98,11 @@ export default function CardsPage() {
               <tr key={card.id} className="border-t">
                 <td className="p-2">{card.uid || '-'}</td>
                 <td className="p-2">{card.atr || card.ats || '-'}</td>
+                <td className="p-2">{card.brand || '-'}</td>
+                <td className="p-2">{card.pan || '-'}</td>
+                <td className="p-2">{card.expiry || '-'}</td>
                 <td className="p-2">{card.label || '-'}</td>
+                <td className="p-2">{card.source || 'card'}</td>
                 <td className="p-2">{card.account?.name || '-'}</td>
                 <td className="p-2">{card.createdAt ? new Date(card.createdAt).toLocaleString() : '-'}</td>
                 <td className="p-2">
@@ -86,6 +112,25 @@ export default function CardsPage() {
             ))}
           </tbody>
         </table>
+      </div>
+      <div className="flex items-center justify-between text-sm text-gray-600">
+        <span>共 {total} 条，每页 {limit} 条，第 {page} / {pageCount} 页</span>
+        <div className="flex gap-2">
+          <button
+            className="rounded border bg-white px-3 py-1 disabled:opacity-50"
+            onClick={() => setPage((prev) => Math.max(1, prev - 1))}
+            disabled={loading || page <= 1}
+          >
+            上一页
+          </button>
+          <button
+            className="rounded border bg-white px-3 py-1 disabled:opacity-50"
+            onClick={() => setPage((prev) => Math.min(pageCount, prev + 1))}
+            disabled={loading || page >= pageCount}
+          >
+            下一页
+          </button>
+        </div>
       </div>
     </div>
   );

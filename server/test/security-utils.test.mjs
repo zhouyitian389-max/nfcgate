@@ -17,6 +17,10 @@ test('registration validators enforce email format and password strength', () =>
   assert.equal(isValidEmail('not-an-email'), false);
   assert.equal(isStrongPassword('Weakpass'), false);
   assert.equal(isStrongPassword('StrongPass1!'), true);
+  const maxLengthPassword = `A1!${'a'.repeat(253)}`;
+  assert.equal(maxLengthPassword.length, 256);
+  assert.equal(isStrongPassword(maxLengthPassword), true);
+  assert.equal(isStrongPassword(`${maxLengthPassword}a`), false);
 });
 
 test('track2 values are normalized to uppercase before validation', () => {

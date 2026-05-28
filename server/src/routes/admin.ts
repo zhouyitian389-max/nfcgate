@@ -31,6 +31,17 @@ function buildPassword(length = 16) {
   return `${randomBytes(length).toString('base64url').slice(0, length)}A1!`;
 }
 
+function auditLog(adminId: string, action: string, target: string, details?: Record<string, unknown>) {
+  console.info(JSON.stringify({
+    type: 'AUDIT',
+    timestamp: new Date().toISOString(),
+    adminId,
+    action,
+    target,
+    ...details
+  }));
+}
+
 router.get('/users', async (req, res) => {
   const limit = parseLimit(req.query.limit, 50, 200);
   const page = parsePage(req.query.page);
@@ -128,10 +139,12 @@ router.delete('/users/:id', async (req, res) => {
 
   await revokeUserSessions(target.id, 'Deleted by admin');
   await prisma.user.delete({ where: { id: target.id } });
+  auditLog(admin.id, 'delete_user', target.id);
   return res.status(204).send();
 });
 
 router.put('/users/:id/reset-password', async (req, res) => {
+  const admin = (req as AuthenticatedRequest).user!;
   const nextPassword = trimValue(req.body?.password, 256) || buildPassword();
   if (!isStrongPassword(nextPassword)) {
     return res.status(400).json({ message: 'Password must be 8-256 chars and include an uppercase letter, number, and special character' });
@@ -163,6 +176,7 @@ router.put('/users/:id/reset-password', async (req, res) => {
     }
   });
   await revokeUserSessions(target.id, 'Password reset by admin');
+  auditLog(admin.id, 'reset_password', target.id, { mustChangePassword: true });
 
   res.json({
     message: 'Password reset',
@@ -174,6 +188,7 @@ router.put('/users/:id/reset-password', async (req, res) => {
 });
 
 router.put('/users/:id/toggle-lock', async (req, res) => {
+  const admin = (req as AuthenticatedRequest).user!;
   const target = await prisma.user.findUnique({
     where: { id: req.params.id },
     select: { id: true, lockedUntil: true }
@@ -194,6 +209,7 @@ router.put('/users/:id/toggle-lock', async (req, res) => {
   if (!isLocked) {
     await revokeUserSessions(target.id, 'Locked by admin');
   }
+  auditLog(admin.id, isLocked ? 'unlock_user' : 'lock_user', target.id, { lockedUntil });
 
   res.json({
     locked: !isLocked,
@@ -220,7 +236,8 @@ router.get('/cards', async (req, res) => {
   const where = req.query.accountId && typeof req.query.accountId === 'string'
     ? { accountId: req.query.accountId }
     : undefined;
-  const [cards, total] = await Promise.all([
+  const cloudWhere = { ...(where ?? {}), deletedAt: null };
+  const [cards, cardTotal, cloudCards, cloudCardTotal] = await Promise.all([
     prisma.card.findMany({
       where,
       orderBy: { createdAt: 'desc' },
@@ -228,15 +245,32 @@ router.get('/cards', async (req, res) => {
       take: limit,
       include: { account: { select: { id: true, name: true } } }
     }),
-    prisma.card.count({ where })
+    prisma.card.count({ where }),
+    prisma.cloudCard.findMany({
+      where: cloudWhere,
+      orderBy: { createdAt: 'desc' },
+      skip,
+      take: limit,
+      include: { account: { select: { id: true, name: true } } }
+    }),
+    prisma.cloudCard.count({ where: cloudWhere })
   ]);
-  res.json({ data: cards, total, page, limit });
+  const data = [
+    ...cards.map((card) => ({ ...card, source: 'card' as const })),
+    ...cloudCards.map((card) => ({ ...card, source: 'cloud' as const }))
+  ]
+    .sort((a, b) => new Date(b.createdAt).getTime() - new Date(a.createdAt).getTime())
+    .slice(0, limit);
+
+  res.json({ data, total: cardTotal + cloudCardTotal, page, limit });
 });
 
 router.delete('/cards/:id', async (req, res) => {
+  const admin = (req as AuthenticatedRequest).user!;
   const card = await prisma.card.findUnique({ where: { id: req.params.id }, select: { id: true } });
   if (card) {
     await prisma.card.delete({ where: { id: card.id } });
+    auditLog(admin.id, 'delete_card', card.id, { source: 'card' });
     return res.status(204).send();
   }
 
@@ -249,6 +283,7 @@ router.delete('/cards/:id', async (req, res) => {
     where: { id: cloudCard.id },
     data: { deletedAt: new Date() }
   });
+  auditLog(admin.id, 'delete_card', cloudCard.id, { source: 'cloud' });
   return res.status(204).send();
 });
 
@@ -270,6 +305,17 @@ router.get('/devices', async (req, res) => {
     prisma.device.count({ where })
   ]);
   res.json({ data: devices, total, page, limit });
+});
+
+router.delete('/devices/:id', async (req, res) => {
+  const admin = (req as AuthenticatedRequest).user!;
+  const device = await prisma.device.findUnique({ where: { id: req.params.id }, select: { id: true } });
+  if (!device) {
+    return res.status(404).json({ message: 'Device not found' });
+  }
+  await prisma.device.delete({ where: { id: device.id } });
+  auditLog(admin.id, 'delete_device', device.id);
+  return res.status(204).send();
 });
 
 router.get('/logs', async (req, res) => {
@@ -315,11 +361,13 @@ router.get('/logs', async (req, res) => {
 });
 
 router.delete('/logs/:id', async (req, res) => {
+  const admin = (req as AuthenticatedRequest).user!;
   const log = await prisma.apduLog.findUnique({ where: { id: req.params.id }, select: { id: true } });
   if (!log) {
     return res.status(404).json({ message: 'Log not found' });
   }
   await prisma.apduLog.delete({ where: { id: log.id } });
+  auditLog(admin.id, 'delete_log', log.id);
   return res.status(204).send();
 });
 
