@@ -23,8 +23,8 @@ android {
         applicationId 'yitian.nfc'
         minSdkVersion 21
         targetSdkVersion 35
-        versionCode 230
-        versionName 'v2.3.0'
+        versionCode 600
+        versionName 'Yitian-v6'
         buildConfigField "String", "API_BASE_URL", "\"https://api.yitian.shop/api\""
         buildConfigField "String", "WS_URL", "\"wss://api.yitian.shop/ws\""
         testInstrumentationRunner "androidx.test.runner.AndroidJUnitRunner"
