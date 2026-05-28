@@ -36,9 +36,9 @@ android {
         signingConfigs {
             release {
                 keyAlias keystoreProperties['keyAlias']
-                keyPassword System.getenv("SIGNING_KEYSTORE_PASSWORD")
+                keyPassword System.getenv("SIGNING_KEYSTORE_KEY_PASSWORD")
                 storeFile keystoreProperties['storeFile'] ? file(keystoreProperties['storeFile']) : null
-                storePassword System.getenv("SIGNING_KEYSTORE_KEY_PASSWORD")
+                storePassword System.getenv("SIGNING_KEYSTORE_PASSWORD")
             }
         }
     }
@@ -48,6 +48,9 @@ android {
             minifyEnabled false
         }
         release {
+            if (keystorePropertiesFile.exists()) {
+                signingConfig signingConfigs.release
+            }
             minifyEnabled true
             shrinkResources true
             proguardFiles getDefaultProguardFile('proguard-android-optimize.txt'), 'proguard-rules.pro'
