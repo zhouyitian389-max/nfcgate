@@ -143,7 +143,9 @@ public class WebSocketRelayClient {
 
         @Override
         public void onClosed(WebSocket webSocket, int code, String reason) {
-            scheduleReconnect();
+            if (code != 1000) {
+                scheduleReconnect();
+            }
         }
 
         @Override

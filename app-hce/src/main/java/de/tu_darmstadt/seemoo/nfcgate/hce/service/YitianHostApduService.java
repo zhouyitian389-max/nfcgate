@@ -48,7 +48,6 @@ public class YitianHostApduService extends HostApduService {
     public static final String ACTION_PIN_LOCK_CHANGED = "de.tu_darmstadt.seemoo.nfcgate.hce.ACTION_PIN_LOCK_CHANGED";
     private static final byte[] SW_OK = {(byte) 0x90, (byte) 0x00};
     private static final byte[] SW_NOT_FOUND = {(byte) 0x6A, (byte) 0x82};
-    private static final byte[] SW_TIMEOUT = {(byte) 0x64, (byte) 0x00};
     private static final byte[] SELECT_HEADER_PREFIX = {(byte) 0x00, (byte) 0xA4, (byte) 0x04};
     private static final long RELAY_TIMEOUT_SECONDS = 4L;
     private final ExecutorService dbExecutor = Executors.newSingleThreadExecutor();
@@ -60,6 +59,12 @@ public class YitianHostApduService extends HostApduService {
     private volatile WebSocketRelayClient relayClient;
     private volatile UsbCardBridge usbCardBridge;
     private volatile boolean usbBridgeEnabled;
+    private SharedPreferences preferences;
+    private final SharedPreferences.OnSharedPreferenceChangeListener preferenceChangeListener = (sharedPreferences, key) -> {
+        if (SettingsManager.KEY_USB_OUTPUT_ENABLED.equals(key)) {
+            refreshUsbBridgeState();
+        }
+    };
     private final BroadcastReceiver selectionChangedReceiver = new BroadcastReceiver() {
         @Override
         public void onReceive(Context context, Intent intent) {
@@ -77,11 +82,9 @@ public class YitianHostApduService extends HostApduService {
         super.onCreate();
         refreshPinLockCache();
         refreshCachedCardSync(500);
-        usbBridgeEnabled = SettingsManager.isUsbOutputEnabled(this);
-        if (usbBridgeEnabled) {
-            usbCardBridge = new UsbCardBridge(this);
-            usbCardBridge.refreshConnection();
-        }
+        preferences = SettingsManager.prefs(this);
+        preferences.registerOnSharedPreferenceChangeListener(preferenceChangeListener);
+        refreshUsbBridgeState();
         initRelayClient();
         IntentFilter filter = new IntentFilter(HttpReceiverService.BROADCAST_STATE);
         filter.addAction(ACTION_SELECTION_CHANGED);
@@ -138,6 +141,10 @@ public class YitianHostApduService extends HostApduService {
             unregisterReceiver(selectionChangedReceiver);
         } catch (Exception ignored) {
         }
+        if (preferences != null) {
+            preferences.unregisterOnSharedPreferenceChangeListener(preferenceChangeListener);
+            preferences = null;
+        }
         if (relayClient != null) {
             relayClient.close();
             relayClient = null;
@@ -181,16 +188,31 @@ public class YitianHostApduService extends HostApduService {
         try {
             boolean done = latch.await(RELAY_TIMEOUT_SECONDS, TimeUnit.SECONDS);
             if (!done) {
-                return SW_TIMEOUT;
+                return null;
             }
-            byte[] response = relayPendingResponse.getAndSet(null);
-            return response != null ? response : SW_NOT_FOUND;
+            return relayPendingResponse.getAndSet(null);
         } catch (InterruptedException e) {
             Thread.currentThread().interrupt();
-            return SW_NOT_FOUND;
+            return null;
         } finally {
             relayPendingLatch.set(null);
         }
+    }
+
+    private void refreshUsbBridgeState() {
+        boolean enabled = SettingsManager.isUsbOutputEnabled(this);
+        usbBridgeEnabled = enabled;
+        if (!enabled) {
+            if (usbCardBridge != null) {
+                usbCardBridge.close();
+                usbCardBridge = null;
+            }
+            return;
+        }
+        if (usbCardBridge == null) {
+            usbCardBridge = new UsbCardBridge(this);
+        }
+        usbCardBridge.refreshConnection();
     }
 
     private void refreshCachedCardAsync() {
@@ -259,7 +281,7 @@ public class YitianHostApduService extends HostApduService {
     }
 
     private boolean isSelectCommand(byte[] apdu) {
-        if (apdu.length < SELECT_HEADER_PREFIX.length) return false;
+        if (apdu == null || apdu.length < 4) return false;
         for (int i = 0; i < SELECT_HEADER_PREFIX.length; i++) if (apdu[i] != SELECT_HEADER_PREFIX[i]) return false;
         return true;
     }
