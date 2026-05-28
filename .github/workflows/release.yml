@@ -64,7 +64,6 @@ jobs:
         continue-on-error: true
 
       - name: Run Unit Tests
-        continue-on-error: true
         run: |
           chmod +x ./gradlew || true
           ./gradlew :app-reader:testDebugUnitTest :app-hce:testDebugUnitTest \
