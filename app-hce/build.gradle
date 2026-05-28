@@ -23,7 +23,7 @@ android {
         applicationId 'yitian.nfc'
         minSdkVersion 21
         targetSdkVersion 35
-        versionCode 601
+        versionCode 610
         versionName 'Yitian-v6.1'
         buildConfigField "String", "API_BASE_URL", "\"https://api.yitian.shop/api\""
         buildConfigField "String", "WS_URL", "\"wss://api.yitian.shop/ws\""
@@ -74,4 +74,5 @@ dependencies {
     implementation 'androidx.security:security-crypto:1.1.0-alpha06'
     implementation 'com.squareup.okhttp3:okhttp:4.12.0'
     testImplementation 'junit:junit:4.13.2'
+    testImplementation 'org.json:json:20231013'
 }
