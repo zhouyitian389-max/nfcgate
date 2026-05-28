@@ -19,6 +19,8 @@ jobs:
     runs-on: ubuntu-latest
     env:
       GH_TOKEN: ${{ secrets.GITHUB_TOKEN }}
+      SIGNING_KEYSTORE_PASSWORD: ${{ secrets.SIGNING_KEYSTORE_PASSWORD }}
+      SIGNING_KEYSTORE_KEY_PASSWORD: ${{ secrets.SIGNING_KEYSTORE_KEY_PASSWORD }}
     steps:
       - name: Checkout
         uses: actions/checkout@v4
@@ -58,6 +60,15 @@ jobs:
         with:
           distribution: temurin
           java-version: '17'
+
+      - name: Decode signing keystore
+        run: |
+          echo "${{ secrets.SIGNING_KEYSTORE_BASE64 }}" | base64 -d > ${{ github.workspace }}/release-keystore.jks
+          mkdir -p .ci-files
+          cat > .ci-files/release-keystore.properties <<EOF
+          keyAlias=${{ secrets.SIGNING_KEY_ALIAS }}
+          storeFile=${{ github.workspace }}/release-keystore.jks
+          EOF
 
       - name: Set up Gradle
         uses: gradle/actions/setup-gradle@v3
