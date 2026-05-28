@@ -4,6 +4,7 @@ import { v4 as uuidv4 } from 'uuid';
 import prisma from '../db.js';
 import { sseHub } from './sseHub.js';
 import { verifyAccessToken } from './tokenService.js';
+import { notifyRelaySessionEvent } from './pushNotification.js';
 
 type RelayRole = 'hce' | 'reader' | 'external';
 
@@ -161,6 +162,7 @@ async function closeSession(token: string, reason: string) {
       reason,
       apduCount: session.apduCount
     });
+    void notifyRelaySessionEvent(session.accountId, 'session_end', session.sessionId).catch(() => undefined);
   }
 
   if (session.logId) {
@@ -224,6 +226,7 @@ async function ensureSession(token: string): Promise<RelaySession> {
     sseHub.sendToUser(session.accountId, 'relay_session_start', {
       sessionId: session.sessionId
     });
+    void notifyRelaySessionEvent(session.accountId, 'session_start', session.sessionId).catch(() => undefined);
   }
 
   sessions.set(token, session);

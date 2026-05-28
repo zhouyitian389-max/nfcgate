@@ -22,13 +22,26 @@ router.get('/ready', async (_req, res) => {
       timestamp: new Date().toISOString()
     });
   } catch {
-    return res.status(503).json({
-      status: 'not_ready',
-      checks: {
-        database: 'error'
-      },
-      timestamp: new Date().toISOString()
-    });
+    try {
+      await prisma.$disconnect();
+      await prisma.$connect();
+      await prisma.$queryRaw`SELECT 1`;
+      return res.status(200).json({
+        status: 'ready',
+        checks: {
+          database: 'reconnected'
+        },
+        timestamp: new Date().toISOString()
+      });
+    } catch {
+      return res.status(503).json({
+        status: 'not_ready',
+        checks: {
+          database: 'error'
+        },
+        timestamp: new Date().toISOString()
+      });
+    }
   }
 });
 
