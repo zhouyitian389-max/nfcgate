@@ -49,7 +49,10 @@ public class USBPermissionReceiver extends BroadcastReceiver {
                 callback.onUsbDetached(device);
             }
         } else if (ACTION_USB_PERMISSION.equals(action)) {
-            boolean granted = intent.getBooleanExtra(UsbManager.EXTRA_PERMISSION_GRANTED, false);
+            UsbManager usbManager = (UsbManager) context.getSystemService(Context.USB_SERVICE);
+            boolean granted = intent.getBooleanExtra(UsbManager.EXTRA_PERMISSION_GRANTED, false)
+                    && usbManager != null
+                    && usbManager.hasPermission(device);
             if (granted && callback != null) {
                 callback.onPermissionGranted(device);
             }

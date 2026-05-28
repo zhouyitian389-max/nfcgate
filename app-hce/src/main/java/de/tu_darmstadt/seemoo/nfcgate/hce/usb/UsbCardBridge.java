@@ -20,9 +20,13 @@ public class UsbCardBridge {
     private static final int PID_UF = 0x8235;
     private static final int CCID_INTERFACE_CLASS = 0x0B;
     private static final int TIMEOUT_MS = 5000;
+    private static final int SLOT_STATUS_TIMEOUT_MS = 500;
     private static final int MSG_POWER_ON = 0x62;
+    private static final int MSG_POWER_OFF = 0x63;
+    private static final int MSG_GET_SLOT_STATUS = 0x65;
     private static final int MSG_XFR_BLOCK = 0x6F;
     private static final int MSG_DATA_BLOCK = 0x80;
+    private static final int MSG_SLOT_STATUS = 0x81;
     private static final int SLOT = 0x00;
 
     private final Context context;
@@ -65,6 +69,10 @@ public class UsbCardBridge {
             if (apdu == null || !ensureConnectedLocked()) {
                 return null;
             }
+            if (!isCardPresentLocked()) {
+                poweredOn = false;
+                return null;
+            }
             if (!poweredOn) {
                 byte[] atr = sendPowerOnLocked();
                 if (atr.length == 0) {
@@ -74,6 +82,28 @@ public class UsbCardBridge {
             }
             byte[] response = sendXfrBlockLocked(apdu);
             return response.length > 0 ? response : null;
+        }
+    }
+
+    public boolean powerOff() {
+        synchronized (lock) {
+            if (!ensureConnectedLocked()) {
+                return false;
+            }
+            boolean ok = sendPowerOffLocked();
+            if (ok) {
+                poweredOn = false;
+            }
+            return ok;
+        }
+    }
+
+    public boolean isCardPresent() {
+        synchronized (lock) {
+            if (!ensureConnectedLocked()) {
+                return false;
+            }
+            return isCardPresentLocked();
         }
     }
 
@@ -184,6 +214,23 @@ public class UsbCardBridge {
         return readDataBlockLocked(seq);
     }
 
+    private boolean sendPowerOffLocked() {
+        int seq = nextSequenceLocked();
+        writeCommandLocked(buildPowerOffCommand(seq));
+        return readSlotStatusLocked(seq).length > 0;
+    }
+
+    private boolean isCardPresentLocked() {
+        int seq = nextSequenceLocked();
+        writeCommandLocked(buildGetSlotStatusCommand(seq));
+        byte[] response = readSlotStatusLocked(seq);
+        if (response.length == 0) {
+            return false;
+        }
+        int status = response[0] & 0x03;
+        return status <= 1;
+    }
+
     private void writeCommandLocked(byte[] command) {
         if (connection == null || outEndpoint == null) {
             return;
@@ -229,17 +276,33 @@ public class UsbCardBridge {
     }
 
     private byte[] readChunkLocked() {
+        return readChunkLocked(TIMEOUT_MS);
+    }
+
+    private byte[] readChunkLocked(int timeoutMs) {
         if (connection == null || inEndpoint == null) {
             return new byte[0];
         }
         byte[] buffer = new byte[Math.max(inEndpoint.getMaxPacketSize(), 512)];
-        int read = connection.bulkTransfer(inEndpoint, buffer, buffer.length, TIMEOUT_MS);
+        int read = connection.bulkTransfer(inEndpoint, buffer, buffer.length, timeoutMs);
         if (read <= 0) {
             return new byte[0];
         }
         byte[] out = new byte[read];
         System.arraycopy(buffer, 0, out, 0, read);
         return out;
+    }
+
+    private byte[] readSlotStatusLocked(int expectedSequence) {
+        byte[] response = readChunkLocked(SLOT_STATUS_TIMEOUT_MS);
+        if (response.length < 10 || (response[0] & 0xFF) != MSG_SLOT_STATUS) {
+            return new byte[0];
+        }
+        int responseSeq = response[6] & 0xFF;
+        if (responseSeq != expectedSequence) {
+            Log.w(TAG, "CCID slot status sequence mismatch exp=" + expectedSequence + " got=" + responseSeq);
+        }
+        return new byte[]{response[7]};
     }
 
     private int nextSequenceLocked() {
@@ -280,6 +343,22 @@ public class UsbCardBridge {
         if (payload.length > 0) {
             System.arraycopy(payload, 0, command, 10, payload.length);
         }
+        return command;
+    }
+
+    static byte[] buildPowerOffCommand(int sequence) {
+        byte[] command = new byte[10];
+        command[0] = (byte) MSG_POWER_OFF;
+        command[5] = (byte) SLOT;
+        command[6] = (byte) (sequence & 0xFF);
+        return command;
+    }
+
+    static byte[] buildGetSlotStatusCommand(int sequence) {
+        byte[] command = new byte[10];
+        command[0] = (byte) MSG_GET_SLOT_STATUS;
+        command[5] = (byte) SLOT;
+        command[6] = (byte) (sequence & 0xFF);
         return command;
     }
 
