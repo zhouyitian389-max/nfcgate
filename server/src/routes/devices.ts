@@ -171,6 +171,22 @@ router.put('/:id', async (req, res) => {
   return res.json(updated);
 });
 
+router.post('/heartbeat', async (req, res) => {
+  const { accountId } = (req as AuthenticatedRequest).user!;
+  const deviceId = trimString(req.body?.deviceId ?? req.body?.device_id, 128);
+  if (!deviceId) return res.status(400).json({ message: 'deviceId is required' });
+
+  const device = await prisma.device.findFirst({ where: { accountId, deviceId } });
+  if (!device) return res.status(404).json({ message: 'Device not found' });
+
+  const updated = await prisma.device.update({
+    where: { id: device.id },
+    data: { online: true, lastSeen: new Date() }
+  });
+
+  return res.json(updated);
+});
+
 router.post('/:id/heartbeat', async (req, res) => {
   const { accountId } = (req as AuthenticatedRequest).user!;
   const device = await prisma.device.findFirst({ where: { id: req.params.id, accountId } });

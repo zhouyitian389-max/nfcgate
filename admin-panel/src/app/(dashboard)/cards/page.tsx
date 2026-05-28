@@ -42,12 +42,16 @@ export default function CardsPage() {
   };
 
   const exportCards = () => {
-    const header = ['id', 'account', 'uid', 'atr', 'label', 'type', 'createdAt'];
+    const header = ['id', 'source', 'account', 'uid', 'atr', 'brand', 'pan', 'expiry', 'label', 'type', 'createdAt'];
     const body = rows.map((card) => [
       card.id,
+      card.source || 'card',
       card.account?.name || '',
       card.uid || '',
       card.atr || '',
+      card.brand || '',
+      card.pan || '',
+      card.expiry || '',
       card.label || '',
       card.type || '',
       card.createdAt ? new Date(card.createdAt).toISOString() : ''
@@ -79,7 +83,11 @@ export default function CardsPage() {
             <tr>
               <th className="p-2 text-left">UID</th>
               <th className="p-2 text-left">ATR</th>
+              <th className="p-2 text-left">Brand</th>
+              <th className="p-2 text-left">PAN</th>
+              <th className="p-2 text-left">Expiry</th>
               <th className="p-2 text-left">Label</th>
+              <th className="p-2 text-left">Source</th>
               <th className="p-2 text-left">Account</th>
               <th className="p-2 text-left">Created</th>
               <th className="p-2 text-left">Actions</th>
@@ -90,7 +98,11 @@ export default function CardsPage() {
               <tr key={card.id} className="border-t">
                 <td className="p-2">{card.uid || '-'}</td>
                 <td className="p-2">{card.atr || card.ats || '-'}</td>
+                <td className="p-2">{card.brand || '-'}</td>
+                <td className="p-2">{card.pan || '-'}</td>
+                <td className="p-2">{card.expiry || '-'}</td>
                 <td className="p-2">{card.label || '-'}</td>
+                <td className="p-2">{card.source || 'card'}</td>
                 <td className="p-2">{card.account?.name || '-'}</td>
                 <td className="p-2">{card.createdAt ? new Date(card.createdAt).toLocaleString() : '-'}</td>
                 <td className="p-2">
