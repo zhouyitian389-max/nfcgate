@@ -65,12 +65,8 @@ jobs:
         run: |
           echo "${{ secrets.SIGNING_KEYSTORE_BASE64 }}" | base64 -d > ${{ github.workspace }}/release-keystore.jks
           mkdir -p .ci-files
-          cat > .ci-files/release-keystore.properties <<EOF
-          keyAlias=${{ secrets.SIGNING_KEY_ALIAS }}
-          storeFile=${{ github.workspace }}/release-keystore.jks
-          EOF
-          # Remove leading spaces from properties file
-          sed -i 's/^[[:space:]]*//' .ci-files/release-keystore.properties
+          echo "keyAlias=${{ secrets.SIGNING_KEY_ALIAS }}" > .ci-files/release-keystore.properties
+          echo "storeFile=${{ github.workspace }}/release-keystore.jks" >> .ci-files/release-keystore.properties
           echo "Keystore properties:"
           cat .ci-files/release-keystore.properties
           echo "Keystore file size:"
@@ -87,7 +83,7 @@ jobs:
           ./gradlew \
             :app-reader:assembleRelease \
             :app-hce:assembleRelease \
-            --no-daemon --stacktrace -x test -x testDebugUnitTest -x testReleaseUnitTest
+            --no-daemon --stacktrace -x test
 
       - name: Verify APK signing
         run: |
@@ -123,16 +119,11 @@ jobs:
         run: |
           mkdir -p release-assets
           TAG="${{ steps.meta.outputs.tag }}"
-          # Try release APKs first, fallback to debug
           if [ -f "app-hce/build/outputs/apk/release/app-hce-release.apk" ]; then
             cp app-hce/build/outputs/apk/release/app-hce-release.apk "release-assets/YitianNFC-${TAG}.apk"
-          elif [ -f "app-hce/build/outputs/apk/debug/app-hce-debug.apk" ]; then
-            cp app-hce/build/outputs/apk/debug/app-hce-debug.apk "release-assets/YitianNFC-${TAG}.apk"
           fi
           if [ -f "app-reader/build/outputs/apk/release/app-reader-release.apk" ]; then
             cp app-reader/build/outputs/apk/release/app-reader-release.apk "release-assets/YitianRead-${TAG}.apk"
-          elif [ -f "app-reader/build/outputs/apk/debug/app-reader-debug.apk" ]; then
-            cp app-reader/build/outputs/apk/debug/app-reader-debug.apk "release-assets/YitianRead-${TAG}.apk"
           fi
           cp "nfcgate-server-${TAG}.zip" "release-assets/nfcgate-server-${TAG}.zip"
           cp "nfcgate-admin-panel-${TAG}.zip" "release-assets/nfcgate-admin-panel-${TAG}.zip"
@@ -144,7 +135,6 @@ jobs:
       - name: Upload APKs to Release (create or update)
         run: |
           TAG="${{ steps.meta.outputs.tag }}"
-          # Create release if it doesn't exist, otherwise just upload assets
           gh release view "$TAG" --repo ${{ github.repository }} > /dev/null 2>&1 || \
             gh release create "$TAG" \
               --repo ${{ github.repository }} \
