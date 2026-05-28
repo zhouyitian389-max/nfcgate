@@ -1,8 +1,8 @@
 import './globals.css';
-import Link from 'next/link';
 import type { ReactNode } from 'react';
 import LogoutButton from '@/components/LogoutButton';
 import AuthProvider from '@/components/AuthProvider';
+import NavLink from '@/components/NavLink';
 
 export default function RootLayout({ children }: { children: ReactNode }) {
   return (
@@ -12,12 +12,12 @@ export default function RootLayout({ children }: { children: ReactNode }) {
           <aside className="w-56 bg-white border-r p-4 space-y-2">
             <h1 className="text-lg font-semibold mb-4">NFC Relay Admin</h1>
             <nav className="flex flex-col gap-2 text-sm">
-              <Link href="/">Dashboard</Link>
-              <Link href="/sessions">Sessions</Link>
-              <Link href="/users">Users</Link>
-              <Link href="/devices">Devices</Link>
-              <Link href="/cards">Cards</Link>
-              <Link href="/logs">Logs</Link>
+              <NavLink href="/" label="Dashboard" />
+              <NavLink href="/sessions" label="Sessions" />
+              <NavLink href="/users" label="Users" />
+              <NavLink href="/devices" label="Devices" />
+              <NavLink href="/cards" label="Cards" />
+              <NavLink href="/logs" label="Logs" />
             </nav>
             <div className="pt-4">
               <LogoutButton />

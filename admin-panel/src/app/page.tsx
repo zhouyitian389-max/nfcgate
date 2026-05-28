@@ -5,35 +5,36 @@ import { apiFetch } from '@/lib/api';
 
 type Stats = {
   activeSessions: number;
-  devicesOnline: number;
+  devices: number;
   totalCards: number;
-  logsToday: number;
+  totalLogs: number;
 };
 
 export default function DashboardPage() {
-  const [stats, setStats] = useState<Stats>({ activeSessions: 0, devicesOnline: 0, totalCards: 0, logsToday: 0 });
+  const [stats, setStats] = useState<Stats>({ activeSessions: 0, devices: 0, totalCards: 0, totalLogs: 0 });
 
   useEffect(() => {
     Promise.all([
-      apiFetch('/sessions').catch(() => []),
-      apiFetch('/devices').catch(() => ({ devices: [] })),
-      apiFetch('/cards').catch(() => ({ data: [] })),
-      apiFetch('/logs').catch(() => ({ data: [] }))
-    ]).then(([sessions, devices, cards, logs]) =>
+      apiFetch('/admin/stats').catch(() => apiFetch('/stats').catch(() => ({}))),
+      apiFetch('/sessions').catch(() => ({ data: [] as Array<unknown> }))
+    ]).then(([summary, sessions]) => {
+      const activeSessions = Array.isArray(sessions)
+        ? sessions.length
+        : (Array.isArray(sessions?.data) ? sessions.data.length : 0);
       setStats({
-        activeSessions: Array.isArray(sessions) ? sessions.length : (sessions?.data?.length || sessions?.sessions?.length || 0),
-        devicesOnline: ((devices?.devices || devices?.data || []) as Array<{ online?: boolean }>).filter((d) => d.online).length,
-        totalCards: cards?.data?.length || 0,
-        logsToday: logs?.data?.length || 0
-      })
-    );
+        activeSessions,
+        devices: Number(summary?.devices) || 0,
+        totalCards: Number(summary?.cards) || 0,
+        totalLogs: Number(summary?.logs) || 0
+      });
+    });
   }, []);
 
   const items = [
     ['Active Sessions', stats.activeSessions],
-    ['Devices Online', stats.devicesOnline],
+    ['Devices', stats.devices],
     ['Total Cards', stats.totalCards],
-    ['Logs Today', stats.logsToday]
+    ['Total Logs', stats.totalLogs]
   ];
 
   return (
