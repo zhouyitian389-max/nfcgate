@@ -10,26 +10,46 @@ function csvEscape(value: unknown) {
 
 export default function LogsPage() {
   const [rows, setRows] = useState<any[]>([]);
+  const [loading, setLoading] = useState(false);
+  const [page, setPage] = useState(1);
+  const [total, setTotal] = useState(0);
   const [sessionId, setSessionId] = useState('');
   const [mode, setMode] = useState('');
   const [message, setMessage] = useState('');
+  const limit = 20;
+  const pageCount = Math.max(1, Math.ceil(total / limit));
 
-  const load = async (filterSessionId = '', filterMode = '') => {
+  const load = async (filterSessionId = '', filterMode = '', targetPage = page) => {
+    setLoading(true);
     const params = new URLSearchParams();
     if (filterSessionId) params.set('sessionId', filterSessionId);
     if (filterMode) params.set('mode', filterMode);
+    params.set('page', String(targetPage));
+    params.set('limit', String(limit));
     const query = params.size ? `?${params.toString()}` : '';
     const data = await apiFetch(`/admin/logs${query}`);
     setRows(data.data || []);
+    setTotal(Number(data.total) || 0);
+    setPage(Number(data.page) || targetPage);
+    setLoading(false);
   };
 
   useEffect(() => {
-    load().catch(() => setRows([]));
-  }, []);
+    load(sessionId, mode, page).catch(() => {
+      setRows([]);
+      setTotal(0);
+      setLoading(false);
+    });
+  }, [page]);
 
   const onSubmit = (e: FormEvent) => {
     e.preventDefault();
-    load(sessionId, mode).catch(() => setRows([]));
+    setPage(1);
+    load(sessionId, mode, 1).catch(() => {
+      setRows([]);
+      setTotal(0);
+      setLoading(false);
+    });
   };
 
   const deleteLog = async (id: string) => {
@@ -70,6 +90,7 @@ export default function LogsPage() {
         <button className="border rounded px-3 py-2 bg-white" onClick={exportLogs}>Export</button>
       </div>
       {message ? <div className="rounded border border-green-200 bg-green-50 p-3 text-sm text-green-800">{message}</div> : null}
+      {loading ? <div className="text-sm text-gray-500">加载中...</div> : null}
       <form onSubmit={onSubmit} className="flex gap-2 flex-wrap">
         <input className="border rounded p-2" value={sessionId} onChange={(e) => setSessionId(e.target.value)} placeholder="Filter by sessionId" />
         <select className="border rounded p-2" value={mode} onChange={(e) => setMode(e.target.value)}>
@@ -108,6 +129,27 @@ export default function LogsPage() {
             ))}
           </tbody>
         </table>
+      </div>
+      <div className="flex items-center justify-between text-sm text-gray-600">
+        <span>共 {total} 条，每页 {limit} 条，第 {page} / {pageCount} 页</span>
+        <div className="flex gap-2">
+          <button
+            className="rounded border bg-white px-3 py-1 disabled:opacity-50"
+            onClick={() => setPage((prev) => Math.max(1, prev - 1))}
+            disabled={loading || page <= 1}
+            type="button"
+          >
+            上一页
+          </button>
+          <button
+            className="rounded border bg-white px-3 py-1 disabled:opacity-50"
+            onClick={() => setPage((prev) => Math.min(pageCount, prev + 1))}
+            disabled={loading || page >= pageCount}
+            type="button"
+          >
+            下一页
+          </button>
+        </div>
       </div>
     </div>
   );

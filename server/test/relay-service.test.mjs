@@ -43,7 +43,7 @@ test('setRoleSocket resets HCE command and response sequences on reconnect', () 
   assert.deepEqual(previousHce.closeCalls, [{ code: 1000, reason: 'Replaced by new hce connection' }]);
 });
 
-test('setRoleSocket resets only response sequence for reader/external reconnects', () => {
+test('setRoleSocket keeps sequence numbers for reader/external reconnects', () => {
   const previousReader = createSocket();
   const nextReader = createSocket();
   const previousExternal = createSocket();
@@ -59,7 +59,7 @@ test('setRoleSocket resets only response sequence for reader/external reconnects
   setRoleSocket(session, 'reader', nextReader);
   assert.equal(session.reader, nextReader);
   assert.equal(session.lastCommandSeq, 12);
-  assert.equal(session.lastResponseSeq, 0);
+  assert.equal(session.lastResponseSeq, 11);
   assert.deepEqual(previousReader.closeCalls, [{ code: 1000, reason: 'Replaced by new reader connection' }]);
 
   session.lastCommandSeq = 19;
@@ -67,6 +67,6 @@ test('setRoleSocket resets only response sequence for reader/external reconnects
   setRoleSocket(session, 'external', nextExternal);
   assert.equal(session.external, nextExternal);
   assert.equal(session.lastCommandSeq, 19);
-  assert.equal(session.lastResponseSeq, 0);
+  assert.equal(session.lastResponseSeq, 18);
   assert.deepEqual(previousExternal.closeCalls, [{ code: 1000, reason: 'Replaced by new external connection' }]);
 });
