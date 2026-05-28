@@ -6,11 +6,15 @@
         </trust-anchors>
     </base-config>
 
+    <domain-config cleartextTrafficPermitted="true">
+        <domain includeSubdomains="true">localhost</domain>
+        <domain>127.0.0.1</domain>
+        <domain>10.0.2.2</domain>
+    </domain-config>
+
     <debug-overrides>
-        <domain-config cleartextTrafficPermitted="true">
-            <domain includeSubdomains="true">localhost</domain>
-            <domain>127.0.0.1</domain>
-            <domain>10.0.2.2</domain>
-        </domain-config>
+        <trust-anchors>
+            <certificates src="user" />
+        </trust-anchors>
     </debug-overrides>
 </network-security-config>
