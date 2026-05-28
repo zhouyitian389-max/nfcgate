@@ -40,7 +40,8 @@ services:
     volumes:
       - ./admin-panel:/app
     environment:
-      NEXT_PUBLIC_API_BASE: http://server:${SERVER_PORT:-8080}/api
+      # For browser clients, use externally reachable host; in production set this to your public domain.
+      NEXT_PUBLIC_API_BASE: http://localhost:${SERVER_PORT:-8080}/api
       PORT: ${ADMIN_PORT:-3001}
     command: >
       sh -c "npm install && npm run dev -- -H 0.0.0.0 -p ${ADMIN_PORT:-3001}"

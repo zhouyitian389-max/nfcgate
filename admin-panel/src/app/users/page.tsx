@@ -22,28 +22,35 @@ function csvEscape(value: unknown) {
 export default function UsersPage() {
   const [rows, setRows] = useState<UserRow[]>([]);
   const [loading, setLoading] = useState(false);
+  const [page, setPage] = useState(1);
+  const [total, setTotal] = useState(0);
   const [showCreate, setShowCreate] = useState(false);
   const [message, setMessage] = useState('');
   const [error, setError] = useState('');
   const [form, setForm] = useState({ email: '', password: '', name: '' });
+  const limit = 20;
+  const pageCount = Math.max(1, Math.ceil(total / limit));
 
-  const load = async () => {
+  const load = async (targetPage = page) => {
     setLoading(true);
     setError('');
     try {
-      const res = await apiFetch('/admin/users');
+      const res = await apiFetch(`/admin/users?page=${targetPage}&limit=${limit}`);
       setRows(res.data || []);
+      setTotal(Number(res.total) || 0);
+      setPage(Number(res.page) || targetPage);
     } catch (err) {
       setError(err instanceof Error ? err.message : 'Failed to load users');
       setRows([]);
+      setTotal(0);
     } finally {
       setLoading(false);
     }
   };
 
   useEffect(() => {
-    load().catch(() => undefined);
-  }, []);
+    load(page).catch(() => undefined);
+  }, [page]);
 
   const createUser = async (event: FormEvent) => {
     event.preventDefault();
@@ -172,6 +179,25 @@ export default function UsersPage() {
             ) : null}
           </tbody>
         </table>
+      </div>
+      <div className="flex items-center justify-between text-sm text-gray-600">
+        <span>共 {total} 条，每页 {limit} 条，第 {page} / {pageCount} 页</span>
+        <div className="flex gap-2">
+          <button
+            className="rounded border bg-white px-3 py-1 disabled:opacity-50"
+            onClick={() => setPage((prev) => Math.max(1, prev - 1))}
+            disabled={loading || page <= 1}
+          >
+            上一页
+          </button>
+          <button
+            className="rounded border bg-white px-3 py-1 disabled:opacity-50"
+            onClick={() => setPage((prev) => Math.min(pageCount, prev + 1))}
+            disabled={loading || page >= pageCount}
+          >
+            下一页
+          </button>
+        </div>
       </div>
     </div>
   );

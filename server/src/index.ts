@@ -18,6 +18,7 @@ import eventsRoutes from './routes/events.js';
 import adminRoutes from './routes/admin.js';
 import logsRoutes from './routes/logs.js';
 import statsRoutes from './routes/stats.js';
+import { preloadBlacklist } from './services/tokenBlacklist.js';
 
 dotenv.config();
 
@@ -58,13 +59,17 @@ app.use(cors({
     if (!origin) return callback(null, true);
     if (allowedOrigins.length === 0) {
       if (process.env.NODE_ENV !== 'production') return callback(null, true);
-      return callback(new Error('CORS not configured'), false);
+      const corsErr = new Error('CORS not configured') as Error & { isCorsError?: boolean };
+      corsErr.isCorsError = true;
+      return callback(corsErr, false);
     }
     if (allowedOrigins.includes('*')) {
       return callback(null, true);
     }
     if (allowedOrigins.includes(origin)) return callback(null, true);
-    return callback(new Error(`CORS blocked: ${origin}`), false);
+    const corsErr = new Error(`CORS blocked: ${origin}`) as Error & { isCorsError?: boolean };
+    corsErr.isCorsError = true;
+    return callback(corsErr, false);
   },
   credentials: true,
   methods: ['GET', 'POST', 'PUT', 'DELETE', 'PATCH', 'OPTIONS'],
@@ -98,20 +103,26 @@ app.use('/api/stats', statsRoutes);
 
 app.use('/api/admin', authMiddleware, adminOnly, adminRoutes);
 
-app.use((err: Error, _req: express.Request, res: express.Response, _next: express.NextFunction) => {
-  const status = err.message.includes('CORS') ? 403 : 500;
-  if (status >= 500) {
-    console.error(err);
+app.use((err: Error & { isCorsError?: boolean }, _req: express.Request, res: express.Response, _next: express.NextFunction) => {
+  if (err.isCorsError || (err.message && err.message.startsWith('CORS'))) {
+    return res.status(403).json({ message: err.message });
   }
-  res.status(status).json({ message: status === 403 ? err.message : 'Internal server error' });
+  console.error(err);
+  res.status(500).json({ message: 'Internal server error' });
 });
 
 const shutdownWebSocket = initWebSocket(server);
 
 const port = Number(process.env.PORT || 8080);
-server.listen(port, () => {
-  console.log(`NFCGate server running on :${port}`);
-});
+void preloadBlacklist()
+  .catch((error) => {
+    console.error('[auth] failed to preload token blacklist', error);
+  })
+  .finally(() => {
+    server.listen(port, () => {
+      console.log(`NFCGate server running on :${port}`);
+    });
+  });
 
 process.on('SIGTERM', async () => {
   server.close(async () => {

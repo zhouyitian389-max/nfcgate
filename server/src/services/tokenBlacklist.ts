@@ -23,6 +23,17 @@ export async function addToBlacklist(token: string, expiresAt: number): Promise<
   });
 }
 
+export async function preloadBlacklist(): Promise<void> {
+  const now = Date.now();
+  const records = await prisma.revokedToken.findMany({
+    where: { expiresAt: { gt: new Date(now) } },
+    select: { tokenHash: true, expiresAt: true }
+  });
+  for (const record of records) {
+    blacklist.set(record.tokenHash, record.expiresAt.getTime());
+  }
+}
+
 export async function isBlacklisted(token: string): Promise<boolean> {
   const tokenHash = hashToken(token);
   const cachedExpiry = blacklist.get(tokenHash);

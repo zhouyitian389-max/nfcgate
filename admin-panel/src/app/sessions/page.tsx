@@ -71,12 +71,15 @@ export default function SessionsPage() {
     }, 3000);
 
     const controller = new AbortController();
+    let reconnectTimer: ReturnType<typeof setTimeout> | undefined;
+    let stopped = false;
     const connectSse = async () => {
+      if (stopped) return;
       const token = tokenStorage.getAccessToken();
-      if (!token) return;
+      if (!token || tokenStorage.isAccessTokenExpired()) return;
       try {
         const response = await fetch(`${API_BASE}/events/stream`, {
-          headers: { Authorization: `Bearer ${token}` },
+          headers: { Authorization: 'Bearer ' + token },
           cache: 'no-store',
           signal: controller.signal
         });
@@ -102,12 +105,20 @@ export default function SessionsPage() {
         }
       } catch {
         // fallback to polling only
+      } finally {
+        if (!stopped && !controller.signal.aborted && !tokenStorage.isAccessTokenExpired()) {
+          reconnectTimer = setTimeout(() => {
+            void connectSse();
+          }, 2000);
+        }
       }
     };
     void connectSse();
 
     return () => {
+      stopped = true;
       clearInterval(timer);
+      if (reconnectTimer) clearTimeout(reconnectTimer);
       controller.abort();
     };
   }, [loadSessions]);
